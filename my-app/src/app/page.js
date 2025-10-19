@@ -19,10 +19,10 @@ export default function Home() {
         setWalletAddress(address);
         fetchInventory(address);
       } catch (err) {
-        setError('Errore nella connessione: ' + err.message);
+        setError('Error connecting: ' + err.message);
       }
     } else {
-      setError('Installa MetaMask!');
+      setError('Install MetaMask!');
     }
   };
 
@@ -45,7 +45,8 @@ export default function Home() {
         throw new Error(data.message);
       }
 
-      const filteredCards = data.data.filter((card) => card.rarity > 0);
+      // Use data.boxes instead of data.data
+      const filteredCards = data.boxes.filter((card) => card.rarity > 0);
 
       const cardsWithMetadata = await Promise.all(
         filteredCards.map(async (card) => {
@@ -62,7 +63,7 @@ export default function Home() {
 
       setInventory(cardsWithMetadata);
     } catch (err) {
-      setError('Errore nel caricamento: ' + err.message);
+      setError('Error loading: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -70,19 +71,19 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
-      <h1 className="text-4xl font-bold mb-8">Il Mio Inventario su Vibe.Market</h1>
+      <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
       {!walletAddress ? (
         <button
           className="bg-blue-500 text-white px-4 py-2 rounded"
           onClick={connectWallet}
         >
-          Connetti Wallet
+          Connect Wallet
         </button>
       ) : (
-        <p className="mb-4">Connesso: {walletAddress}</p>
+        <p className="mb-4">Connected: {walletAddress}</p>
       )}
       {error && <p className="text-red-500">{error}</p>}
-      {loading && <p>Caricamento...</p>}
+      {loading && <p>Loading...</p>}
       {inventory.length > 0 ? (
         <ul className="space-y-4">
           {inventory.map((card, index) => (
@@ -107,7 +108,7 @@ export default function Home() {
           ))}
         </ul>
       ) : (
-        <p>Nessuna carta aperta trovata.</p>
+        <p>No opened cards found.</p>
       )}
     </main>
   );
