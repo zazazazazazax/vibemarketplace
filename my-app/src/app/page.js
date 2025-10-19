@@ -57,6 +57,16 @@ export default function Home() {
     }
   };
 
+  // Function to convert wear value to condition
+  const getWearCondition = (wearValue) => {
+    const wear = parseFloat(wearValue);
+    if (wear >= 0.9) return 'Pristine';
+    if (wear >= 0.7) return 'Mint';
+    if (wear >= 0.4) return 'Lightly Played';
+    if (wear >= 0.1) return 'Moderately Played';
+    return 'Heavily Played';
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
       <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
@@ -75,23 +85,26 @@ export default function Home() {
       {inventory.length > 0 ? (
         <ul className="space-y-4">
           {inventory.map((card, index) => (
-            <li key={index} className="border p-4 rounded">
-              <strong>Token ID:</strong> {card.tokenId} | <strong>Contract:</strong>{' '}
-              {card.contractAddress} | <strong>Rarity:</strong> {card.rarity}
-              <br />
-              {card.metadata && (
-                <>
-                  <img
-                    src={card.metadata.imageUrl}
-                    alt="Card"
-                    className="w-24 mt-2"
-                  />
-                  <p>
-                    <strong>Foil:</strong> {card.metadata.foil || 'N/A'} |{' '}
-                    <strong>Wear:</strong> {card.metadata.wear || 'N/A'}
-                  </p>
-                </>
-              )}
+            <li key={index} className="border p-4 rounded flex">
+              <img
+                src={card.metadata.imageUrl}
+                alt="Card"
+                className="w-32 h-48 object-cover mr-4"
+              />
+              <div>
+                <p>
+                  <strong>Token ID:</strong> {card.tokenId} | <strong>Contract:</strong>{' '}
+                  {card.contractAddress} | <strong>Rarity:</strong> {card.rarity}
+                </p>
+                <p>
+                  <strong>Collection:</strong>{' '}
+                  {card.metadata.name.split(' #')[0] || 'Unknown Collection'}
+                </p>
+                <p>
+                  <strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'} |{' '}
+                  <strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}
+                </p>
+              </div>
             </li>
           ))}
         </ul>
@@ -100,4 +113,3 @@ export default function Home() {
       )}
     </main>
   );
-}
