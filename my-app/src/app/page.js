@@ -45,23 +45,11 @@ export default function Home() {
         throw new Error(data.message);
       }
 
-      // Use data.boxes instead of data.data
+      // Use data.boxes and filter rarity > 0 (metadata is already included)
       const filteredCards = data.boxes.filter((card) => card.rarity > 0);
 
-      const cardsWithMetadata = await Promise.all(
-        filteredCards.map(async (card) => {
-          const metadataResponse = await fetch(
-            `${baseUrl}/metadata/${card.contractAddress}/${card.tokenId}`,
-            {
-              headers: { 'API-KEY': apiKey },
-            }
-          );
-          const metadata = await metadataResponse.json();
-          return { ...card, metadata: metadata.data };
-        })
-      );
-
-      setInventory(cardsWithMetadata);
+      // No need for extra fetch - use card.metadata directly
+      setInventory(filteredCards);
     } catch (err) {
       setError('Error loading: ' + err.message);
     } finally {
@@ -94,7 +82,7 @@ export default function Home() {
               {card.metadata && (
                 <>
                   <img
-                    src={card.metadata.image}
+                    src={card.metadata.imageUrl}
                     alt="Card"
                     className="w-24 mt-2"
                   />
