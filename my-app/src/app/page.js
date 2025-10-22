@@ -175,7 +175,7 @@ export default function Home() {
                 <div>
                   <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
                   <p><strong>Contract Address:</strong> {card.contractAddress}</p>
-                  <p><strong>Token Address:</strong> {card.tokenAddress || 'N/A'}</p>
+                  <p><strong>Token Address:</strong> {card.contract?.tokenAddress || 'N/A'}</p>
                   <p><strong>Token ID:</strong> {card.tokenId}</p>
                   <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
                   <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
