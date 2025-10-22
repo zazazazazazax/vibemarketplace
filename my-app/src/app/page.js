@@ -10,6 +10,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [prices, setPrices] = useState({}); // Cache per prezzi
 
   const cardsPerPage = 50;
 
@@ -38,12 +39,79 @@ export default function Home() {
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
-      setAllInventory(data.cards);
-      updateCurrentPage(data.cards, 1);
+      const cardsWithPrices = await Promise.all(data.cards.map(async (card) => {
+        const price = await calculateCardPrice(card);
+        return { ...card, estimatedPrice: price };
+      }));
+
+      setAllInventory(cardsWithPrices);
+      updateCurrentPage(cardsWithPrices, 1);
     } catch (err) {
       setError('Error loading: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const calculateCardPrice = async (card) => {
+    if (prices[card.tokenId]) return prices[card.tokenId]; // Cache
+
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const seedUtils = new ethers.Contract(
+        '0x002aaaa42354bf8f09f9924977bf0c531933f999', // Fixed Seed Utils address
+        [
+          'function wearFromSeed(bytes32 seed) external pure returns (string memory wear)',
+          'function getFoilMappingFromSeed(bytes32 seed) external pure returns (string memory foilType)'
+        ],
+        provider
+      );
+
+      const boosterToken = new ethers.Contract(
+        card.tokenAddress, // From API
+        [
+          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256 ethReceived)'
+        ],
+        provider
+      );
+
+      // Get rarity and baseTokens from API (already in card)
+      const rarity = card.rarity;
+      // Assume baseTokens from rarity (from contract logic)
+      let baseTokens;
+      if (rarity == 1) baseTokens = 1000; // COMMON
+      else if (rarity == 2) baseTokens = 5000; // RARE
+      else if (rarity == 3) baseTokens = 10000; // EPIC
+      else if (rarity == 4) baseTokens = 25000; // LEGENDARY
+      else if (rarity == 5) baseTokens = 50000; // MYTHIC
+      else baseTokens = 0;
+
+      const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
+
+      // Foil multiplier
+      const foilType = card.metadata.foil; // From API
+      let foilMult = 100;
+      if (foilType === 'Standard') foilMult = 200;
+      else if (foilType === 'Prize') foilMult = 400;
+
+      // Wear multiplier
+      const wearStr = card.metadata.wear; // From API (string like "0.9409816264")
+      const wearValue = parseFloat(wearStr) * 100000000; // To uint
+      let wearMult = 100;
+      const wear = parseInt(wearValue.toString());
+      if (wear < 5) wearMult = 180;
+      else if (wear < 20) wearMult = 160;
+      else if (wear < 45) wearMult = 140;
+      else if (wear < 75) wearMult = 120;
+
+      const listingPrice = ((ethBase * foilMult * wearMult * 142) / 1000000); // +42%
+
+      const priceInEth = ethers.formatEther(listingPrice);
+      setPrices(prev => ({ ...prev, [card.tokenId]: priceInEth }));
+      return priceInEth;
+    } catch (err) {
+      console.error('Error calculating price:', err);
+      return 'Error';
     }
   };
 
@@ -106,10 +174,12 @@ export default function Home() {
                 />
                 <div>
                   <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
-                  <p><strong>Collection Address:</strong> {card.contractAddress}</p>
+                  <p><strong>Contract Address:</strong> {card.contractAddress}</p>
+                  <p><strong>Token Address:</strong> {card.tokenAddress || 'N/A'}</p>
                   <p><strong>Token ID:</strong> {card.tokenId}</p>
                   <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
                   <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
+                  <p><strong>Estimated Price:</strong> {card.estimatedPrice || 'Loading...'}</p>
                 </div>
               </li>
             ))}
