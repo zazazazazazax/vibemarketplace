@@ -33,38 +33,13 @@ export default function Home() {
   const fetchAllInventory = async (address) => {
     setLoading(true);
     setError(null);
-    let allCards = [];
-    let page = 1;
-    const apiKey = process.env.NEXT_PUBLIC_API_KEY || '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2';
-    const baseUrl = 'https://build.wield.xyz/vibe/boosterbox';
-
     try {
-      while (true) {
-        const response = await fetch(
-          `${baseUrl}/owner/${address}?status=rarity_assigned&includeMetadata=true&chainId=8453&page=${page}&limit=${cardsPerPage}`,
-          {
-            headers: {
-              'API-KEY': apiKey,
-            },
-          }
-        );
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.message);
-        }
+      const response = await fetch(`/api/inventory?address=${address}`);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
 
-        const filteredCards = data.boxes.filter((card) => card.rarity > 0);
-        allCards = [...allCards, ...filteredCards];
-
-        // Stop if no more cards
-        if (data.boxes.length < cardsPerPage) {
-          break;
-        }
-        page++;
-      }
-
-      setAllInventory(allCards);
-      updateCurrentPage(allCards, 1);
+      setAllInventory(data.cards);
+      updateCurrentPage(data.cards, 1);
     } catch (err) {
       setError('Error loading: ' + err.message);
     } finally {
