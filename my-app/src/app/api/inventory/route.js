@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import LRU from 'lru-cache';
+import { LRUCache } from 'lru-cache'; // Named import for v10+
 
 // Cache in-memory (5 minuti per utente)
-const cache = new LRU({
+const cache = new LRUCache({
   max: 100, // Max 100 utenti
   ttl: 1000 * 60 * 5, // 5 minuti
   dispose: (value, key) => { /* Clean up if needed */ }
