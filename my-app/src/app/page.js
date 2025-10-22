@@ -11,6 +11,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [prices, setPrices] = useState({}); // Cache per prezzi
+  const [ethUsdPrice, setEthUsdPrice] = useState(0); // ETH/USD rate
 
   const cardsPerPage = 50;
 
@@ -22,12 +23,24 @@ export default function Home() {
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         setWalletAddress(address);
+        fetchEthUsdPrice();
         fetchAllInventory(address);
       } catch (err) {
         setError('Error connecting: ' + err.message);
       }
     } else {
       setError('Install MetaMask!');
+    }
+  };
+
+  const fetchEthUsdPrice = async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      const data = await response.json();
+      setEthUsdPrice(data.ethereum.usd || 0);
+    } catch (err) {
+      console.error('Error fetching ETH price:', err);
+      setEthUsdPrice(0);
     }
   };
 
@@ -64,18 +77,18 @@ export default function Home() {
       const boosterToken = new ethers.Contract(
         card.contract.tokenAddress,
         [
-          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256 ethReceived)'
+          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
         ],
         provider
       );
 
-      // BaseTokens from rarity (from contract logic)
+      // BaseTokens from rarity
       let baseTokens;
-      if (card.rarity === 1) baseTokens = 1000; // COMMON
-      else if (card.rarity === 2) baseTokens = 5000; // RARE
-      else if (card.rarity === 3) baseTokens = 10000; // EPIC
-      else if (card.rarity === 4) baseTokens = 25000; // LEGENDARY
-      else if (card.rarity === 5) baseTokens = 50000; // MYTHIC
+      if (card.rarity === 1) baseTokens = 10000; // Common
+      else if (card.rarity === 2) baseTokens = 110000; // Rare
+      else if (card.rarity === 3) baseTokens = 400000; // Epic
+      else if (card.rarity === 4) baseTokens = 4000000; // Legendary
+      else if (card.rarity === 5) baseTokens = 20000000; // Mythic
       else return 'Invalid rarity';
 
       const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
@@ -87,7 +100,7 @@ export default function Home() {
       else if (foilType === 'Prize') foilMult = 400;
 
       // Wear multiplier
-      const wearStr = card.metadata.wear;
+      const wearStr = card.metadata.wear; // e.g. "0.3972772367"
       const wearValue = parseFloat(wearStr) * 100000000; // To uint as in contract
       const wear = Math.floor(wearValue);
       let wearMult = 100;
@@ -99,8 +112,11 @@ export default function Home() {
       const listingPrice = ((ethBase * foilMult * wearMult * 142) / 1000000); // +42%
 
       const priceInEth = ethers.formatEther(listingPrice);
-      setPrices(prev => ({ ...prev, [cacheKey]: priceInEth }));
-      return priceInEth;
+      const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
+      const price = `${priceInEth} ETH (${priceInUsd} USD)`;
+
+      setPrices(prev => ({ ...prev, [cacheKey]: price }));
+      return price;
     } catch (err) {
       console.error('Error calculating price for card', card.tokenId, err);
       return 'N/A';
