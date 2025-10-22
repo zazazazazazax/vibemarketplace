@@ -5,13 +5,13 @@ import { ethers } from 'ethers';
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState(null);
-  const [inventory, setInventory] = useState([]);
+  const [allInventory, setAllInventory] = useState([]); // All cards
+  const [inventory, setInventory] = useState([]); // Current page
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  const cardsPerPage = 50; // Match with API limit
+  const cardsPerPage = 50;
 
   const connectWallet = async () => {
     if (window.ethereum) {
@@ -21,7 +21,7 @@ export default function Home() {
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         setWalletAddress(address);
-        fetchInventory(address, 1); // Start with page 1
+        fetchAllInventory(address);
       } catch (err) {
         setError('Error connecting: ' + err.message);
       }
@@ -30,32 +30,41 @@ export default function Home() {
     }
   };
 
-  const fetchInventory = async (address, page) => {
+  const fetchAllInventory = async (address) => {
     setLoading(true);
     setError(null);
+    let allCards = [];
+    let page = 1;
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY || '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2';
+    const baseUrl = 'https://build.wield.xyz/vibe/boosterbox';
+
     try {
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY || '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2';
-      const baseUrl = 'https://build.wield.xyz/vibe/boosterbox';
-      const response = await fetch(
-        `${baseUrl}/owner/${address}?status=rarity_assigned&includeMetadata=true&chainId=8453&page=${page}&limit=${cardsPerPage}`,
-        {
-          headers: {
-            'API-KEY': apiKey,
-          },
+      while (true) {
+        const response = await fetch(
+          `${baseUrl}/owner/${address}?status=rarity_assigned&includeMetadata=true&chainId=8453&page=${page}&limit=${cardsPerPage}`,
+          {
+            headers: {
+              'API-KEY': apiKey,
+            },
+          }
+        );
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.message);
         }
-      );
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.message);
+
+        const filteredCards = data.boxes.filter((card) => card.rarity > 0);
+        allCards = [...allCards, ...filteredCards];
+
+        // Stop if no more cards
+        if (data.boxes.length < cardsPerPage) {
+          break;
+        }
+        page++;
       }
 
-      // Use data.boxes and filter rarity > 0
-      const filteredCards = data.boxes.filter((card) => card.rarity > 0);
-
-      // Assume API returns total count or calculate from response if available
-      const totalCards = data.total || data.boxes.length; // Adjust if API provides 'total'
-      setTotalPages(Math.ceil(totalCards / cardsPerPage));
-      setInventory(filteredCards);
+      setAllInventory(allCards);
+      updateCurrentPage(allCards, 1);
     } catch (err) {
       setError('Error loading: ' + err.message);
     } finally {
@@ -63,27 +72,37 @@ export default function Home() {
     }
   };
 
-  // Function to convert wear value to condition (lower is better)
+  const updateCurrentPage = (cards, page) => {
+    const startIndex = (page - 1) * cardsPerPage;
+    const endIndex = startIndex + cardsPerPage;
+    const currentCards = cards.slice(startIndex, endIndex);
+    setInventory(currentCards);
+    setCurrentPage(page);
+  };
+
+  // Function to convert wear value to condition (lower is better, adjusted thresholds)
   const getWearCondition = (wearValue) => {
     const wear = parseFloat(wearValue);
     if (wear <= 0.1) return 'Pristine';
     if (wear <= 0.3) return 'Mint';
-    if (wear <= 0.6) return 'Lightly Played';
-    if (wear <= 0.9) return 'Moderately Played';
+    if (wear <= 0.5) return 'Lightly Played';
+    if (wear <= 0.8) return 'Moderately Played';
     return 'Heavily Played';
   };
 
-  useEffect(() => {
-    if (walletAddress) {
-      fetchInventory(walletAddress, currentPage);
-    }
-  }, [walletAddress, currentPage]);
+  const totalPages = Math.ceil(allInventory.length / cardsPerPage);
 
   const goToPage = (page) => {
     if (page > 0 && page <= totalPages) {
-      setCurrentPage(page);
+      updateCurrentPage(allInventory, page);
     }
   };
+
+  useEffect(() => {
+    if (allInventory.length > 0) {
+      updateCurrentPage(allInventory, currentPage);
+    }
+  }, [currentPage]);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
@@ -99,7 +118,7 @@ export default function Home() {
         <p className="mb-4">Connected: {walletAddress}</p>
       )}
       {error && <p className="text-red-500">{error}</p>}
-      {loading && <p>Loading...</p>}
+      {loading && <p>Loading all pages...</p>}
       {inventory.length > 0 ? (
         <>
           <ul className="space-y-4">
@@ -122,15 +141,15 @@ export default function Home() {
           </ul>
           <div className="mt-4">
             <button
-              className="bg-blue-500 text-white px-2 py-1 rounded mr-2"
+              className="bg-blue-500 text-white px-2 py-1 rounded mr-2 disabled:bg-gray-400"
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
             >
               Previous
             </button>
-            <span>Page {currentPage} of {totalPages}</span>
+            <span>Page {currentPage} of {totalPages} (Total cards: {allInventory.length})</span>
             <button
-              className="bg-blue-500 text-white px-2 py-1 rounded ml-2"
+              className="bg-blue-500 text-white px-2 py-1 rounded ml-2 disabled:bg-gray-400"
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
             >
