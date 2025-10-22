@@ -54,51 +54,43 @@ export default function Home() {
   };
 
   const calculateCardPrice = async (card) => {
-    if (prices[card.tokenId]) return prices[card.tokenId]; // Cache
+    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+    if (prices[cacheKey]) return prices[cacheKey];
+
+    if (!card.contract?.tokenAddress) return 'N/A';
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const seedUtils = new ethers.Contract(
-        '0x002aaaa42354bf8f09f9924977bf0c531933f999', // Fixed Seed Utils address
-        [
-          'function wearFromSeed(bytes32 seed) external pure returns (string memory wear)',
-          'function getFoilMappingFromSeed(bytes32 seed) external pure returns (string memory foilType)'
-        ],
-        provider
-      );
-
       const boosterToken = new ethers.Contract(
-        card.tokenAddress, // From API
+        card.contract.tokenAddress,
         [
           'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256 ethReceived)'
         ],
         provider
       );
 
-      // Get rarity and baseTokens from API (already in card)
-      const rarity = card.rarity;
-      // Assume baseTokens from rarity (from contract logic)
+      // BaseTokens from rarity (from contract logic)
       let baseTokens;
-      if (rarity == 1) baseTokens = 1000; // COMMON
-      else if (rarity == 2) baseTokens = 5000; // RARE
-      else if (rarity == 3) baseTokens = 10000; // EPIC
-      else if (rarity == 4) baseTokens = 25000; // LEGENDARY
-      else if (rarity == 5) baseTokens = 50000; // MYTHIC
-      else baseTokens = 0;
+      if (card.rarity === 1) baseTokens = 1000; // COMMON
+      else if (card.rarity === 2) baseTokens = 5000; // RARE
+      else if (card.rarity === 3) baseTokens = 10000; // EPIC
+      else if (card.rarity === 4) baseTokens = 25000; // LEGENDARY
+      else if (card.rarity === 5) baseTokens = 50000; // MYTHIC
+      else return 'Invalid rarity';
 
       const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
 
       // Foil multiplier
-      const foilType = card.metadata.foil; // From API
+      const foilType = card.metadata.foil;
       let foilMult = 100;
       if (foilType === 'Standard') foilMult = 200;
       else if (foilType === 'Prize') foilMult = 400;
 
       // Wear multiplier
-      const wearStr = card.metadata.wear; // From API (string like "0.9409816264")
-      const wearValue = parseFloat(wearStr) * 100000000; // To uint
+      const wearStr = card.metadata.wear;
+      const wearValue = parseFloat(wearStr) * 100000000; // To uint as in contract
+      const wear = Math.floor(wearValue);
       let wearMult = 100;
-      const wear = parseInt(wearValue.toString());
       if (wear < 5) wearMult = 180;
       else if (wear < 20) wearMult = 160;
       else if (wear < 45) wearMult = 140;
@@ -107,11 +99,11 @@ export default function Home() {
       const listingPrice = ((ethBase * foilMult * wearMult * 142) / 1000000); // +42%
 
       const priceInEth = ethers.formatEther(listingPrice);
-      setPrices(prev => ({ ...prev, [card.tokenId]: priceInEth }));
+      setPrices(prev => ({ ...prev, [cacheKey]: priceInEth }));
       return priceInEth;
     } catch (err) {
-      console.error('Error calculating price:', err);
-      return 'Error';
+      console.error('Error calculating price for card', card.tokenId, err);
+      return 'N/A';
     }
   };
 
@@ -123,7 +115,7 @@ export default function Home() {
     setCurrentPage(page);
   };
 
-  // Function to convert wear value to condition (lower is better, adjusted thresholds)
+  // Function to convert wear value to condition (lower is better)
   const getWearCondition = (wearValue) => {
     const wear = parseFloat(wearValue);
     if (wear <= 0.1) return 'Pristine';
