@@ -42,7 +42,7 @@ async function fetchPagesForStatus(address, status, apiKey) {
   const cardsPerPage = 50;
 
   while (true) {
-    const url = `${baseUrl}/owner/${address}?status=${status}&includeMetadata=true&chainId=8453&page=${page}&limit=${cardsPerPage}`;
+    const url = `${baseUrl}/owner/${address}?status=${status}&includeMetadata=true&includeContractDetails=true&chainId=8453&page=${page}&limit=${cardsPerPage}`;
     const response = await fetchWithRetry(url, {
       headers: { 'API-KEY': apiKey }
     });
