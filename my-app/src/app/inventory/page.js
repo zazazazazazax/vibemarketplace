@@ -152,7 +152,7 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Auto-reconnect: con delay per aspettare MetaMask ready, silent check, NO chain switch
+  // Auto-reconnect: con delay, check selectedAddress prima di eth_accounts per evitare popup
   useEffect(() => {
     let accountsChangedHandler;
 
@@ -161,9 +161,9 @@ export default function Inventory() {
 
       console.log('Starting auto-reconnect check...');
 
-      // Aumentato delay a 2s per MetaMask load
+      // Aumentato delay a 3s per MetaMask load completo
       console.log('Waiting delay before checks...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
       console.log('Delay completed, proceeding with checks');
 
       let preferredWallet = localStorage.getItem('preferredWallet');
@@ -196,12 +196,40 @@ export default function Inventory() {
           if (now - parseInt(storedTimestamp) < expiry) {
             try {
               console.log('Auto-reconnect attempt...');
+              console.log('Checking selectedAddress for silent check...');
+              // NUOVO: Check selectedAddress prima di creare provider/eth_accounts - evita popup in multi-wallet
+              if (window.ethereum.selectedAddress && window.ethereum.selectedAddress.toLowerCase() === storedAddress.toLowerCase()) {
+                console.log('selectedAddress matches stored, using directly');
+                const address = window.ethereum.selectedAddress;
+                // Verifica signature (opzionale, ma veloce)
+                const message = {
+                  content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
+                  nonce: parseInt(storedNonce)
+                };
+                const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
+                if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+                  console.log('Signature valid via selectedAddress, setting wallet');
+                  localStorage.setItem('walletAddress', address);
+                  setWalletAddress(address);
+                  fetchEthUsdPrice();
+                  fetchAllInventory(address);
+                  success = true;
+                  return;
+                } else {
+                  console.log('Signature mismatch on selectedAddress');
+                  localStorage.clear();
+                  return;
+                }
+              } else {
+                console.log('selectedAddress not matching or unavailable, falling back to provider');
+              }
+
               const provider = new ethers.BrowserProvider(window.ethereum);
               console.log('Provider created successfully');
 
-              // NO switch chain qui per evitare popup/block - assumi chain corretto o gestisci dopo
+              // NO switch chain qui per evitare popup/block
 
-              // Silent get accounts
+              // Silent get accounts (fallback)
               console.log('Requesting silent accounts...');
               const accounts = await provider.send('eth_accounts', []);
               console.log('Silent accounts length after delay:', accounts.length);
