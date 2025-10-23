@@ -48,9 +48,9 @@ export default function Inventory() {
         const address = await signer.getAddress();
         console.log('Connected address:', address);
 
-        // Save preferred wallet immediately
+        // Save preferred wallet immediately (before signature)
         localStorage.setItem('preferredWallet', 'metamask');
-        console.log('Saved preferredWallet: metamask'); // Log save
+        console.log('Saved preferredWallet: metamask');
 
         const message = {
           content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
@@ -64,7 +64,7 @@ export default function Inventory() {
         localStorage.setItem('walletNonce', nonce.toString());
         localStorage.setItem('walletTimestamp', Date.now().toString());
 
-        console.log('All localStorage saved'); // Log all saved
+        console.log('All localStorage saved');
 
         setWalletAddress(address);
         fetchEthUsdPrice();
@@ -99,13 +99,14 @@ export default function Inventory() {
     const checkAutoConnect = async () => {
       if (isConnecting) return; // Skip if initial connect in progress
 
-      const preferredWallet = localStorage.getItem('preferredWallet');
-      console.log('Preferred wallet:', preferredWallet);
+      let preferredWallet = localStorage.getItem('preferredWallet');
+      console.log('Preferred wallet from storage:', preferredWallet);
 
       if (!preferredWallet) {
         console.log('No preferred wallet, but Ethereum exists, assume metamask');
         if (window.ethereum) {
           preferredWallet = 'metamask';
+          localStorage.setItem('preferredWallet', 'metamask'); // Set now
         } else {
           console.log('No Ethereum, redirect to home');
           router.push('/');
@@ -129,6 +130,7 @@ export default function Inventory() {
               console.log('Attempting auto-reconnect...');
               const provider = new ethers.BrowserProvider(window.ethereum);
               const accounts = await provider.listAccounts();
+              console.log('Existing accounts:', accounts.length);
               if (accounts.length === 0) {
                 await provider.send('eth_requestAccounts', []);
               }
