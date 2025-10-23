@@ -62,56 +62,65 @@ export default function Home() {
     }
   };
 
-  const calculateCardPrice = async (card) => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-    if (prices[cacheKey]) return prices[cacheKey];
+const calculateCardPrice = async (card) => {
+  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+  if (prices[cacheKey]) return prices[cacheKey];
 
-    if (!card.contract?.tokenAddress) return 'N/A';
+  if (!card.contract?.tokenAddress) return 'N/A';
 
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const boosterToken = new ethers.Contract(
-        card.contract.tokenAddress,
-        [
-          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
-        ],
-        provider
-      );
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const boosterToken = new ethers.Contract(
+      card.contract.tokenAddress,
+      [
+        'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
+      ],
+      provider
+    );
 
-      // BaseTokens from rarity
-      let baseTokens;
-      if (card.rarity === 1) baseTokens = 10000n; // Common
-      else if (card.rarity === 2) baseTokens = 110000n; // Rare
-      else if (card.rarity === 3) baseTokens = 400000n; // Epic
-      else if (card.rarity === 4) baseTokens = 4000000n; // Legendary
-      else if (card.rarity === 5) baseTokens = 20000000n; // Mythic
-      else return 'Invalid rarity';
+    // BaseTokens from rarity
+    let baseTokens;
+    if (card.rarity === 1) baseTokens = 10000n; // Common
+    else if (card.rarity === 2) baseTokens = 110000n; // Rare
+    else if (card.rarity === 3) baseTokens = 400000n; // Epic
+    else if (card.rarity === 4) baseTokens = 4000000n; // Legendary
+    else if (card.rarity === 5) baseTokens = 20000000n; // Mythic
+    else return 'Invalid rarity';
 
-      const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
+    const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
 
-      // Foil multiplier
-      const foilType = card.metadata.foil;
-      let foilMult = 100n;
-      if (foilType === 'Standard') foilMult = 200n;
-      else if (foilType === 'Prize') foilMult = 400n;
+    // Log for debug
+    console.log(`Card ${card.tokenId}: ethBase = ${ethers.formatEther(ethBase)}`);
 
-      // Wear multiplier
-      const wearStr = card.metadata.wear;
-      const wearValue = BigInt(Math.floor(parseFloat(wearStr) * 100000000));
-      let wearMult = 100n;
-      if (wearValue < 5n) wearMult = 180n;
-      else if (wearValue < 20n) wearMult = 160n;
-      else if (wearValue < 45n) wearMult = 140n;
-      else if (wearValue < 75n) wearMult = 120n;
+    // Foil multiplier
+    const foilType = card.metadata.foil;
+    let foilMult = 100n;
+    if (foilType === 'Standard') foilMult = 200n;
+    else if (foilType === 'Prize') foilMult = 400n;
 
-      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
+    // Wear multiplier
+    const wearStr = card.metadata.wear;
+    const wearValue = BigInt(Math.floor(parseFloat(wearStr) * 100000000));
+    let wearMult = 100n;
+    if (wearValue < 5n) wearMult = 180n;
+    else if (wearValue < 20n) wearMult = 160n;
+    else if (wearValue < 45n) wearMult = 140n;
+    else if (wearValue < 75n) wearMult = 120n;
 
-      const priceInEth = ethers.formatEther(listingPrice, { decimals: 6 }); // 6 decimali
-      const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
-      const price = `${priceInEth} ETH (${priceInUsd} USD)`;
+    const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
 
-      setPrices(prev => ({ ...prev, [cacheKey]: price }));
-      return price;
+    const priceInEth = ethers.formatEther(listingPrice).padEnd(10, '0'); // Pad with zeros for small values
+    const priceInEthFormatted = parseFloat(priceInEth).toFixed(6); // Force 6 decimals
+    const priceInUsd = (parseFloat(priceInEthFormatted) * ethUsdPrice).toFixed(2);
+    const price = `${priceInEthFormatted} ETH (${priceInUsd} USD)`;
+
+    setPrices(prev => ({ ...prev, [cacheKey]: price }));
+    return price;
+  } catch (err) {
+    console.error('Error calculating price for card', card.tokenId, err);
+    return 'N/A';
+  }
+};
     } catch (err) {
       console.error('Error calculating price for card', card.tokenId, err);
       return 'N/A';
