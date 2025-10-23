@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 
@@ -16,6 +16,7 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [provider, setProvider] = useState(null); // NUOVO: Provider persistente per evitare ri-creazione
 
   const cardsPerPage = 50;
 
@@ -72,22 +73,22 @@ export default function Inventory() {
     setError(null);
     if (window.ethereum && window.ethereum.isMetaMask) {
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.send('eth_accounts', []); // Silent
+        const prov = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await prov.send('eth_accounts', []); // Silent
         if (accounts.length === 0) {
-          await provider.send('eth_requestAccounts', []); // Only if empty
+          await prov.send('eth_requestAccounts', []); // Only if empty
         }
 
         // Switch to Base chain if not already (solo nel connect manual)
         try {
           console.log('Attempting chain switch in manual connect...');
-          await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]); // 8453 in hex
+          await prov.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]); // 8453 in hex
           console.log('Chain switch successful in manual connect');
         } catch (switchError) {
           console.log('Chain switch error in manual connect:', switchError.code, switchError.message);
           if (switchError.code === 4902) {
             // Chain not added: add it
-            await provider.send('wallet_addEthereumChain', [{
+            await prov.send('wallet_addEthereumChain', [{
               chainId: '0x2105',
               chainName: 'Base',
               rpcUrls: ['https://mainnet.base.org'],
@@ -100,7 +101,10 @@ export default function Inventory() {
           }
         }
 
-        const signer = await provider.getSigner();
+        // NUOVO: Salva provider persistente
+        setProvider(prov);
+
+        const signer = await prov.getSigner();
         const address = await signer.getAddress();
         console.log('Connected address:', address);
 
@@ -161,10 +165,10 @@ export default function Inventory() {
 
       console.log('Starting auto-reconnect check...');
 
-      // Delay per load
-      console.log('Waiting delay before checks...');
-    //  await new Promise(resolve => setTimeout(resolve, 3000));
-      console.log('Delay completed, proceeding with checks');
+      // Delay commentato come da tua modifica (rimuovi le righe se vuoi eliminarlo del tutto)
+      // console.log('Waiting delay before checks...');
+      // await new Promise(resolve => setTimeout(resolve, 1000));
+      // console.log('Delay completed, proceeding with checks');
 
       let preferredWallet = localStorage.getItem('preferredWallet');
       console.log('Preferred wallet:', preferredWallet);
@@ -206,6 +210,12 @@ export default function Inventory() {
 
               if (recoveredAddress.toLowerCase() === storedAddress.toLowerCase()) {
                 console.log('Signature valid, using recovered address for session');
+                // NUOVO: Crea e salva provider solo qui, dopo verifica (già "warm" dalla signature/session)
+                if (!provider && window.ethereum && window.ethereum.selectedAddress?.toLowerCase() === recoveredAddress.toLowerCase()) {
+                  const prov = new ethers.BrowserProvider(window.ethereum);
+                  setProvider(prov);
+                  console.log('Provider created and saved post-reconnect');
+                }
                 setWalletAddress(recoveredAddress);
                 fetchEthUsdPrice();
                 fetchAllInventory(recoveredAddress);
@@ -251,11 +261,8 @@ export default function Inventory() {
       // Otherwise, stay on page and show connect button
     };
 
-    // Esegui con delay
-    const delayedCheck = async () => {
-      await checkAutoConnect();
-    };
-    delayedCheck();
+    // Esegui senza delay
+    checkAutoConnect();
 
     // Listener for accountsChanged (aggiungi solo dopo connect, ma per semplicità qui)
     if (window.ethereum) {
@@ -290,6 +297,7 @@ export default function Inventory() {
     if (window.solana) {
       window.solana.disconnect();
     }
+    setProvider(null); // NUOVO: Clear provider su disconnect
     setWalletAddress(null);
     localStorage.clear();
     setAllInventory([]);
@@ -304,7 +312,11 @@ export default function Inventory() {
     if (!card.contract?.tokenAddress) return 'N/A';
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // NUOVO: Usa provider persistente invece di crearne uno nuovo
+      if (!provider) {
+        console.warn('No provider available for price calc, skipping');
+        return 'N/A';
+      }
       const collectionDrop = new ethers.Contract(
         card.contractAddress,
         [
