@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 
@@ -16,11 +16,11 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [provider, setProvider] = useState(null); // NUOVO: Provider persistente per evitare ri-creazione
+  const [provider, setProvider] = useState(null); // Provider persistente per evitare ri-creazione
 
   const cardsPerPage = 50;
 
-  console.log('Inventory component mounted');
+  // console.log('Inventory component mounted'); // Commentato per evitare spam in produzione
 
   // EIP-712 typed data for signature
   const domain = {
@@ -101,7 +101,7 @@ export default function Inventory() {
           }
         }
 
-        // NUOVO: Salva provider persistente
+        // Salva provider persistente
         setProvider(prov);
 
         const signer = await prov.getSigner();
@@ -156,6 +156,15 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
+  // NUOVO: Crea provider persistente quando walletAddress è set (post-auto-reconnect)
+  useEffect(() => {
+    if (walletAddress && !provider && window.ethereum && window.ethereum.isMetaMask) {
+      console.log('Creating provider after wallet set');
+      const prov = new ethers.BrowserProvider(window.ethereum);
+      setProvider(prov);
+    }
+  }, [walletAddress]);
+
   // Auto-reconnect: usa solo verifica signature (senza provider o eth_accounts) per evitare popup multi-wallet
   useEffect(() => {
     let accountsChangedHandler;
@@ -164,11 +173,6 @@ export default function Inventory() {
       if (isConnecting) return; // Skip if manual connect in progress
 
       console.log('Starting auto-reconnect check...');
-
-      // Delay commentato come da tua modifica (rimuovi le righe se vuoi eliminarlo del tutto)
-      // console.log('Waiting delay before checks...');
-      // await new Promise(resolve => setTimeout(resolve, 1000));
-      // console.log('Delay completed, proceeding with checks');
 
       let preferredWallet = localStorage.getItem('preferredWallet');
       console.log('Preferred wallet:', preferredWallet);
@@ -210,13 +214,7 @@ export default function Inventory() {
 
               if (recoveredAddress.toLowerCase() === storedAddress.toLowerCase()) {
                 console.log('Signature valid, using recovered address for session');
-                // NUOVO: Crea e salva provider solo qui, dopo verifica (già "warm" dalla signature/session)
-                if (!provider && window.ethereum && window.ethereum.selectedAddress?.toLowerCase() === recoveredAddress.toLowerCase()) {
-                  const prov = new ethers.BrowserProvider(window.ethereum);
-                  setProvider(prov);
-                  console.log('Provider created and saved post-reconnect');
-                }
-                setWalletAddress(recoveredAddress);
+                setWalletAddress(recoveredAddress); // Questo triggera il useEffect per creare provider
                 fetchEthUsdPrice();
                 fetchAllInventory(recoveredAddress);
                 success = true;
@@ -297,7 +295,7 @@ export default function Inventory() {
     if (window.solana) {
       window.solana.disconnect();
     }
-    setProvider(null); // NUOVO: Clear provider su disconnect
+    setProvider(null); // Clear provider su disconnect
     setWalletAddress(null);
     localStorage.clear();
     setAllInventory([]);
@@ -312,7 +310,7 @@ export default function Inventory() {
     if (!card.contract?.tokenAddress) return 'N/A';
 
     try {
-      // NUOVO: Usa provider persistente invece di crearne uno nuovo
+      // Usa provider persistente invece di crearne uno nuovo
       if (!provider) {
         console.warn('No provider available for price calc, skipping');
         return 'N/A';
