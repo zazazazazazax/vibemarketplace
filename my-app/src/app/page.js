@@ -66,7 +66,7 @@ export default function Home() {
   // Auto-reconnect on load
   useEffect(() => {
     const checkAutoConnect = async () => {
-      if (!window.ethereum) return;
+      if (!window.ethereum || !window.ethereum.isConnected()) return;
 
       const storedAddress = localStorage.getItem('walletAddress');
       const storedSignature = localStorage.getItem('walletSignature');
@@ -106,7 +106,9 @@ export default function Home() {
       }
     };
 
-    checkAutoConnect();
+    // Delay to wait for MetaMask ready
+    const timer = setTimeout(checkAutoConnect, 1000); // 1s delay
+    return () => clearTimeout(timer);
   }, []);
 
   const disconnectWallet = () => {
