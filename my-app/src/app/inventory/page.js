@@ -66,7 +66,10 @@ export default function Inventory() {
   // Auto-reconnect on load
   useEffect(() => {
     const checkAutoConnect = async () => {
-      if (!window.ethereum) return;
+      if (!window.ethereum) {
+        router.push('/'); // Redirect to home if no wallet
+        return;
+      }
 
       const storedAddress = localStorage.getItem('walletAddress');
       const storedSignature = localStorage.getItem('walletSignature');
@@ -92,7 +95,7 @@ export default function Inventory() {
               setWalletAddress(address);
               fetchEthUsdPrice();
               fetchAllInventory(address);
-              return; // Success - stay on inventory
+              return;
             }
           } catch (err) {
             console.error('Auto-reconnect failed:', err);
@@ -104,7 +107,7 @@ export default function Inventory() {
       router.push('/');
     };
 
-    setTimeout(checkAutoConnect, 2000);
+    setTimeout(checkAutoConnect, 3000); // 3s delay for MetaMask
   }, [router]);
 
   const disconnectWallet = () => {
