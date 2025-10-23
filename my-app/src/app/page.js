@@ -89,8 +89,11 @@ const calculateCardPrice = async (card) => {
 
     const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
 
-    // Log for debug
-    console.log(`Card ${card.tokenId}: ethBase = ${ethers.formatEther(ethBase)}`);
+    // Debug logs
+    console.log(`Card ${card.tokenId}: tokenAddress = ${card.contract.tokenAddress}`);
+    console.log(`Card ${card.tokenId}: baseTokens = ${baseTokens.toString()}`);
+    console.log(`Card ${card.tokenId}: ethBase raw (BigInt) = ${ethBase.toString()}`);
+    console.log(`Card ${card.tokenId}: ethBase formatted = ${ethers.formatEther(ethBase)}`);
 
     // Foil multiplier
     const foilType = card.metadata.foil;
@@ -109,10 +112,9 @@ const calculateCardPrice = async (card) => {
 
     const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
 
-    const priceInEth = ethers.formatEther(listingPrice).padEnd(10, '0'); // Pad with zeros for small values
-    const priceInEthFormatted = parseFloat(priceInEth).toFixed(6); // Force 6 decimals
-    const priceInUsd = (parseFloat(priceInEthFormatted) * ethUsdPrice).toFixed(2);
-    const price = `${priceInEthFormatted} ETH (${priceInUsd} USD)`;
+    const priceInEth = ethers.formatEther(listingPrice).toFixed(6); // Force 6 decimals
+    const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
+    const price = `${priceInEth} ETH (${priceInUsd} USD)`;
 
     setPrices(prev => ({ ...prev, [cacheKey]: price }));
     return price;
