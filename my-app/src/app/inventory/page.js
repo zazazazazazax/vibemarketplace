@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
 import { useRouter } from 'next/navigation';
+import { ethers } from 'ethers';
 
 export default function Inventory() {
   const router = useRouter();
@@ -108,7 +108,9 @@ export default function Inventory() {
   const disconnectWallet = () => {
     setWalletAddress(null);
     localStorage.clear();
-    router.push('/');
+    setAllInventory([]);
+    setInventory([]);
+    router.push('/'); // Redirect to home
   };
 
   const fetchEthUsdPrice = async () => {
