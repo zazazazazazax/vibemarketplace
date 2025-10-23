@@ -12,6 +12,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [prices, setPrices] = useState({}); // Cache per prezzi
   const [ethUsdPrice, setEthUsdPrice] = useState(0); // ETH/USD rate
+  const [hoveredCard, setHoveredCard] = useState(null); // For lazy-load on hover
 
   const cardsPerPage = 50;
 
@@ -52,13 +53,8 @@ export default function Home() {
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
-      const cardsWithPrices = await Promise.all(data.cards.map(async (card) => {
-        const price = await calculateCardPrice(card);
-        return { ...card, estimatedPrice: price };
-      }));
-
-      setAllInventory(cardsWithPrices);
-      updateCurrentPage(cardsWithPrices, 1);
+      setAllInventory(data.cards);
+      updateCurrentPage(data.cards, 1);
     } catch (err) {
       setError('Error loading: ' + err.message);
     } finally {
@@ -84,32 +80,31 @@ export default function Home() {
 
       // BaseTokens from rarity
       let baseTokens;
-      if (card.rarity === 1) baseTokens = 10000; // Common
-      else if (card.rarity === 2) baseTokens = 110000; // Rare
-      else if (card.rarity === 3) baseTokens = 400000; // Epic
-      else if (card.rarity === 4) baseTokens = 4000000; // Legendary
-      else if (card.rarity === 5) baseTokens = 20000000; // Mythic
+      if (card.rarity === 1) baseTokens = 10000n; // Common - BigInt
+      else if (card.rarity === 2) baseTokens = 110000n; // Rare
+      else if (card.rarity === 3) baseTokens = 400000n; // Epic
+      else if (card.rarity === 4) baseTokens = 4000000n; // Legendary
+      else if (card.rarity === 5) baseTokens = 20000000n; // Mythic
       else return 'Invalid rarity';
 
       const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
 
       // Foil multiplier
       const foilType = card.metadata.foil;
-      let foilMult = 100;
-      if (foilType === 'Standard') foilMult = 200;
-      else if (foilType === 'Prize') foilMult = 400;
+      let foilMult = 100n;
+      if (foilType === 'Standard') foilMult = 200n;
+      else if (foilType === 'Prize') foilMult = 400n;
 
       // Wear multiplier
-      const wearStr = card.metadata.wear; // e.g. "0.3972772367"
-      const wearValue = parseFloat(wearStr) * 100000000; // To uint as in contract
-      const wear = Math.floor(wearValue);
-      let wearMult = 100;
-      if (wear < 5) wearMult = 180;
-      else if (wear < 20) wearMult = 160;
-      else if (wear < 45) wearMult = 140;
-      else if (wear < 75) wearMult = 120;
+      const wearStr = card.metadata.wear;
+      const wearValue = BigInt(Math.floor(parseFloat(wearStr) * 100000000)); // To uint as in contract
+      let wearMult = 100n;
+      if (wearValue < 5n) wearMult = 180n;
+      else if (wearValue < 20n) wearMult = 160n;
+      else if (wearValue < 45n) wearMult = 140n;
+      else if (wearValue < 75n) wearMult = 120n;
 
-      const listingPrice = ((ethBase * foilMult * wearMult * 142) / 1000000); // +42%
+      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42% - All BigInt
 
       const priceInEth = ethers.formatEther(listingPrice);
       const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
@@ -120,6 +115,14 @@ export default function Home() {
     } catch (err) {
       console.error('Error calculating price for card', card.tokenId, err);
       return 'N/A';
+    }
+  };
+
+  // Hover handler for lazy-load price
+  const handleMouseEnter = async (card) => {
+    if (!prices[`${card.tokenId}-${card.contractAddress}`] && card.contract?.tokenAddress) {
+      const price = await calculateCardPrice(card);
+      setPrices(prev => ({ ...prev, [`${card.tokenId}-${card.contractAddress}`]: price }));
     }
   };
 
@@ -174,7 +177,7 @@ export default function Home() {
         <>
           <ul className="space-y-4">
             {inventory.map((card, index) => (
-              <li key={index} className="border p-4 rounded flex">
+              <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)}>
                 <img
                   src={card.metadata.imageUrl}
                   alt="Card"
@@ -187,7 +190,7 @@ export default function Home() {
                   <p><strong>Token ID:</strong> {card.tokenId}</p>
                   <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
                   <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
-                  <p><strong>Estimated Price:</strong> {card.estimatedPrice || 'Loading...'}</p>
+                  <p><strong>Estimated Price:</strong> {prices[`${card.tokenId}-${card.contractAddress}`] || 'Hover to calculate'}</p>
                 </div>
               </li>
             ))}
