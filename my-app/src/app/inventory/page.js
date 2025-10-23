@@ -78,10 +78,13 @@ export default function Inventory() {
           await provider.send('eth_requestAccounts', []); // Only if empty
         }
 
-        // Switch to Base chain if not already (moved before signer for safety)
+        // Switch to Base chain if not already (solo nel connect manual)
         try {
+          console.log('Attempting chain switch in manual connect...');
           await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]); // 8453 in hex
+          console.log('Chain switch successful in manual connect');
         } catch (switchError) {
+          console.log('Chain switch error in manual connect:', switchError.code, switchError.message);
           if (switchError.code === 4902) {
             // Chain not added: add it
             await provider.send('wallet_addEthereumChain', [{
@@ -91,6 +94,7 @@ export default function Inventory() {
               nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
               blockExplorerUrls: ['https://basescan.org']
             }]);
+            console.log('Chain added successfully');
           } else if (switchError.code !== 4001) {
             throw switchError;
           }
@@ -148,15 +152,19 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Auto-reconnect: con delay per aspettare MetaMask ready, silent check
+  // Auto-reconnect: con delay per aspettare MetaMask ready, silent check, NO chain switch
   useEffect(() => {
     let accountsChangedHandler;
 
     const checkAutoConnect = async () => {
       if (isConnecting) return; // Skip if manual connect in progress
 
-      // AGGIUNTO: Delay per permettere a MetaMask di caricare completamente dopo refresh
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5s delay
+      console.log('Starting auto-reconnect check...');
+
+      // Aumentato delay a 2s per MetaMask load
+      console.log('Waiting delay before checks...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Delay completed, proceeding with checks');
 
       let preferredWallet = localStorage.getItem('preferredWallet');
       console.log('Preferred wallet:', preferredWallet);
@@ -167,6 +175,7 @@ export default function Inventory() {
           localStorage.setItem('preferredWallet', 'metamask');
         } else {
           // No wallet detected, stay on page and show connect button
+          console.log('No preferred wallet or MetaMask, showing connect button');
           return;
         }
       }
@@ -188,20 +197,12 @@ export default function Inventory() {
             try {
               console.log('Auto-reconnect attempt...');
               const provider = new ethers.BrowserProvider(window.ethereum);
+              console.log('Provider created successfully');
 
-              // Silent switch chain
-              try {
-                await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]);
-              } catch (switchError) {
-                console.log('Switch chain error (ignored for auto):', switchError.code);
-                if (switchError.code === 4902) {
-                  // Optionally add chain, but skip for silent
-                } else if (switchError.code !== 4001) {
-                  console.error('Switch chain failed:', switchError);
-                }
-              }
+              // NO switch chain qui per evitare popup/block - assumi chain corretto o gestisci dopo
 
-              // Silent get accounts - questo dovrebbe essere persistente se MetaMask ha concesso permessi
+              // Silent get accounts
+              console.log('Requesting silent accounts...');
               const accounts = await provider.send('eth_accounts', []);
               console.log('Silent accounts length after delay:', accounts.length);
               if (accounts.length === 0) {
@@ -213,6 +214,7 @@ export default function Inventory() {
               console.log('Silent address:', address);
 
               // Verify signature without signer
+              console.log('Verifying signature...');
               const message = {
                 content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
                 nonce: parseInt(storedNonce)
@@ -234,7 +236,7 @@ export default function Inventory() {
                 return;
               }
             } catch (err) {
-              console.error('Auto-reconnect failed:', err.message || err);
+              console.error('Auto-reconnect failed at:', err.message || err, 'Full error:', err);
               // Do not clear on transient errors, only on mismatch or expired
               if (err.message?.includes('mismatch') || err.code === 4001) {
                 localStorage.clear();
@@ -250,16 +252,18 @@ export default function Inventory() {
       } else if (preferredWallet === 'phantom' && window.solana) {
         const solana = window.solana;
         try {
-          // AGGIUNTO: Usa onlyIfTrusted: true per silent auto-connect senza popup
+          // Usa onlyIfTrusted: true per silent auto-connect senza popup
+          console.log('Attempting silent Phantom connect...');
           await solana.connect({ onlyIfTrusted: true });
           const address = solana.publicKey.toString();
+          console.log('Phantom silent connect success, address:', address);
           setWalletAddress(address);
           fetchEthUsdPrice();
           fetchAllInventory(address);
           success = true;
           return;
         } catch (err) {
-          console.log('Phantom not connected silently');
+          console.log('Phantom not connected silently:', err.message);
         }
       }
 
