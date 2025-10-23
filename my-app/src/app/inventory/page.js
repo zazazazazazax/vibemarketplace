@@ -47,16 +47,13 @@ export default function Inventory() {
         if (accounts.length === 0) {
           await provider.send('eth_requestAccounts', []); // Only if empty
         }
-        const signer = await provider.getSigner();
-        const address = await signer.getAddress();
-        console.log('Connected address:', address);
 
-        // Aggiungi: switch to Base chain if not already
+        // Switch to Base chain if not already
         try {
           await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]); // 8453 in hex
         } catch (switchError) {
           if (switchError.code === 4902) {
-            // Chain not added: add it (usa config Base da docs)
+            // Chain not added: add it
             await provider.send('wallet_addEthereumChain', [{
               chainId: '0x2105',
               chainName: 'Base',
@@ -64,8 +61,14 @@ export default function Inventory() {
               nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
               blockExplorerUrls: ['https://basescan.org']
             }]);
+          } else if (switchError.code !== 4001) {
+            throw switchError;
           }
         }
+
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        console.log('Connected address:', address);
 
         localStorage.setItem('preferredWallet', 'metamask');
         console.log('Saved preferredWallet: metamask');
@@ -90,6 +93,9 @@ export default function Inventory() {
       } catch (err) {
         console.error('Connect error:', err);
         setError('Error connecting: ' + err.message);
+        if (err.code === 4001) {
+          localStorage.clear();
+        }
       }
     } else if (window.solana) {
       try {
@@ -111,25 +117,27 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Auto-reconnect migliorato: più silenzioso, con listener e switch chain
+  // Auto-reconnect: silent check, verify signature without signer, no redirect - show button if fails
   useEffect(() => {
-    let provider; // Per listener
+    let accountsChangedHandler;
 
     const checkAutoConnect = async () => {
       if (isConnecting) return; // Skip if manual connect in progress
 
-      const preferredWallet = localStorage.getItem('preferredWallet');
+      let preferredWallet = localStorage.getItem('preferredWallet');
       console.log('Preferred wallet:', preferredWallet);
 
       if (!preferredWallet) {
         if (window.ethereum && window.ethereum.isMetaMask) {
-          localStorage.setItem('preferredWallet', 'metamask');
           preferredWallet = 'metamask';
+          localStorage.setItem('preferredWallet', 'metamask');
         } else {
-          router.push('/');
+          // No wallet detected, stay on page and show connect button
           return;
         }
       }
+
+      let success = false;
 
       if (preferredWallet === 'metamask' && window.ethereum && window.ethereum.isMetaMask) {
         const storedAddress = localStorage.getItem('walletAddress');
@@ -137,113 +145,132 @@ export default function Inventory() {
         const storedNonce = localStorage.getItem('walletNonce');
         const storedTimestamp = localStorage.getItem('walletTimestamp');
 
+        console.log('Stored data check:', { storedAddress: !!storedAddress, storedNonce: !!storedNonce, storedTimestamp: !!storedTimestamp });
+
         if (storedAddress && storedSignature && storedNonce && storedTimestamp) {
           const now = Date.now();
           const expiry = 24 * 60 * 60 * 1000;
           if (now - parseInt(storedTimestamp) < expiry) {
             try {
               console.log('Auto-reconnect attempt...');
-              provider = new ethers.BrowserProvider(window.ethereum);
-              
-              // CAMBIAMENTO: Switch chain prima, silenziosamente
+              const provider = new ethers.BrowserProvider(window.ethereum);
+
+              // Silent switch chain
               try {
                 await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]);
               } catch (switchError) {
+                console.log('Switch chain error (ignored for auto):', switchError.code);
                 if (switchError.code === 4902) {
-                  await provider.send('wallet_addEthereumChain', [{
-                    chainId: '0x2105',
-                    chainName: 'Base',
-                    rpcUrls: ['https://mainnet.base.org'],
-                    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-                    blockExplorerUrls: ['https://basescan.org']
-                  }]);
-                } else if (switchError.code !== 4001) { // Ignora user reject
-                  throw switchError;
+                  // Optionally add chain, but skip for silent
+                } else if (switchError.code !== 4001) {
+                  console.error('Switch chain failed:', switchError);
                 }
               }
 
-              // CAMBIAMENTO: Niente check accounts esplicito. Vai diretto su getSigner()
-              // Se non connesso, getSigner fallirà e aprirà popup SOLO se necessario
-              const signer = await provider.getSigner();
-              const address = await signer.getAddress();
-              console.log('Auto-reconnect address:', address);
+              // Silent get accounts
+              const accounts = await provider.send('eth_accounts', []);
+              console.log('Silent accounts length:', accounts.length);
+              if (accounts.length === 0) {
+                console.log('No silent accounts, skipping auto-reconnect');
+                return;
+              }
 
-              // Verifica signature (buona per sicurezza, come OpenSea)
+              const address = accounts[0];
+              console.log('Silent address:', address);
+
+              // Verify signature without signer
               const message = {
                 content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
                 nonce: parseInt(storedNonce)
               };
               const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
+              console.log('Recovered address from signature:', recoveredAddress);
+
               if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
-                localStorage.setItem('walletAddress', address); // Refresh address se cambiato
+                console.log('Signature valid, setting wallet');
+                localStorage.setItem('walletAddress', address); // Refresh if needed
                 setWalletAddress(address);
                 fetchEthUsdPrice();
                 fetchAllInventory(address);
+                success = true;
                 return;
               } else {
-                console.log('Signature mismatch, clear');
+                console.log('Signature mismatch');
+                localStorage.clear();
+                return;
               }
             } catch (err) {
-              console.error('Auto-reconnect failed:', err);
-              // Se errore (es. non connesso), NON clear qui: lascialo al manual connect
-              // Opcional: se err.code === 4001 (user reject), clear
-              if (err.code === 4001) localStorage.clear();
+              console.error('Auto-reconnect failed:', err.message || err);
+              // Do not clear on transient errors, only on mismatch or expired
+              if (err.message?.includes('mismatch') || err.code === 4001) {
+                localStorage.clear();
+              }
+              return;
             }
           } else {
-            console.log('Expired, clear');
+            console.log('Signature expired, clearing storage');
+            localStorage.clear();
+            return;
           }
         }
-        localStorage.clear(); // Solo se mancante o scaduto
       } else if (preferredWallet === 'phantom' && window.solana) {
         const solana = window.solana;
-        if (solana.isConnected) { // Phantom persistence
+        if (solana.isConnected) {
           const address = solana.publicKey.toString();
           setWalletAddress(address);
           fetchEthUsdPrice();
           fetchAllInventory(address);
+          success = true;
           return;
+        } else {
+          console.log('Phantom not connected silently');
         }
       }
 
-      // Fallback: redirect se tutto fallisce
-      router.push('/');
+      // If no success and no preferred, redirect to home
+      if (!preferredWallet) {
+        router.push('/');
+      }
+      // Otherwise, stay on page and show connect button
     };
 
-    // CAMBIAMENTO: Esegui immediatamente, senza delay lungo (MetaMask è pronto quasi subito)
     checkAutoConnect();
 
-    // CAMBIAMENTO: Aggiungi listener per accountsChanged (come OpenSea, per re-sync)
+    // Listener for accountsChanged
     if (window.ethereum) {
-      provider = new ethers.BrowserProvider(window.ethereum);
-      window.ethereum.on('accountsChanged', (accounts) => {
+      accountsChangedHandler = (accounts) => {
+        console.log('Accounts changed:', accounts);
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
-          fetchAllInventory(accounts[0]); // Re-fetch inventory
+          fetchAllInventory(accounts[0]);
         } else {
           setWalletAddress(null);
           localStorage.clear();
-          router.push('/');
+          // Optionally redirect, but stay for now
+          // router.push('/');
         }
-      });
-
-      // Cleanup listener su unmount
-      return () => {
-        window.ethereum.removeListener('accountsChanged', () => {});
       };
+      window.ethereum.on('accountsChanged', accountsChangedHandler);
     }
-  }, [router, isConnecting]); // Dependencies ok
+
+    // Cleanup
+    return () => {
+      if (window.ethereum && accountsChangedHandler) {
+        window.ethereum.removeListener('accountsChanged', accountsChangedHandler);
+      }
+    };
+  }, [router, isConnecting, fetchEthUsdPrice, fetchAllInventory]); // Added deps for fetch functions
 
   const disconnectWallet = () => {
     console.log('Disconnect clicked');
-    // CAMBIAMENTO: Aggiungi cleanup per listener
     if (window.ethereum) {
-      window.ethereum.removeListener('accountsChanged', () => {}); // Cleanup
+      window.ethereum.removeListener('accountsChanged', () => {}); // Cleanup if needed
     }
     setWalletAddress(null);
     localStorage.clear();
     setAllInventory([]);
     setInventory([]);
-    router.push('/'); // Redirect to home
+    router.push('/'); // Redirect to home on disconnect
   };
 
   const fetchEthUsdPrice = async () => {
@@ -385,7 +412,7 @@ export default function Inventory() {
     if (allInventory.length > 0) {
       updateCurrentPage(allInventory, currentPage);
     }
-  }, [currentPage]);
+  }, [currentPage, allInventory.length]);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
@@ -396,9 +423,11 @@ export default function Inventory() {
           <button
             className="bg-blue-500 text-white px-4 py-2 rounded mt-2"
             onClick={connectWallet}
+            disabled={isConnecting}
           >
-            Connect Wallet
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
+          {error && <p className="text-red-500 mt-2">{error}</p>}
         </div>
       ) : (
         <>
