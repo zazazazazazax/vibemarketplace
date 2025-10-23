@@ -163,7 +163,7 @@ export default function Inventory() {
 
       // Delay per load
       console.log('Waiting delay before checks...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    //  await new Promise(resolve => setTimeout(resolve, 3000));
       console.log('Delay completed, proceeding with checks');
 
       let preferredWallet = localStorage.getItem('preferredWallet');
