@@ -152,7 +152,7 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Auto-reconnect: con delay, check selectedAddress prima di eth_accounts per evitare popup
+  // Auto-reconnect: usa solo verifica signature (senza provider o eth_accounts) per evitare popup multi-wallet
   useEffect(() => {
     let accountsChangedHandler;
 
@@ -161,7 +161,7 @@ export default function Inventory() {
 
       console.log('Starting auto-reconnect check...');
 
-      // Aumentato delay a 3s per MetaMask load completo
+      // Delay per load
       console.log('Waiting delay before checks...');
       await new Promise(resolve => setTimeout(resolve, 3000));
       console.log('Delay completed, proceeding with checks');
@@ -174,7 +174,6 @@ export default function Inventory() {
           preferredWallet = 'metamask';
           localStorage.setItem('preferredWallet', 'metamask');
         } else {
-          // No wallet detected, stay on page and show connect button
           console.log('No preferred wallet or MetaMask, showing connect button');
           return;
         }
@@ -195,53 +194,8 @@ export default function Inventory() {
           const expiry = 24 * 60 * 60 * 1000;
           if (now - parseInt(storedTimestamp) < expiry) {
             try {
-              console.log('Auto-reconnect attempt...');
-              console.log('Checking selectedAddress for silent check...');
-              // NUOVO: Check selectedAddress prima di creare provider/eth_accounts - evita popup in multi-wallet
-              if (window.ethereum.selectedAddress && window.ethereum.selectedAddress.toLowerCase() === storedAddress.toLowerCase()) {
-                console.log('selectedAddress matches stored, using directly');
-                const address = window.ethereum.selectedAddress;
-                // Verifica signature (opzionale, ma veloce)
-                const message = {
-                  content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
-                  nonce: parseInt(storedNonce)
-                };
-                const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
-                if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
-                  console.log('Signature valid via selectedAddress, setting wallet');
-                  localStorage.setItem('walletAddress', address);
-                  setWalletAddress(address);
-                  fetchEthUsdPrice();
-                  fetchAllInventory(address);
-                  success = true;
-                  return;
-                } else {
-                  console.log('Signature mismatch on selectedAddress');
-                  localStorage.clear();
-                  return;
-                }
-              } else {
-                console.log('selectedAddress not matching or unavailable, falling back to provider');
-              }
-
-              const provider = new ethers.BrowserProvider(window.ethereum);
-              console.log('Provider created successfully');
-
-              // NO switch chain qui per evitare popup/block
-
-              // Silent get accounts (fallback)
-              console.log('Requesting silent accounts...');
-              const accounts = await provider.send('eth_accounts', []);
-              console.log('Silent accounts length after delay:', accounts.length);
-              if (accounts.length === 0) {
-                console.log('No silent accounts even after delay, skipping auto-reconnect (show button)');
-                return;
-              }
-
-              const address = accounts[0];
-              console.log('Silent address:', address);
-
-              // Verify signature without signer
+              console.log('Auto-reconnect attempt via signature only...');
+              // Verifica signature per recuperare address senza provider
               console.log('Verifying signature...');
               const message = {
                 content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
@@ -250,12 +204,11 @@ export default function Inventory() {
               const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
               console.log('Recovered address from signature:', recoveredAddress);
 
-              if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
-                console.log('Signature valid, setting wallet');
-                localStorage.setItem('walletAddress', address); // Refresh if needed
-                setWalletAddress(address);
+              if (recoveredAddress.toLowerCase() === storedAddress.toLowerCase()) {
+                console.log('Signature valid, using recovered address for session');
+                setWalletAddress(recoveredAddress);
                 fetchEthUsdPrice();
-                fetchAllInventory(address);
+                fetchAllInventory(recoveredAddress);
                 success = true;
                 return;
               } else {
@@ -264,11 +217,8 @@ export default function Inventory() {
                 return;
               }
             } catch (err) {
-              console.error('Auto-reconnect failed at:', err.message || err, 'Full error:', err);
-              // Do not clear on transient errors, only on mismatch or expired
-              if (err.message?.includes('mismatch') || err.code === 4001) {
-                localStorage.clear();
-              }
+              console.error('Signature verification failed:', err.message || err);
+              localStorage.clear();
               return;
             }
           } else {
@@ -280,7 +230,6 @@ export default function Inventory() {
       } else if (preferredWallet === 'phantom' && window.solana) {
         const solana = window.solana;
         try {
-          // Usa onlyIfTrusted: true per silent auto-connect senza popup
           console.log('Attempting silent Phantom connect...');
           await solana.connect({ onlyIfTrusted: true });
           const address = solana.publicKey.toString();
@@ -308,7 +257,7 @@ export default function Inventory() {
     };
     delayedCheck();
 
-    // Listener for accountsChanged
+    // Listener for accountsChanged (aggiungi solo dopo connect, ma per semplicità qui)
     if (window.ethereum) {
       accountsChangedHandler = (accounts) => {
         console.log('Accounts changed:', accounts);
