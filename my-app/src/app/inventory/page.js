@@ -106,12 +106,17 @@ export default function Inventory() {
         return baseTokens;
       } catch (err) {
         console.warn(`Offer fetch attempt ${attempt + 1} failed for ${contractAddress} ${rarity}:`, err.message);
-        if (err.code === -32005 || err.message.includes('rate limited') || err.code === 'UNSUPPORTED_OPERATION') { // Rate limit o provider not ready
-          if (attempt < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 140 * (attempt + 1))); // Backoff: 1.5s, 3s, 4.5s
-          } else {
-            console.error('Offer fetch failed after retries for', contractAddress, rarity);
-            return 0n;
+       if (err.code === -32005 || err.message.includes('rate limited') || err.code === 'UNSUPPORTED_OPERATION') { // Rate limit o provider not ready
+  if (attempt < retries - 1) {
+    await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1))); // Backoff: 500ms, 1s, 1.5s
+  } else {
+    console.error('Offer fetch failed after retries for', contractAddress, rarity);
+    return 0n;
+  }
+} else {
+  console.error('Unexpected error fetching offer for', contractAddress, rarity, err);
+  return 0n;
+}
           }
         } else {
           console.error('Unexpected error fetching offer for', contractAddress, rarity, err);
@@ -136,7 +141,7 @@ export default function Inventory() {
         }
         // Delay 500ms tra calls per evitare rate limit
         if (i < cards.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 140));
         }
       }
     }
@@ -400,7 +405,9 @@ export default function Inventory() {
         // Warm up provider
 await new Promise(resolve => setTimeout(resolve, 200));
 setPublicProvider(prov);        setPublicProvider(prov);
-      }
+        // Warm-up provider per prima call
+await prov.getNetwork();      }
+      
       const collectionDrop = new ethers.Contract(
         card.contractAddress,
         [
