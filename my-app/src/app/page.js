@@ -114,7 +114,7 @@ export default function Home() {
     };
 
     // Delay to wait for MetaMask ready
-    const timer = setTimeout(checkAutoConnect, 2000); // 2s delay
+    const timer = setTimeout(checkAutoConnect, 3000); // 3s delay
     return () => clearTimeout(timer);
   }, []);
 
@@ -126,6 +126,24 @@ export default function Home() {
     setInventory([]);
     setPrices({});
   };
+
+  // Listener for accountsChanged
+  useEffect(() => {
+    if (window.ethereum) {
+      const handleAccountsChanged = (accounts) => {
+        if (accounts.length === 0) {
+          disconnectWallet();
+        } else if (accounts[0].toLowerCase() !== walletAddress?.toLowerCase()) {
+          // Switch account - re-fetch
+          const newAddress = accounts[0];
+          setWalletAddress(newAddress);
+          fetchAllInventory(newAddress);
+        }
+      };
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      return () => window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+    }
+  }, [walletAddress]);
 
   const fetchEthUsdPrice = async () => {
     try {
@@ -162,6 +180,9 @@ export default function Home() {
     if (!provider || !card.contract?.tokenAddress) return 'Reconnecting...';
 
     try {
+      // Wait for provider ready
+      await provider.getNetwork();
+
       const collectionDrop = new ethers.Contract(
         card.contractAddress, // IBoosterDrop
         [
