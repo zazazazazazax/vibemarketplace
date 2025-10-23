@@ -66,6 +66,8 @@ export default function Home() {
   // Auto-reconnect on load
   useEffect(() => {
     const checkAutoConnect = async () => {
+      if (!window.ethereum) return;
+
       const storedAddress = localStorage.getItem('walletAddress');
       const storedSignature = localStorage.getItem('walletSignature');
       const storedNonce = localStorage.getItem('walletNonce');
@@ -77,6 +79,7 @@ export default function Home() {
         if (now - parseInt(storedTimestamp) < expiry) {
           try {
             const provider = new ethers.BrowserProvider(window.ethereum);
+            await provider.send('eth_requestAccounts', []); // Ensure accounts are connected
             const signer = await provider.getSigner();
             const address = await signer.getAddress();
 
@@ -91,18 +94,13 @@ export default function Home() {
               fetchEthUsdPrice();
               fetchAllInventory(address);
             } else {
-              // Invalid signature - clear
-              localStorage.removeItem('walletAddress');
-              localStorage.removeItem('walletSignature');
-              localStorage.removeItem('walletNonce');
-              localStorage.removeItem('walletTimestamp');
+              localStorage.clear();
             }
           } catch (err) {
-            // Clear on error
+            console.error('Auto-reconnect failed:', err);
             localStorage.clear();
           }
         } else {
-          // Expired - clear
           localStorage.clear();
         }
       }
@@ -154,6 +152,18 @@ export default function Home() {
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
+      const collectionDrop = new ethers.Contract(
+        card.contractAddress, // IBoosterDrop
+        [
+          'function COMMON_OFFER() external view returns (uint256)',
+          'function RARE_OFFER() external view returns (uint256)',
+          'function EPIC_OFFER() external view returns (uint256)',
+          'function LEGENDARY_OFFER() external view returns (uint256)',
+          'function MYTHIC_OFFER() external view returns (uint256)'
+        ],
+        provider
+      );
+
       const boosterToken = new ethers.Contract(
         card.contract.tokenAddress,
         [
