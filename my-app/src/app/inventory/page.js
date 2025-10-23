@@ -16,6 +16,7 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [autoReconnecting, setAutoReconnecting] = useState(false); // Flag for auto-reconnect
 
   const cardsPerPage = 50;
 
@@ -43,12 +44,15 @@ export default function Inventory() {
     if (window.ethereum) {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send('eth_requestAccounts', []);
+        const accounts = await provider.send('eth_accounts', []); // Silent check
+        if (accounts.length === 0) {
+          await provider.send('eth_requestAccounts', []); // Only if empty
+        }
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         console.log('Connected address:', address);
 
-        // Save preferred wallet immediately (before signature)
+        // Save preferred wallet immediately
         localStorage.setItem('preferredWallet', 'metamask');
         console.log('Saved preferredWallet: metamask');
 
@@ -129,10 +133,10 @@ export default function Inventory() {
             try {
               console.log('Attempting auto-reconnect...');
               const provider = new ethers.BrowserProvider(window.ethereum);
-              const accounts = await provider.listAccounts();
-              console.log('Existing accounts:', accounts.length);
+              const accounts = await provider.send('eth_accounts', []); // Silent check
+              console.log('Silent accounts length:', accounts.length);
               if (accounts.length === 0) {
-                await provider.send('eth_requestAccounts', []);
+                await provider.send('eth_requestAccounts', []); // Only if empty
               }
               const signer = await provider.getSigner();
               const address = await signer.getAddress();
