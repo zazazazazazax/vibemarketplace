@@ -13,6 +13,7 @@ export default function Home() {
   const [prices, setPrices] = useState({}); // Cache per prezzi
   const [ethUsdPrice, setEthUsdPrice] = useState(0); // ETH/USD rate
   const [hoveredCardId, setHoveredCardId] = useState(null); // ID carta hover
+  const [provider, setProvider] = useState(null); // Provider globale
 
   const cardsPerPage = 50;
 
@@ -38,6 +39,9 @@ export default function Home() {
         await provider.send('eth_requestAccounts', []);
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
+
+        // Set global provider
+        setProvider(provider);
 
         // Request signature for persistence
         const message = {
@@ -83,6 +87,9 @@ export default function Home() {
             const signer = await provider.getSigner();
             const address = await signer.getAddress();
 
+            // Set global provider
+            setProvider(provider);
+
             // Verify signature
             const message = {
               content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
@@ -107,15 +114,17 @@ export default function Home() {
     };
 
     // Delay to wait for MetaMask ready
-    const timer = setTimeout(checkAutoConnect, 1000); // 1s delay
+    const timer = setTimeout(checkAutoConnect, 2000); // 2s delay
     return () => clearTimeout(timer);
   }, []);
 
   const disconnectWallet = () => {
     setWalletAddress(null);
+    setProvider(null);
     localStorage.clear();
     setAllInventory([]);
     setInventory([]);
+    setPrices({});
   };
 
   const fetchEthUsdPrice = async () => {
@@ -150,10 +159,9 @@ export default function Home() {
     const cacheKey = `${card.tokenId}-${card.contractAddress}`;
     if (prices[cacheKey]) return prices[cacheKey];
 
-    if (!card.contract?.tokenAddress) return 'N/A';
+    if (!provider || !card.contract?.tokenAddress) return 'Reconnecting...';
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
       const collectionDrop = new ethers.Contract(
         card.contractAddress, // IBoosterDrop
         [
