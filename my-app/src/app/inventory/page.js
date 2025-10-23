@@ -16,7 +16,8 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [provider, setProvider] = useState(null); // Provider MetaMask per signer e view calls (con retry)
+  const [provider, setProvider] = useState(null); // Provider MetaMask per signer
+  const [publicProvider, setPublicProvider] = useState(null); // Provider pubblico per view calls
   const [offerCache, setOfferCache] = useState({}); // Cache per OFFER per contract
   const debounceRef = useRef(null); // Per debounce su hover
 
@@ -62,10 +63,9 @@ export default function Inventory() {
       setAllInventory(data.cards);
       updateCurrentPage(data.cards, 1);
 
-      // Pre-calcola prezzi con delay maggiore per evitare rate limit iniziale
-      if (provider && data.cards.length > 0 && data.cards.some(card => card.contract?.tokenAddress)) {
-        // Delay iniziale 2s per "warm up" MetaMask
-        setTimeout(() => preCalculatePrices(data.cards), 2000);
+      // Pre-calcola prezzi solo dopo 3s per warm-up
+      if (publicProvider && data.cards.length > 0) {
+        setTimeout(() => preCalculatePrices(data.cards), 3000);
       }
     } catch (err) {
       console.error('Fetch inventory error:', err);
@@ -73,7 +73,7 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }, [provider]); // Dep per provider
+  }, [publicProvider]); // Dep per publicProvider
 
   // Funzione per fetch OFFER cached con retry su rate limit
   const getOffer = useCallback(async (contractAddress, rarity, retries = 3) => {
@@ -91,7 +91,7 @@ export default function Inventory() {
             'function LEGENDARY_OFFER() external view returns (uint256)',
             'function MYTHIC_OFFER() external view returns (uint256)'
           ],
-          provider
+          publicProvider
         );
 
         let baseTokens;
@@ -106,9 +106,9 @@ export default function Inventory() {
         return baseTokens;
       } catch (err) {
         console.warn(`Offer fetch attempt ${attempt + 1} failed for ${contractAddress} ${rarity}:`, err.message);
-        if (err.code === -32005 || err.message.includes('rate limited')) { // Rate limit
+        if (err.code === -32005 || err.message.includes('rate limited') || err.message.includes('UNSUPPORTED_OPERATION')) { // Rate limit o provider not ready
           if (attempt < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Backoff: 1s, 2s, 3s
+            await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1))); // Backoff: 1.5s, 3s, 4.5s
           } else {
             console.error('Offer fetch failed after retries for', contractAddress, rarity);
             return 0n;
@@ -120,7 +120,7 @@ export default function Inventory() {
       }
     }
     return 0n;
-  }, [offerCache, provider]);
+  }, [offerCache, publicProvider]);
 
   // Pre-calcola prezzi con delay sequenziale maggiore
   const preCalculatePrices = useCallback(async (cards) => {
@@ -176,8 +176,12 @@ export default function Inventory() {
           }
         }
 
-        // Salva provider persistente (MetaMask per signer e view calls con retry)
+        // Salva provider persistente (MetaMask per signer)
         setProvider(prov);
+
+        // Crea public provider per view calls (subito, sync)
+        const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
+        setPublicProvider(pubProv);
 
         const signer = await prov.getSigner();
         const address = await signer.getAddress();
@@ -231,12 +235,12 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Crea provider persistente quando walletAddress è set (post-auto-reconnect)
+  // Crea public provider persistente quando walletAddress è set
   useEffect(() => {
-    if (walletAddress && !provider && window.ethereum && window.ethereum.isMetaMask) {
-      console.log('Creating provider after wallet set');
-      const prov = new ethers.BrowserProvider(window.ethereum);
-      setProvider(prov);
+    if (walletAddress && !publicProvider) {
+      console.log('Creating public provider after wallet set');
+      const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
+      setPublicProvider(pubProv);
     }
   }, [walletAddress]);
 
@@ -289,7 +293,7 @@ export default function Inventory() {
 
               if (recoveredAddress.toLowerCase() === storedAddress.toLowerCase()) {
                 console.log('Signature valid, using recovered address for session');
-                setWalletAddress(recoveredAddress); // Questo triggera il useEffect per creare provider
+                setWalletAddress(recoveredAddress); // Questo triggera il useEffect per creare public provider
                 fetchEthUsdPrice();
                 fetchAllInventory(recoveredAddress);
                 success = true;
@@ -371,6 +375,7 @@ export default function Inventory() {
       window.solana.disconnect();
     }
     setProvider(null); // Clear provider su disconnect
+    setPublicProvider(null); // Clear public provider
     setOfferCache({}); // Clear cache
     setWalletAddress(null);
     localStorage.clear();
@@ -386,10 +391,12 @@ export default function Inventory() {
     if (!card.contract?.tokenAddress) return 'N/A';
 
     try {
-      // Usa provider persistente invece di crearne uno nuovo
-      if (!provider) {
-        console.warn('No provider available for price calc, skipping');
-        return 'N/A';
+      // Usa publicProvider per view calls (no rate limit MetaMask)
+      let prov = publicProvider;
+      if (!prov) {
+        console.warn('No public provider available for price calc, creating on-the-fly');
+        prov = new ethers.JsonRpcProvider('https://base.publicnode.com');
+        setPublicProvider(prov);
       }
       const collectionDrop = new ethers.Contract(
         card.contractAddress,
@@ -400,7 +407,7 @@ export default function Inventory() {
           'function LEGENDARY_OFFER() external view returns (uint256)',
           'function MYTHIC_OFFER() external view returns (uint256)'
         ],
-        provider
+        prov
       );
 
       const boosterToken = new ethers.Contract(
@@ -408,10 +415,10 @@ export default function Inventory() {
         [
           'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
         ],
-        provider
+        prov
       );
 
-      // Usa cached OFFER con retry
+      // Usa cached OFFER
       let baseTokens = await getOffer(card.contractAddress, card.rarity);
       if (baseTokens === 0n) return 'N/A';
 
@@ -448,7 +455,7 @@ export default function Inventory() {
     }
   };
 
-  // Debounce per handleMouseEnter (0ms per istantaneo, anti-burst via cache)
+  // Debounce per handleMouseEnter (0ms per istantaneo)
   const handleMouseEnter = useCallback(async (card) => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
