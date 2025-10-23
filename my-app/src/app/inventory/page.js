@@ -15,7 +15,7 @@ export default function Inventory() {
   const [prices, setPrices] = useState({});
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
-  const [isConnecting, setIsConnecting] = useState(false); // Flag to avoid loop during connect
+  const [isConnecting, setIsConnecting] = useState(false); // Flag for initial connect
 
   const cardsPerPage = 50;
 
@@ -39,6 +39,7 @@ export default function Inventory() {
   const connectWallet = async () => {
     console.log('Connect wallet clicked');
     setIsConnecting(true);
+    setError(null);
     if (window.ethereum) {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -47,7 +48,7 @@ export default function Inventory() {
         const address = await signer.getAddress();
         console.log('Connected address:', address);
 
-        // Save preferred wallet
+        // Save preferred wallet immediately
         localStorage.setItem('preferredWallet', 'metamask');
 
         const message = {
@@ -71,14 +72,12 @@ export default function Inventory() {
       }
     } else if (window.solana) {
       try {
-        // Phantom connect
         const solana = window.solana;
         await solana.connect();
         const address = solana.publicKey.toString();
         localStorage.setItem('preferredWallet', 'phantom');
         localStorage.setItem('walletAddress', address);
         setWalletAddress(address);
-        // Note: For Phantom, signature logic would need Solana-specific (skip for now)
         fetchEthUsdPrice();
         fetchAllInventory(address);
       } catch (err) {
@@ -95,6 +94,8 @@ export default function Inventory() {
   useEffect(() => {
     console.log('Auto-reconnect useEffect started');
     const checkAutoConnect = async () => {
+      if (isConnecting) return; // Skip if initial connect in progress
+
       const preferredWallet = localStorage.getItem('preferredWallet');
       console.log('Preferred wallet:', preferredWallet);
 
@@ -171,7 +172,7 @@ export default function Inventory() {
     };
 
     setTimeout(checkAutoConnect, 3000); // 3s delay for wallet ready
-  }, [router]);
+  }, [router, isConnecting]); // Depend on isConnecting to skip during initial
 
   const disconnectWallet = () => {
     console.log('Disconnect clicked');
