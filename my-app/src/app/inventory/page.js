@@ -15,7 +15,7 @@ export default function Inventory() {
   const [prices, setPrices] = useState({});
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
-  const [isConnecting, setIsConnecting] = useState(false); // Flag for initial connect
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const cardsPerPage = 50;
 
@@ -50,6 +50,7 @@ export default function Inventory() {
 
         // Save preferred wallet immediately
         localStorage.setItem('preferredWallet', 'metamask');
+        console.log('Saved preferredWallet: metamask'); // Log save
 
         const message = {
           content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
@@ -62,6 +63,8 @@ export default function Inventory() {
         localStorage.setItem('walletSignature', signature);
         localStorage.setItem('walletNonce', nonce.toString());
         localStorage.setItem('walletTimestamp', Date.now().toString());
+
+        console.log('All localStorage saved'); // Log all saved
 
         setWalletAddress(address);
         fetchEthUsdPrice();
@@ -100,9 +103,14 @@ export default function Inventory() {
       console.log('Preferred wallet:', preferredWallet);
 
       if (!preferredWallet) {
-        console.log('No preferred wallet, redirect to home');
-        router.push('/');
-        return;
+        console.log('No preferred wallet, but Ethereum exists, assume metamask');
+        if (window.ethereum) {
+          preferredWallet = 'metamask';
+        } else {
+          console.log('No Ethereum, redirect to home');
+          router.push('/');
+          return;
+        }
       }
 
       if (preferredWallet === 'metamask' && window.ethereum) {
@@ -172,7 +180,7 @@ export default function Inventory() {
     };
 
     setTimeout(checkAutoConnect, 3000); // 3s delay for wallet ready
-  }, [router, isConnecting]); // Depend on isConnecting to skip during initial
+  }, [router, isConnecting]);
 
   const disconnectWallet = () => {
     console.log('Disconnect clicked');
