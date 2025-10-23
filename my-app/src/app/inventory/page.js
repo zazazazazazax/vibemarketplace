@@ -130,6 +130,7 @@ export default function Inventory() {
     } else if (window.solana) {
       try {
         const solana = window.solana;
+        // Per manual connect, usa default (prompt if needed)
         await solana.connect();
         const address = solana.publicKey.toString();
         localStorage.setItem('preferredWallet', 'phantom');
@@ -147,12 +148,15 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Auto-reconnect: silent check, verify signature without signer, no redirect - show button if fails
+  // Auto-reconnect: con delay per aspettare MetaMask ready, silent check
   useEffect(() => {
     let accountsChangedHandler;
 
     const checkAutoConnect = async () => {
       if (isConnecting) return; // Skip if manual connect in progress
+
+      // AGGIUNTO: Delay per permettere a MetaMask di caricare completamente dopo refresh
+      await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5s delay
 
       let preferredWallet = localStorage.getItem('preferredWallet');
       console.log('Preferred wallet:', preferredWallet);
@@ -197,11 +201,11 @@ export default function Inventory() {
                 }
               }
 
-              // Silent get accounts
+              // Silent get accounts - questo dovrebbe essere persistente se MetaMask ha concesso permessi
               const accounts = await provider.send('eth_accounts', []);
-              console.log('Silent accounts length:', accounts.length);
+              console.log('Silent accounts length after delay:', accounts.length);
               if (accounts.length === 0) {
-                console.log('No silent accounts, skipping auto-reconnect');
+                console.log('No silent accounts even after delay, skipping auto-reconnect (show button)');
                 return;
               }
 
@@ -245,14 +249,16 @@ export default function Inventory() {
         }
       } else if (preferredWallet === 'phantom' && window.solana) {
         const solana = window.solana;
-        if (solana.isConnected) {
+        try {
+          // AGGIUNTO: Usa onlyIfTrusted: true per silent auto-connect senza popup
+          await solana.connect({ onlyIfTrusted: true });
           const address = solana.publicKey.toString();
           setWalletAddress(address);
           fetchEthUsdPrice();
           fetchAllInventory(address);
           success = true;
           return;
-        } else {
+        } catch (err) {
           console.log('Phantom not connected silently');
         }
       }
@@ -264,7 +270,11 @@ export default function Inventory() {
       // Otherwise, stay on page and show connect button
     };
 
-    checkAutoConnect();
+    // Esegui con delay
+    const delayedCheck = async () => {
+      await checkAutoConnect();
+    };
+    delayedCheck();
 
     // Listener for accountsChanged
     if (window.ethereum) {
@@ -295,6 +305,9 @@ export default function Inventory() {
     console.log('Disconnect clicked');
     if (window.ethereum) {
       window.ethereum.removeListener('accountsChanged', () => {}); // Cleanup if needed
+    }
+    if (window.solana) {
+      window.solana.disconnect();
     }
     setWalletAddress(null);
     localStorage.clear();
