@@ -12,7 +12,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [prices, setPrices] = useState({}); // Cache per prezzi
   const [ethUsdPrice, setEthUsdPrice] = useState(0); // ETH/USD rate
-  const [hoveredCard, setHoveredCard] = useState(null); // For lazy-load on hover
+  const [hoveredCardId, setHoveredCardId] = useState(null); // ID carta hover (per display)
 
   const cardsPerPage = 50;
 
@@ -80,7 +80,7 @@ export default function Home() {
 
       // BaseTokens from rarity
       let baseTokens;
-      if (card.rarity === 1) baseTokens = 10000n; // Common - BigInt
+      if (card.rarity === 1) baseTokens = 10000n; // Common
       else if (card.rarity === 2) baseTokens = 110000n; // Rare
       else if (card.rarity === 3) baseTokens = 400000n; // Epic
       else if (card.rarity === 4) baseTokens = 4000000n; // Legendary
@@ -97,16 +97,16 @@ export default function Home() {
 
       // Wear multiplier
       const wearStr = card.metadata.wear;
-      const wearValue = BigInt(Math.floor(parseFloat(wearStr) * 100000000)); // To uint as in contract
+      const wearValue = BigInt(Math.floor(parseFloat(wearStr) * 100000000));
       let wearMult = 100n;
       if (wearValue < 5n) wearMult = 180n;
       else if (wearValue < 20n) wearMult = 160n;
       else if (wearValue < 45n) wearMult = 140n;
       else if (wearValue < 75n) wearMult = 120n;
 
-      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42% - All BigInt
+      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
 
-      const priceInEth = ethers.formatEther(listingPrice);
+      const priceInEth = ethers.formatEther(listingPrice, { decimals: 6 }); // 6 decimali
       const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
       const price = `${priceInEth} ETH (${priceInUsd} USD)`;
 
@@ -120,10 +120,16 @@ export default function Home() {
 
   // Hover handler for lazy-load price
   const handleMouseEnter = async (card) => {
-    if (!prices[`${card.tokenId}-${card.contractAddress}`] && card.contract?.tokenAddress) {
+    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+    if (!prices[cacheKey] && card.contract?.tokenAddress) {
       const price = await calculateCardPrice(card);
-      setPrices(prev => ({ ...prev, [`${card.tokenId}-${card.contractAddress}`]: price }));
+      setPrices(prev => ({ ...prev, [cacheKey]: price }));
     }
+    setHoveredCardId(cacheKey);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredCardId(null);
   };
 
   const updateCurrentPage = (cards, page) => {
@@ -176,24 +182,27 @@ export default function Home() {
       {inventory.length > 0 ? (
         <>
           <ul className="space-y-4">
-            {inventory.map((card, index) => (
-              <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)}>
-                <img
-                  src={card.metadata.imageUrl}
-                  alt="Card"
-                  className="w-32 h-48 object-cover mr-4"
-                />
-                <div>
-                  <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
-                  <p><strong>Contract Address:</strong> {card.contractAddress}</p>
-                  <p><strong>Token Address:</strong> {card.contract?.tokenAddress || 'N/A'}</p>
-                  <p><strong>Token ID:</strong> {card.tokenId}</p>
-                  <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
-                  <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
-                  <p><strong>Estimated Price:</strong> {prices[`${card.tokenId}-${card.contractAddress}`] || 'Hover to calculate'}</p>
-                </div>
-              </li>
-            ))}
+            {inventory.map((card, index) => {
+              const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+              return (
+                <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)} onMouseLeave={handleMouseLeave}>
+                  <img
+                    src={card.metadata.imageUrl}
+                    alt="Card"
+                    className="w-32 h-48 object-cover mr-4"
+                  />
+                  <div>
+                    <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
+                    <p><strong>Contract Address:</strong> {card.contractAddress}</p>
+                    <p><strong>Token Address:</strong> {card.contract?.tokenAddress || 'N/A'}</p>
+                    <p><strong>Token ID:</strong> {card.tokenId}</p>
+                    <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
+                    <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
+                    <p><strong>Estimated Price:</strong> {hoveredCardId === cacheKey ? prices[cacheKey] || 'Calculating...' : 'Hover to calculate'}</p>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
           <div className="mt-4">
             <button
