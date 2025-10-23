@@ -121,11 +121,6 @@ const calculateCardPrice = async (card) => {
     return 'N/A';
   }
 };
-    } catch (err) {
-      console.error('Error calculating price for card', card.tokenId, err);
-      return 'N/A';
-    }
-  };
 
   // Hover handler for lazy-load price
   const handleMouseEnter = async (card) => {
