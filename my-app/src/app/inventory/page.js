@@ -63,7 +63,7 @@ export default function Inventory() {
     }
   };
 
-  // Auto-reconnect
+  // Auto-reconnect on load
   useEffect(() => {
     const checkAutoConnect = async () => {
       if (!window.ethereum) return;
@@ -75,7 +75,7 @@ export default function Inventory() {
 
       if (storedAddress && storedSignature && storedNonce && storedTimestamp) {
         const now = Date.now();
-        const expiry = 24 * 60 * 60 * 1000;
+        const expiry = 24 * 60 * 60 * 1000; // 24 hours
         if (now - parseInt(storedTimestamp) < expiry) {
           try {
             const provider = new ethers.BrowserProvider(window.ethereum);
@@ -92,7 +92,7 @@ export default function Inventory() {
               setWalletAddress(address);
               fetchEthUsdPrice();
               fetchAllInventory(address);
-              return;
+              return; // Success - stay on inventory
             }
           } catch (err) {
             console.error('Auto-reconnect failed:', err);
@@ -100,10 +100,12 @@ export default function Inventory() {
         }
         localStorage.clear();
       }
+      // If not connected, redirect to home
+      router.push('/');
     };
 
     setTimeout(checkAutoConnect, 2000);
-  }, []);
+  }, [router]);
 
   const disconnectWallet = () => {
     setWalletAddress(null);
@@ -255,62 +257,67 @@ export default function Inventory() {
     <main className="flex min-h-screen flex-col items-center p-24">
       <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
       {!walletAddress ? (
-        <button
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-          onClick={connectWallet}
-        >
-          Connect Wallet
-        </button>
+        <div>
+          <p>Please connect your wallet to view inventory.</p>
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded mt-2"
+            onClick={connectWallet}
+          >
+            Connect Wallet
+          </button>
+        </div>
       ) : (
-        <p className="mb-4">Connected: {walletAddress} <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">Disconnect</button></p>
-      )}
-      {error && <p className="text-red-500">{error}</p>}
-      {loading && <p>Loading all pages...</p>}
-      {inventory.length > 0 ? (
         <>
-          <ul className="space-y-4">
-            {inventory.map((card, index) => {
-              const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-              return (
-                <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)} onMouseLeave={handleMouseLeave}>
-                  <img
-                    src={card.metadata.imageUrl}
-                    alt="Card"
-                    className="w-32 h-48 object-cover mr-4"
-                  />
-                  <div>
-                    <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
-                    <p><strong>Contract Address:</strong> {card.contractAddress}</p>
-                    <p><strong>Token Address:</strong> {card.contract?.tokenAddress || 'N/A'}</p>
-                    <p><strong>Token ID:</strong> {card.tokenId}</p>
-                    <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
-                    <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
-                    <p><strong>Estimated Price:</strong> {hoveredCardId === cacheKey ? prices[cacheKey] || 'Calculating...' : 'Hover to calculate'}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="mt-4">
-            <button
-              className="bg-blue-500 text-white px-2 py-1 rounded mr-2 disabled:bg-gray-400"
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </button>
-            <span>Page {currentPage} of {totalPages} (Total cards: {allInventory.length})</span>
-            <button
-              className="bg-blue-500 text-white px-2 py-1 rounded ml-2 disabled:bg-gray-400"
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </button>
-          </div>
+          <p className="mb-4">Connected: {walletAddress} <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">Disconnect</button></p>
+          {error && <p className="text-red-500">{error}</p>}
+          {loading && <p>Loading all pages...</p>}
+          {inventory.length > 0 ? (
+            <>
+              <ul className="space-y-4">
+                {inventory.map((card, index) => {
+                  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+                  return (
+                    <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)} onMouseLeave={handleMouseLeave}>
+                      <img
+                        src={card.metadata.imageUrl}
+                        alt="Card"
+                        className="w-32 h-48 object-cover mr-4"
+                      />
+                      <div>
+                        <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
+                        <p><strong>Contract Address:</strong> {card.contractAddress}</p>
+                        <p><strong>Token Address:</strong> {card.contract?.tokenAddress || 'N/A'}</p>
+                        <p><strong>Token ID:</strong> {card.tokenId}</p>
+                        <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
+                        <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
+                        <p><strong>Estimated Price:</strong> {hoveredCardId === cacheKey ? prices[cacheKey] || 'Calculating...' : 'Hover to calculate'}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4">
+                <button
+                  className="bg-blue-500 text-white px-2 py-1 rounded mr-2 disabled:bg-gray-400"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span>Page {currentPage} of {totalPages} (Total cards: {allInventory.length})</span>
+                <button
+                  className="bg-blue-500 text-white px-2 py-1 rounded ml-2 disabled:bg-gray-400"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          ) : (
+            <p>No opened cards found.</p>
+          )}
         </>
-      ) : (
-        <p>No opened cards found.</p>
       )}
     </main>
   );
