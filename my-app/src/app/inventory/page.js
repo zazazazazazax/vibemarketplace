@@ -76,7 +76,7 @@ export default function Inventory() {
   }, [publicProvider]); // Dep per publicProvider
 
   // Funzione per fetch OFFER cached con retry su rate limit
-  const getOffer = useCallback(async (contractAddress, rarity, retries = 3) => {
+  const getOffer = useCallback(async (contractAddress, rarity, prov, retries = 3) => {
     const cacheKey = `${contractAddress}_OFFER_${rarity}`;
     if (offerCache[cacheKey]) return offerCache[cacheKey];
 
@@ -91,7 +91,7 @@ export default function Inventory() {
             'function LEGENDARY_OFFER() external view returns (uint256)',
             'function MYTHIC_OFFER() external view returns (uint256)'
           ],
-          publicProvider
+          prov
         );
 
         let baseTokens;
@@ -106,9 +106,9 @@ export default function Inventory() {
         return baseTokens;
       } catch (err) {
         console.warn(`Offer fetch attempt ${attempt + 1} failed for ${contractAddress} ${rarity}:`, err.message);
-        if (err.code === -32005 || err.message.includes('rate limited') || err.message.includes('UNSUPPORTED_OPERATION')) { // Rate limit o provider not ready
+        if (err.code === -32005 || err.message.includes('rate limited') || err.code === 'UNSUPPORTED_OPERATION') { // Rate limit o provider not ready
           if (attempt < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1))); // Backoff: 1.5s, 3s, 4.5s
+            await new Promise(resolve => setTimeout(resolve, 140 * (attempt + 1))); // Backoff: 1.5s, 3s, 4.5s
           } else {
             console.error('Offer fetch failed after retries for', contractAddress, rarity);
             return 0n;
@@ -178,11 +178,12 @@ export default function Inventory() {
 
         // Salva provider persistente (MetaMask per signer)
         setProvider(prov);
+        
 
         // Crea public provider per view calls (subito, sync)
         const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
         setPublicProvider(pubProv);
-
+        await new Promise(resolve => setTimeout(resolve, 200));
         const signer = await prov.getSigner();
         const address = await signer.getAddress();
         console.log('Connected address:', address);
@@ -396,7 +397,9 @@ export default function Inventory() {
       if (!prov) {
         console.warn('No public provider available for price calc, creating on-the-fly');
         prov = new ethers.JsonRpcProvider('https://base.publicnode.com');
-        setPublicProvider(prov);
+        // Warm up provider
+await new Promise(resolve => setTimeout(resolve, 200));
+setPublicProvider(prov);        setPublicProvider(prov);
       }
       const collectionDrop = new ethers.Contract(
         card.contractAddress,
