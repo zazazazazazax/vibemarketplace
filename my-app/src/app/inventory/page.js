@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 
@@ -36,6 +36,36 @@ export default function Inventory() {
   };
   const nonce = Math.floor(Date.now() / 1000 / 3600);
 
+  const fetchEthUsdPrice = useCallback(async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      const data = await response.json();
+      setEthUsdPrice(data.ethereum.usd || 0);
+    } catch (err) {
+      console.error('Error fetching ETH price:', err);
+    }
+  }, []);
+
+  const fetchAllInventory = useCallback(async (address) => {
+    console.log('Fetching inventory for', address);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/inventory?address=${address}`);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
+      console.log('Inventory loaded, cards length:', data.cards.length);
+      setAllInventory(data.cards);
+      updateCurrentPage(data.cards, 1);
+    } catch (err) {
+      console.error('Fetch inventory error:', err);
+      setError('Error loading: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // No deps, stable
+
   const connectWallet = async () => {
     console.log('Connect wallet clicked');
     setIsConnecting(true);
@@ -48,7 +78,7 @@ export default function Inventory() {
           await provider.send('eth_requestAccounts', []); // Only if empty
         }
 
-        // Switch to Base chain if not already
+        // Switch to Base chain if not already (moved before signer for safety)
         try {
           await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]); // 8453 in hex
         } catch (switchError) {
@@ -259,7 +289,7 @@ export default function Inventory() {
         window.ethereum.removeListener('accountsChanged', accountsChangedHandler);
       }
     };
-  }, [router, isConnecting, fetchEthUsdPrice, fetchAllInventory]); // Added deps for fetch functions
+  }, [router, isConnecting]); // Removed fetch deps, now stable with useCallback
 
   const disconnectWallet = () => {
     console.log('Disconnect clicked');
@@ -271,36 +301,6 @@ export default function Inventory() {
     setAllInventory([]);
     setInventory([]);
     router.push('/'); // Redirect to home on disconnect
-  };
-
-  const fetchEthUsdPrice = async () => {
-    try {
-      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-      const data = await response.json();
-      setEthUsdPrice(data.ethereum.usd || 0);
-    } catch (err) {
-      console.error('Error fetching ETH price:', err);
-    }
-  };
-
-  const fetchAllInventory = async (address) => {
-    console.log('Fetching inventory for', address);
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/inventory?address=${address}`);
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
-
-      console.log('Inventory loaded, cards length:', data.cards.length);
-      setAllInventory(data.cards);
-      updateCurrentPage(data.cards, 1);
-    } catch (err) {
-      console.error('Fetch inventory error:', err);
-      setError('Error loading: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const calculateCardPrice = async (card) => {
@@ -383,13 +383,13 @@ export default function Inventory() {
     setHoveredCardId(null);
   };
 
-  const updateCurrentPage = (cards, page) => {
+  const updateCurrentPage = useCallback((cards, page) => {
     const startIndex = (page - 1) * cardsPerPage;
     const endIndex = startIndex + cardsPerPage;
     const currentCards = cards.slice(startIndex, endIndex);
     setInventory(currentCards);
     setCurrentPage(page);
-  };
+  }, [cardsPerPage]);
 
   const getWearCondition = (wearValue) => {
     const wear = parseFloat(wearValue);
@@ -402,17 +402,17 @@ export default function Inventory() {
 
   const totalPages = Math.ceil(allInventory.length / cardsPerPage);
 
-  const goToPage = (page) => {
+  const goToPage = useCallback((page) => {
     if (page > 0 && page <= totalPages) {
       updateCurrentPage(allInventory, page);
     }
-  };
+  }, [allInventory, totalPages, updateCurrentPage]);
 
   useEffect(() => {
     if (allInventory.length > 0) {
       updateCurrentPage(allInventory, currentPage);
     }
-  }, [currentPage, allInventory.length]);
+  }, [currentPage, allInventory.length, updateCurrentPage]);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
