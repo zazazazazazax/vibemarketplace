@@ -62,80 +62,82 @@ export default function Home() {
     }
   };
 
-  const calculateCardPrice = async (card) => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-    if (prices[cacheKey]) return prices[cacheKey];
+const calculateCardPrice = async (card) => {
+  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+  if (prices[cacheKey]) return prices[cacheKey];
 
-    if (!card.contract?.tokenAddress) return 'N/A';
+  if (!card.contract?.tokenAddress) return 'N/A';
 
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const collectionDrop = new ethers.Contract(
-        card.contractAddress, // IBoosterDrop
-        [
-          'function COMMON_OFFER() external view returns (uint256)',
-          'function RARE_OFFER() external view returns (uint256)',
-          'function EPIC_OFFER() external view returns (uint256)',
-          'function LEGENDARY_OFFER() external view returns (uint256)',
-          'function MYTHIC_OFFER() external view returns (uint256)'
-        ],
-        provider
-      );
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const collectionDrop = new ethers.Contract(
+      card.contractAddress, // IBoosterDrop
+      [
+        'function COMMON_OFFER() external view returns (uint256)',
+        'function RARE_OFFER() external view returns (uint256)',
+        'function EPIC_OFFER() external view returns (uint256)',
+        'function LEGENDARY_OFFER() external view returns (uint256)',
+        'function MYTHIC_OFFER() external view returns (uint256)'
+      ],
+      provider
+    );
 
-      const boosterToken = new ethers.Contract(
-        card.contract.tokenAddress,
-        [
-          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
-        ],
-        provider
-      );
+    const boosterToken = new ethers.Contract(
+      card.contract.tokenAddress,
+      [
+        'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
+      ],
+      provider
+    );
 
-      // BaseTokens from contract offer functions
-      let baseTokens;
-      if (card.rarity === 1) baseTokens = await collectionDrop.COMMON_OFFER();
-      else if (card.rarity === 2) baseTokens = await collectionDrop.RARE_OFFER();
-      else if (card.rarity === 3) baseTokens = await collectionDrop.EPIC_OFFER();
-      else if (card.rarity === 4) baseTokens = await collectionDrop.LEGENDARY_OFFER();
-      else if (card.rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
-      else return 'Invalid rarity';
+    // BaseTokens from contract offer functions
+    let baseTokens;
+    if (card.rarity === 1) baseTokens = await collectionDrop.COMMON_OFFER();
+    else if (card.rarity === 2) baseTokens = await collectionDrop.RARE_OFFER();
+    else if (card.rarity === 3) baseTokens = await collectionDrop.EPIC_OFFER();
+    else if (card.rarity === 4) baseTokens = await collectionDrop.LEGENDARY_OFFER();
+    else if (card.rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
+    else return 'Invalid rarity';
 
-      const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
+    const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
 
-      // Debug logs
-      console.log(`Card ${card.tokenId}: tokenAddress = ${card.contract.tokenAddress}`);
-      console.log(`Card ${card.tokenId}: baseTokens = ${baseTokens.toString()}`);
-      console.log(`Card ${card.tokenId}: ethBase raw (BigInt) = ${ethBase.toString()}`);
-      console.log(`Card ${card.tokenId}: ethBase formatted = ${ethers.formatEther(ethBase)}`);
+    // Debug logs
+    console.log(`Card ${card.tokenId}: tokenAddress = ${card.contract.tokenAddress}`);
+    console.log(`Card ${card.tokenId}: baseTokens = ${baseTokens.toString()}`);
+    console.log(`Card ${card.tokenId}: ethBase raw (BigInt) = ${ethBase.toString()}`);
+    console.log(`Card ${card.tokenId}: ethBase formatted = ${ethers.formatEther(ethBase)}`);
 
-      // Foil multiplier
-      const foilType = card.metadata.foil;
-      let foilMult = 100n;
-      if (foilType === 'Standard') foilMult = 200n;
-      else if (foilType === 'Prize') foilMult = 400n;
+    // Foil multiplier
+    const foilType = card.metadata.foil;
+    let foilMult = 100n;
+    if (foilType === 'Standard') foilMult = 200n;
+    else if (foilType === 'Prize') foilMult = 400n;
 
-      // Wear multiplier
-      const wearStr = card.metadata.wear;
-      const wearValue = BigInt(Math.floor(parseFloat(wearStr) * 100000000));
-      let wearMult = 100n;
-      if (wearValue < 5n) wearMult = 180n;
-      else if (wearValue < 20n) wearMult = 160n;
-      else if (wearValue < 45n) wearMult = 140n;
-      else if (wearValue < 75n) wearMult = 120n;
+    // Wear multiplier (use fraction 0-1 with contract thresholds)
+    const wearStr = card.metadata.wear;
+    const wear = parseFloat(wearStr); // 0-1
+    let wearMult = 100n;
+    if (wear < 0.05) wearMult = 180n;
+    else if (wear < 0.2) wearMult = 160n;
+    else if (wear < 0.45) wearMult = 140n;
+    else if (wear < 0.75) wearMult = 120n;
 
-      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
+    console.log(`Card ${card.tokenId}: wear = ${wear}, wearMult = ${wearMult.toString()}`);
 
-      const priceInEthNum = parseFloat(ethers.formatEther(listingPrice));
-      const priceInEth = priceInEthNum.toFixed(6); // Force 6 decimals
-      const priceInUsd = (priceInEthNum * ethUsdPrice).toFixed(2);
-      const price = `${priceInEth} ETH (${priceInUsd} USD)`;
+    const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
 
-      setPrices(prev => ({ ...prev, [cacheKey]: price }));
-      return price;
-    } catch (err) {
-      console.error('Error calculating price for card', card.tokenId, err);
-      return 'N/A';
-    }
-  };
+    const priceInEthNum = parseFloat(ethers.formatEther(listingPrice));
+    const priceInEth = priceInEthNum.toFixed(6); // Force 6 decimals
+    const priceInUsd = (priceInEthNum * ethUsdPrice).toFixed(2);
+    const price = `${priceInEth} ETH (${priceInUsd} USD)`;
+
+    setPrices(prev => ({ ...prev, [cacheKey]: price }));
+    return price;
+  } catch (err) {
+    console.error('Error calculating price for card', card.tokenId, err);
+    return 'N/A';
+  }
+};
 
   // Hover handler for lazy-load price
   const handleMouseEnter = async (card) => {
