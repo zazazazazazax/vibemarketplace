@@ -16,8 +16,7 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [provider, setProvider] = useState(null); // Provider MetaMask per signer
-  const [publicProvider, setPublicProvider] = useState(null); // Provider pubblico per view calls (no rate limit MetaMask)
+  const [provider, setProvider] = useState(null); // Provider MetaMask per signer e view calls (con retry)
   const [offerCache, setOfferCache] = useState({}); // Cache per OFFER per contract
   const debounceRef = useRef(null); // Per debounce su hover
 
@@ -64,9 +63,9 @@ export default function Inventory() {
       updateCurrentPage(data.cards, 1);
 
       // Pre-calcola prezzi con delay maggiore per evitare rate limit iniziale
-      if (publicProvider && data.cards.length > 0 && data.cards.some(card => card.contract?.tokenAddress)) {
-        // Delay iniziale 1s per "warm up" RPC
-        setTimeout(() => preCalculatePrices(data.cards), 1000);
+      if (provider && data.cards.length > 0 && data.cards.some(card => card.contract?.tokenAddress)) {
+        // Delay iniziale 2s per "warm up" MetaMask
+        setTimeout(() => preCalculatePrices(data.cards), 2000);
       }
     } catch (err) {
       console.error('Fetch inventory error:', err);
@@ -74,41 +73,54 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }, [publicProvider]); // Dep per publicProvider
+  }, [provider]); // Dep per provider
 
-  // Funzione per fetch OFFER cached
-  const getOffer = useCallback(async (contractAddress, rarity) => {
+  // Funzione per fetch OFFER cached con retry su rate limit
+  const getOffer = useCallback(async (contractAddress, rarity, retries = 3) => {
     const cacheKey = `${contractAddress}_OFFER_${rarity}`;
     if (offerCache[cacheKey]) return offerCache[cacheKey];
 
-    try {
-      const collectionDrop = new ethers.Contract(
-        contractAddress,
-        [
-          'function COMMON_OFFER() external view returns (uint256)',
-          'function RARE_OFFER() external view returns (uint256)',
-          'function EPIC_OFFER() external view returns (uint256)',
-          'function LEGENDARY_OFFER() external view returns (uint256)',
-          'function MYTHIC_OFFER() external view returns (uint256)'
-        ],
-        publicProvider
-      );
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const collectionDrop = new ethers.Contract(
+          contractAddress,
+          [
+            'function COMMON_OFFER() external view returns (uint256)',
+            'function RARE_OFFER() external view returns (uint256)',
+            'function EPIC_OFFER() external view returns (uint256)',
+            'function LEGENDARY_OFFER() external view returns (uint256)',
+            'function MYTHIC_OFFER() external view returns (uint256)'
+          ],
+          provider
+        );
 
-      let baseTokens;
-      if (rarity === 1) baseTokens = await collectionDrop.COMMON_OFFER();
-      else if (rarity === 2) baseTokens = await collectionDrop.RARE_OFFER();
-      else if (rarity === 3) baseTokens = await collectionDrop.EPIC_OFFER();
-      else if (rarity === 4) baseTokens = await collectionDrop.LEGENDARY_OFFER();
-      else if (rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
-      else throw new Error('Invalid rarity');
+        let baseTokens;
+        if (rarity === 1) baseTokens = await collectionDrop.COMMON_OFFER();
+        else if (rarity === 2) baseTokens = await collectionDrop.RARE_OFFER();
+        else if (rarity === 3) baseTokens = await collectionDrop.EPIC_OFFER();
+        else if (rarity === 4) baseTokens = await collectionDrop.LEGENDARY_OFFER();
+        else if (rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
+        else throw new Error('Invalid rarity');
 
-      setOfferCache(prev => ({ ...prev, [cacheKey]: baseTokens }));
-      return baseTokens;
-    } catch (err) {
-      console.error('Error fetching offer for', contractAddress, rarity, err);
-      return 0n;
+        setOfferCache(prev => ({ ...prev, [cacheKey]: baseTokens }));
+        return baseTokens;
+      } catch (err) {
+        console.warn(`Offer fetch attempt ${attempt + 1} failed for ${contractAddress} ${rarity}:`, err.message);
+        if (err.code === -32005 || err.message.includes('rate limited')) { // Rate limit
+          if (attempt < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Backoff: 1s, 2s, 3s
+          } else {
+            console.error('Offer fetch failed after retries for', contractAddress, rarity);
+            return 0n;
+          }
+        } else {
+          console.error('Unexpected error fetching offer for', contractAddress, rarity, err);
+          return 0n;
+        }
+      }
     }
-  }, [offerCache, publicProvider]);
+    return 0n;
+  }, [offerCache, provider]);
 
   // Pre-calcola prezzi con delay sequenziale maggiore
   const preCalculatePrices = useCallback(async (cards) => {
@@ -122,9 +134,9 @@ export default function Inventory() {
         } catch (err) {
           console.error('Pre-calc error for card', card.tokenId, err);
         }
-        // Delay 300ms tra calls per evitare rate limit
+        // Delay 500ms tra calls per evitare rate limit
         if (i < cards.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
     }
@@ -164,12 +176,8 @@ export default function Inventory() {
           }
         }
 
-        // Salva provider persistente (MetaMask per signer)
+        // Salva provider persistente (MetaMask per signer e view calls con retry)
         setProvider(prov);
-
-        // Crea public provider per view calls (subito, sync)
-        const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
-        setPublicProvider(pubProv);
 
         const signer = await prov.getSigner();
         const address = await signer.getAddress();
@@ -223,12 +231,12 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Crea public provider persistente quando walletAddress è set
+  // Crea provider persistente quando walletAddress è set (post-auto-reconnect)
   useEffect(() => {
-    if (walletAddress && !publicProvider) {
-      console.log('Creating public provider after wallet set');
-      const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
-      setPublicProvider(pubProv);
+    if (walletAddress && !provider && window.ethereum && window.ethereum.isMetaMask) {
+      console.log('Creating provider after wallet set');
+      const prov = new ethers.BrowserProvider(window.ethereum);
+      setProvider(prov);
     }
   }, [walletAddress]);
 
@@ -281,7 +289,7 @@ export default function Inventory() {
 
               if (recoveredAddress.toLowerCase() === storedAddress.toLowerCase()) {
                 console.log('Signature valid, using recovered address for session');
-                setWalletAddress(recoveredAddress); // Questo triggera il useEffect per creare public provider
+                setWalletAddress(recoveredAddress); // Questo triggera il useEffect per creare provider
                 fetchEthUsdPrice();
                 fetchAllInventory(recoveredAddress);
                 success = true;
@@ -363,7 +371,6 @@ export default function Inventory() {
       window.solana.disconnect();
     }
     setProvider(null); // Clear provider su disconnect
-    setPublicProvider(null); // Clear public provider
     setOfferCache({}); // Clear cache
     setWalletAddress(null);
     localStorage.clear();
@@ -379,81 +386,69 @@ export default function Inventory() {
     if (!card.contract?.tokenAddress) return 'N/A';
 
     try {
-      // Usa publicProvider per view calls (no rate limit MetaMask)
-      if (!publicProvider) {
-        console.warn('No public provider available for price calc, creating on-the-fly');
-        // Crea on-the-fly per prima call
-        const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
-        setPublicProvider(pubProv);
-        // Usa subito
-        return await calculateCardPriceWithProvider(card, pubProv);
+      // Usa provider persistente invece di crearne uno nuovo
+      if (!provider) {
+        console.warn('No provider available for price calc, skipping');
+        return 'N/A';
       }
-      return await calculateCardPriceWithProvider(card, publicProvider);
+      const collectionDrop = new ethers.Contract(
+        card.contractAddress,
+        [
+          'function COMMON_OFFER() external view returns (uint256)',
+          'function RARE_OFFER() external view returns (uint256)',
+          'function EPIC_OFFER() external view returns (uint256)',
+          'function LEGENDARY_OFFER() external view returns (uint256)',
+          'function MYTHIC_OFFER() external view returns (uint256)'
+        ],
+        provider
+      );
+
+      const boosterToken = new ethers.Contract(
+        card.contract.tokenAddress,
+        [
+          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
+        ],
+        provider
+      );
+
+      // Usa cached OFFER con retry
+      let baseTokens = await getOffer(card.contractAddress, card.rarity);
+      if (baseTokens === 0n) return 'N/A';
+
+      const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
+
+      console.log(`Card ${card.tokenId}: ethBase = ${ethers.formatEther(ethBase)}`);
+
+      const foilType = card.metadata.foil;
+      let foilMult = 100n;
+      if (foilType === 'Standard') foilMult = 200n;
+      else if (foilType === 'Prize') foilMult = 400n;
+
+      const wearStr = card.metadata.wear;
+      const wear = parseFloat(wearStr);
+      let wearMult = 100n;
+      if (wear < 0.05) wearMult = 180n;
+      else if (wear < 0.2) wearMult = 160n;
+      else if (wear < 0.45) wearMult = 140n;
+      else if (wear < 0.75) wearMult = 120n;
+
+      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n);
+
+      // ParseFloat per toFixed su stringa da formatEther
+      const priceInEthRaw = ethers.formatEther(listingPrice);
+      const priceInEth = parseFloat(priceInEthRaw).toFixed(6);
+      const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
+      const price = `${priceInEth} ETH (${priceInUsd} USD)`;
+
+      setPrices(prev => ({ ...prev, [cacheKey]: price }));
+      return price;
     } catch (err) {
       console.error('Error calculating price for card', card.tokenId, err);
       return 'N/A';
     }
   };
 
-  // Helper per calculate con provider specifico
-  const calculateCardPriceWithProvider = async (card, prov) => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-    if (prices[cacheKey]) return prices[cacheKey];
-
-    const collectionDrop = new ethers.Contract(
-      card.contractAddress,
-      [
-        'function COMMON_OFFER() external view returns (uint256)',
-        'function RARE_OFFER() external view returns (uint256)',
-        'function EPIC_OFFER() external view returns (uint256)',
-        'function LEGENDARY_OFFER() external view returns (uint256)',
-        'function MYTHIC_OFFER() external view returns (uint256)'
-      ],
-      prov
-    );
-
-    const boosterToken = new ethers.Contract(
-      card.contract.tokenAddress,
-      [
-        'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
-      ],
-      prov
-    );
-
-    // Usa cached OFFER
-    let baseTokens = await getOffer(card.contractAddress, card.rarity);
-    if (baseTokens === 0n) return 'N/A';
-
-    const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
-
-    console.log(`Card ${card.tokenId}: ethBase = ${ethers.formatEther(ethBase)}`);
-
-    const foilType = card.metadata.foil;
-    let foilMult = 100n;
-    if (foilType === 'Standard') foilMult = 200n;
-    else if (foilType === 'Prize') foilMult = 400n;
-
-    const wearStr = card.metadata.wear;
-    const wear = parseFloat(wearStr);
-    let wearMult = 100n;
-    if (wear < 0.05) wearMult = 180n;
-    else if (wear < 0.2) wearMult = 160n;
-    else if (wear < 0.45) wearMult = 140n;
-    else if (wear < 0.75) wearMult = 120n;
-
-    const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n);
-
-    // ParseFloat per toFixed su stringa da formatEther
-    const priceInEthRaw = ethers.formatEther(listingPrice);
-    const priceInEth = parseFloat(priceInEthRaw).toFixed(6);
-    const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
-    const price = `${priceInEth} ETH (${priceInUsd} USD)`;
-
-    setPrices(prev => ({ ...prev, [cacheKey]: price }));
-    return price;
-  };
-
-  // Debounce per handleMouseEnter (ridotto a 100ms per quasi-istantaneo)
+  // Debounce per handleMouseEnter (0ms per istantaneo, anti-burst via cache)
   const handleMouseEnter = useCallback(async (card) => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -465,7 +460,7 @@ export default function Inventory() {
         setPrices(prev => ({ ...prev, [cacheKey]: price }));
       }
       setHoveredCardId(cacheKey);
-    }, 100);
+    }, 0);
   }, [prices]);
 
   const handleMouseLeave = useCallback(() => {
