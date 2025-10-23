@@ -16,6 +16,21 @@ export default function Home() {
 
   const cardsPerPage = 50;
 
+  // EIP-712 typed data for signature
+  const domain = {
+    name: 'Vibe.Marketplace',
+    version: '1',
+    chainId: 8453, // Base
+    verifyingContract: '0x0000000000000000000000000000000000000000' // Dummy
+  };
+  const types = {
+    Message: [
+      { name: 'content', type: 'string' },
+      { name: 'nonce', type: 'uint256' }
+    ]
+  };
+  const nonce = Math.floor(Date.now() / 1000 / 3600); // Hourly nonce
+
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
@@ -23,6 +38,20 @@ export default function Home() {
         await provider.send('eth_requestAccounts', []);
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
+
+        // Request signature for persistence
+        const message = {
+          content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
+          nonce: nonce
+        };
+        const signature = await signer.signTypedData(domain, types, message);
+
+        // Save to localStorage
+        localStorage.setItem('walletAddress', address);
+        localStorage.setItem('walletSignature', signature);
+        localStorage.setItem('walletNonce', nonce.toString());
+        localStorage.setItem('walletTimestamp', Date.now().toString());
+
         setWalletAddress(address);
         fetchEthUsdPrice();
         fetchAllInventory(address);
@@ -32,6 +61,61 @@ export default function Home() {
     } else {
       setError('Install MetaMask!');
     }
+  };
+
+  // Auto-reconnect on load
+  useEffect(() => {
+    const checkAutoConnect = async () => {
+      const storedAddress = localStorage.getItem('walletAddress');
+      const storedSignature = localStorage.getItem('walletSignature');
+      const storedNonce = localStorage.getItem('walletNonce');
+      const storedTimestamp = localStorage.getItem('walletTimestamp');
+
+      if (storedAddress && storedSignature && storedNonce && storedTimestamp) {
+        const now = Date.now();
+        const expiry = 24 * 60 * 60 * 1000; // 24 hours
+        if (now - parseInt(storedTimestamp) < expiry) {
+          try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const address = await signer.getAddress();
+
+            // Verify signature
+            const message = {
+              content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
+              nonce: parseInt(storedNonce)
+            };
+            const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
+            if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+              setWalletAddress(address);
+              fetchEthUsdPrice();
+              fetchAllInventory(address);
+            } else {
+              // Invalid signature - clear
+              localStorage.removeItem('walletAddress');
+              localStorage.removeItem('walletSignature');
+              localStorage.removeItem('walletNonce');
+              localStorage.removeItem('walletTimestamp');
+            }
+          } catch (err) {
+            // Clear on error
+            localStorage.clear();
+          }
+        } else {
+          // Expired - clear
+          localStorage.clear();
+        }
+      }
+    };
+
+    checkAutoConnect();
+  }, []);
+
+  const disconnectWallet = () => {
+    setWalletAddress(null);
+    localStorage.clear();
+    setAllInventory([]);
+    setInventory([]);
   };
 
   const fetchEthUsdPrice = async () => {
@@ -62,82 +146,70 @@ export default function Home() {
     }
   };
 
-const calculateCardPrice = async (card) => {
-  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-  if (prices[cacheKey]) return prices[cacheKey];
+  const calculateCardPrice = async (card) => {
+    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+    if (prices[cacheKey]) return prices[cacheKey];
 
-  if (!card.contract?.tokenAddress) return 'N/A';
+    if (!card.contract?.tokenAddress) return 'N/A';
 
-  try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const collectionDrop = new ethers.Contract(
-      card.contractAddress, // IBoosterDrop
-      [
-        'function COMMON_OFFER() external view returns (uint256)',
-        'function RARE_OFFER() external view returns (uint256)',
-        'function EPIC_OFFER() external view returns (uint256)',
-        'function LEGENDARY_OFFER() external view returns (uint256)',
-        'function MYTHIC_OFFER() external view returns (uint256)'
-      ],
-      provider
-    );
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const boosterToken = new ethers.Contract(
+        card.contract.tokenAddress,
+        [
+          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
+        ],
+        provider
+      );
 
-    const boosterToken = new ethers.Contract(
-      card.contract.tokenAddress,
-      [
-        'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
-      ],
-      provider
-    );
+      // BaseTokens from contract offer functions
+      let baseTokens;
+      if (card.rarity === 1) baseTokens = await collectionDrop.COMMON_OFFER();
+      else if (card.rarity === 2) baseTokens = await collectionDrop.RARE_OFFER();
+      else if (card.rarity === 3) baseTokens = await collectionDrop.EPIC_OFFER();
+      else if (card.rarity === 4) baseTokens = await collectionDrop.LEGENDARY_OFFER();
+      else if (card.rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
+      else return 'Invalid rarity';
 
-    // BaseTokens from contract offer functions
-    let baseTokens;
-    if (card.rarity === 1) baseTokens = await collectionDrop.COMMON_OFFER();
-    else if (card.rarity === 2) baseTokens = await collectionDrop.RARE_OFFER();
-    else if (card.rarity === 3) baseTokens = await collectionDrop.EPIC_OFFER();
-    else if (card.rarity === 4) baseTokens = await collectionDrop.LEGENDARY_OFFER();
-    else if (card.rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
-    else return 'Invalid rarity';
+      const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
 
-    const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
+      // Debug logs
+      console.log(`Card ${card.tokenId}: tokenAddress = ${card.contract.tokenAddress}`);
+      console.log(`Card ${card.tokenId}: baseTokens = ${baseTokens.toString()}`);
+      console.log(`Card ${card.tokenId}: ethBase raw (BigInt) = ${ethBase.toString()}`);
+      console.log(`Card ${card.tokenId}: ethBase formatted = ${ethers.formatEther(ethBase)}`);
 
-    // Debug logs
-    console.log(`Card ${card.tokenId}: tokenAddress = ${card.contract.tokenAddress}`);
-    console.log(`Card ${card.tokenId}: baseTokens = ${baseTokens.toString()}`);
-    console.log(`Card ${card.tokenId}: ethBase raw (BigInt) = ${ethBase.toString()}`);
-    console.log(`Card ${card.tokenId}: ethBase formatted = ${ethers.formatEther(ethBase)}`);
+      // Foil multiplier
+      const foilType = card.metadata.foil;
+      let foilMult = 100n;
+      if (foilType === 'Standard') foilMult = 200n;
+      else if (foilType === 'Prize') foilMult = 400n;
 
-    // Foil multiplier
-    const foilType = card.metadata.foil;
-    let foilMult = 100n;
-    if (foilType === 'Standard') foilMult = 200n;
-    else if (foilType === 'Prize') foilMult = 400n;
+      // Wear multiplier (use fraction 0-1 with contract thresholds)
+      const wearStr = card.metadata.wear;
+      const wear = parseFloat(wearStr); // 0-1
+      let wearMult = 100n;
+      if (wear < 0.05) wearMult = 180n;
+      else if (wear < 0.2) wearMult = 160n;
+      else if (wear < 0.45) wearMult = 140n;
+      else if (wear < 0.75) wearMult = 120n;
 
-    // Wear multiplier (use fraction 0-1 with contract thresholds)
-    const wearStr = card.metadata.wear;
-    const wear = parseFloat(wearStr); // 0-1
-    let wearMult = 100n;
-    if (wear < 0.05) wearMult = 180n;
-    else if (wear < 0.2) wearMult = 160n;
-    else if (wear < 0.45) wearMult = 140n;
-    else if (wear < 0.75) wearMult = 120n;
+      console.log(`Card ${card.tokenId}: wear = ${wear}, wearMult = ${wearMult.toString()}`);
 
-    console.log(`Card ${card.tokenId}: wear = ${wear}, wearMult = ${wearMult.toString()}`);
+      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
 
-    const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // +42%
+      const priceInEthNum = parseFloat(ethers.formatEther(listingPrice));
+      const priceInEth = priceInEthNum.toFixed(6); // Force 6 decimals
+      const priceInUsd = (priceInEthNum * ethUsdPrice).toFixed(2);
+      const price = `${priceInEth} ETH (${priceInUsd} USD)`;
 
-    const priceInEthNum = parseFloat(ethers.formatEther(listingPrice));
-    const priceInEth = priceInEthNum.toFixed(6); // Force 6 decimals
-    const priceInUsd = (priceInEthNum * ethUsdPrice).toFixed(2);
-    const price = `${priceInEth} ETH (${priceInUsd} USD)`;
-
-    setPrices(prev => ({ ...prev, [cacheKey]: price }));
-    return price;
-  } catch (err) {
-    console.error('Error calculating price for card', card.tokenId, err);
-    return 'N/A';
-  }
-};
+      setPrices(prev => ({ ...prev, [cacheKey]: price }));
+      return price;
+    } catch (err) {
+      console.error('Error calculating price for card', card.tokenId, err);
+      return 'N/A';
+    }
+  };
 
   // Hover handler for lazy-load price
   const handleMouseEnter = async (card) => {
@@ -196,7 +268,7 @@ const calculateCardPrice = async (card) => {
           Connect Wallet
         </button>
       ) : (
-        <p className="mb-4">Connected: {walletAddress}</p>
+        <p className="mb-4">Connected: {walletAddress} <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">Disconnect</button></p>
       )}
       {error && <p className="text-red-500">{error}</p>}
       {loading && <p>Loading all pages...</p>}
