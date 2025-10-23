@@ -15,6 +15,7 @@ export default function Inventory() {
   const [prices, setPrices] = useState({});
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
+  const [isConnecting, setIsConnecting] = useState(false); // Flag to avoid loop during connect
 
   const cardsPerPage = 50;
 
@@ -37,11 +38,11 @@ export default function Inventory() {
 
   const connectWallet = async () => {
     console.log('Connect wallet clicked');
+    setIsConnecting(true);
     if (window.ethereum) {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.send('eth_requestAccounts', []);
-        if (accounts.length === 0) throw new Error('No accounts');
+        await provider.send('eth_requestAccounts', []);
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         console.log('Connected address:', address);
@@ -68,9 +69,26 @@ export default function Inventory() {
         console.error('Connect error:', err);
         setError('Error connecting: ' + err.message);
       }
+    } else if (window.solana) {
+      try {
+        // Phantom connect
+        const solana = window.solana;
+        await solana.connect();
+        const address = solana.publicKey.toString();
+        localStorage.setItem('preferredWallet', 'phantom');
+        localStorage.setItem('walletAddress', address);
+        setWalletAddress(address);
+        // Note: For Phantom, signature logic would need Solana-specific (skip for now)
+        fetchEthUsdPrice();
+        fetchAllInventory(address);
+      } catch (err) {
+        console.error('Phantom connect error:', err);
+        setError('Error connecting Phantom: ' + err.message);
+      }
     } else {
-      setError('Install MetaMask!');
+      setError('Install MetaMask or Phantom!');
     }
+    setIsConnecting(false);
   };
 
   // Auto-reconnect on load
@@ -80,13 +98,13 @@ export default function Inventory() {
       const preferredWallet = localStorage.getItem('preferredWallet');
       console.log('Preferred wallet:', preferredWallet);
 
-      if (!preferredWallet || !window.ethereum) {
-        console.log('No preferred wallet or Ethereum, redirect to home');
+      if (!preferredWallet) {
+        console.log('No preferred wallet, redirect to home');
         router.push('/');
         return;
       }
 
-      if (preferredWallet === 'metamask') {
+      if (preferredWallet === 'metamask' && window.ethereum) {
         const storedAddress = localStorage.getItem('walletAddress');
         const storedSignature = localStorage.getItem('walletSignature');
         const storedNonce = localStorage.getItem('walletNonce');
@@ -101,7 +119,6 @@ export default function Inventory() {
             try {
               console.log('Attempting auto-reconnect...');
               const provider = new ethers.BrowserProvider(window.ethereum);
-              // Skip eth_requestAccounts if already connected
               const accounts = await provider.listAccounts();
               if (accounts.length === 0) {
                 await provider.send('eth_requestAccounts', []);
@@ -136,13 +153,24 @@ export default function Inventory() {
         } else {
           console.log('No stored data, redirect to home');
         }
+      } else if (preferredWallet === 'phantom' && window.solana) {
+        const solana = window.solana;
+        if (solana.isConnected) {
+          const address = solana.publicKey.toString();
+          setWalletAddress(address);
+          fetchEthUsdPrice();
+          fetchAllInventory(address);
+          return;
+        } else {
+          console.log('Phantom not connected, redirect to home');
+        }
       } else {
-        console.log('Unsupported preferred wallet, redirect to home');
+        console.log('Preferred wallet not available, redirect to home');
       }
       router.push('/');
     };
 
-    setTimeout(checkAutoConnect, 3000); // 3s delay for MetaMask
+    setTimeout(checkAutoConnect, 3000); // 3s delay for wallet ready
   }, [router]);
 
   const disconnectWallet = () => {
