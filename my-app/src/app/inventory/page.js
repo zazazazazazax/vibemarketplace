@@ -156,7 +156,7 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // NUOVO: Crea provider persistente quando walletAddress è set (post-auto-reconnect)
+  // Crea provider persistente quando walletAddress è set (post-auto-reconnect)
   useEffect(() => {
     if (walletAddress && !provider && window.ethereum && window.ethereum.isMetaMask) {
       console.log('Creating provider after wallet set');
@@ -362,7 +362,9 @@ export default function Inventory() {
 
       const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n);
 
-      const priceInEth = ethers.formatEther(listingPrice).toFixed(6);
+      // FIX: ParseFloat per toFixed su stringa da formatEther
+      const priceInEthRaw = ethers.formatEther(listingPrice);
+      const priceInEth = parseFloat(priceInEthRaw).toFixed(6);
       const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
       const price = `${priceInEth} ETH (${priceInUsd} USD)`;
 
