@@ -18,6 +18,8 @@ export default function Inventory() {
 
   const cardsPerPage = 50;
 
+  console.log('Inventory component mounted'); // Log mount
+
   // EIP-712 typed data for signature
   const domain = {
     name: 'Vibe.Marketplace',
@@ -34,21 +36,21 @@ export default function Inventory() {
   const nonce = Math.floor(Date.now() / 1000 / 3600);
 
   const connectWallet = async () => {
+    console.log('Connect wallet clicked');
     if (window.ethereum) {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         await provider.send('eth_requestAccounts', []);
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
-
-        // Save preferred wallet
-        localStorage.setItem('preferredWallet', 'metamask'); // Or 'phantom' if selected
+        console.log('Connected address:', address);
 
         const message = {
           content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
           nonce: nonce
         };
         const signature = await signer.signTypedData(domain, types, message);
+        console.log('Signature generated:', signature);
 
         localStorage.setItem('walletAddress', address);
         localStorage.setItem('walletSignature', signature);
@@ -59,92 +61,77 @@ export default function Inventory() {
         fetchEthUsdPrice();
         fetchAllInventory(address);
       } catch (err) {
+        console.error('Connect error:', err);
         setError('Error connecting: ' + err.message);
       }
-    } else if (window.solana) {
-      try {
-        // Phantom connect (if preferred)
-        const solana = window.solana;
-        await solana.connect();
-        const address = solana.publicKey.toString();
-        localStorage.setItem('preferredWallet', 'phantom');
-        localStorage.setItem('walletAddress', address);
-        setWalletAddress(address);
-        // Note: For Phantom, signature logic would need Solana-specific (skip for now)
-        fetchEthUsdPrice();
-        fetchAllInventory(address);
-      } catch (err) {
-        setError('Error connecting Phantom: ' + err.message);
-      }
     } else {
-      setError('Install MetaMask or Phantom!');
+      setError('Install MetaMask!');
     }
   };
 
   // Auto-reconnect on load
   useEffect(() => {
+    console.log('Auto-reconnect useEffect started');
     const checkAutoConnect = async () => {
-      const preferredWallet = localStorage.getItem('preferredWallet');
-      if (!preferredWallet) {
-        router.push('/'); // Redirect to home if no preferred
+      if (!window.ethereum) {
+        console.log('No Ethereum provider, redirect to home');
+        router.push('/');
         return;
       }
 
-      if (preferredWallet === 'metamask' && window.ethereum) {
-        // MetaMask auto-reconnect
-        const storedAddress = localStorage.getItem('walletAddress');
-        const storedSignature = localStorage.getItem('walletSignature');
-        const storedNonce = localStorage.getItem('walletNonce');
-        const storedTimestamp = localStorage.getItem('walletTimestamp');
+      const storedAddress = localStorage.getItem('walletAddress');
+      const storedSignature = localStorage.getItem('walletSignature');
+      const storedNonce = localStorage.getItem('walletNonce');
+      const storedTimestamp = localStorage.getItem('walletTimestamp');
 
-        if (storedAddress && storedSignature && storedNonce && storedTimestamp) {
-          const now = Date.now();
-          const expiry = 24 * 60 * 60 * 1000;
-          if (now - parseInt(storedTimestamp) < expiry) {
-            try {
-              const provider = new ethers.BrowserProvider(window.ethereum);
-              await provider.send('eth_requestAccounts', []);
-              const signer = await provider.getSigner();
-              const address = await signer.getAddress();
+      console.log('Stored data:', { storedAddress, storedNonce, storedTimestamp });
 
-              const message = {
-                content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
-                nonce: parseInt(storedNonce)
-              };
-              const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
-              if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
-                setWalletAddress(address);
-                fetchEthUsdPrice();
-                fetchAllInventory(address);
-                return;
-              }
-            } catch (err) {
-              console.error('Auto-reconnect failed:', err);
+      if (storedAddress && storedSignature && storedNonce && storedTimestamp) {
+        const now = Date.now();
+        const expiry = 24 * 60 * 60 * 1000; // 24 hours
+        if (now - parseInt(storedTimestamp) < expiry) {
+          try {
+            console.log('Attempting auto-reconnect...');
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            await provider.send('eth_requestAccounts', []);
+            const signer = await provider.getSigner();
+            const address = await signer.getAddress();
+            console.log('Auto-reconnect address:', address);
+
+            const message = {
+              content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
+              nonce: parseInt(storedNonce)
+            };
+            const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
+            console.log('Recovered address from signature:', recoveredAddress);
+
+            if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+              console.log('Signature valid, setting wallet');
+              setWalletAddress(address);
+              fetchEthUsdPrice();
+              fetchAllInventory(address);
+              return;
+            } else {
+              console.log('Signature invalid, clearing storage');
             }
+          } catch (err) {
+            console.error('Auto-reconnect error:', err);
           }
-          localStorage.clear();
+        } else {
+          console.log('Signature expired, clearing storage');
         }
-      } else if (preferredWallet === 'phantom' && window.solana) {
-        // Phantom auto-reconnect
-        const solana = window.solana;
-        if (solana.isConnected) {
-          const address = solana.publicKey.toString();
-          setWalletAddress(address);
-          fetchEthUsdPrice();
-          fetchAllInventory(address);
-          return;
-        }
+        localStorage.clear();
+      } else {
+        console.log('No stored data, redirect to home');
       }
-
-      // If not connected, redirect to home
-      localStorage.clear();
       router.push('/');
     };
 
-    setTimeout(checkAutoConnect, 3000); // 3s delay for wallet ready
+    setTimeout(checkAutoConnect, 3000); // 3s delay for MetaMask
   }, [router]);
 
   const disconnectWallet = () => {
+    console.log('Disconnect clicked');
     setWalletAddress(null);
     localStorage.clear();
     setAllInventory([]);
@@ -163,6 +150,7 @@ export default function Inventory() {
   };
 
   const fetchAllInventory = async (address) => {
+    console.log('Fetching inventory for', address);
     setLoading(true);
     setError(null);
     try {
@@ -170,9 +158,11 @@ export default function Inventory() {
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
+      console.log('Inventory loaded, cards length:', data.cards.length);
       setAllInventory(data.cards);
       updateCurrentPage(data.cards, 1);
     } catch (err) {
+      console.error('Fetch inventory error:', err);
       setError('Error loading: ' + err.message);
     } finally {
       setLoading(false);
