@@ -18,7 +18,7 @@ export default function Inventory() {
 
   const cardsPerPage = 50;
 
-  console.log('Inventory component mounted'); // Log mount
+  console.log('Inventory component mounted');
 
   // EIP-712 typed data for signature
   const domain = {
@@ -40,10 +40,14 @@ export default function Inventory() {
     if (window.ethereum) {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send('eth_requestAccounts', []);
+        const accounts = await provider.send('eth_requestAccounts', []);
+        if (accounts.length === 0) throw new Error('No accounts');
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
         console.log('Connected address:', address);
+
+        // Save preferred wallet
+        localStorage.setItem('preferredWallet', 'metamask');
 
         const message = {
           content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
@@ -73,56 +77,67 @@ export default function Inventory() {
   useEffect(() => {
     console.log('Auto-reconnect useEffect started');
     const checkAutoConnect = async () => {
-      if (!window.ethereum) {
-        console.log('No Ethereum provider, redirect to home');
+      const preferredWallet = localStorage.getItem('preferredWallet');
+      console.log('Preferred wallet:', preferredWallet);
+
+      if (!preferredWallet || !window.ethereum) {
+        console.log('No preferred wallet or Ethereum, redirect to home');
         router.push('/');
         return;
       }
 
-      const storedAddress = localStorage.getItem('walletAddress');
-      const storedSignature = localStorage.getItem('walletSignature');
-      const storedNonce = localStorage.getItem('walletNonce');
-      const storedTimestamp = localStorage.getItem('walletTimestamp');
+      if (preferredWallet === 'metamask') {
+        const storedAddress = localStorage.getItem('walletAddress');
+        const storedSignature = localStorage.getItem('walletSignature');
+        const storedNonce = localStorage.getItem('walletNonce');
+        const storedTimestamp = localStorage.getItem('walletTimestamp');
 
-      console.log('Stored data:', { storedAddress, storedNonce, storedTimestamp });
+        console.log('Stored data:', { storedAddress, storedNonce, storedTimestamp });
 
-      if (storedAddress && storedSignature && storedNonce && storedTimestamp) {
-        const now = Date.now();
-        const expiry = 24 * 60 * 60 * 1000; // 24 hours
-        if (now - parseInt(storedTimestamp) < expiry) {
-          try {
-            console.log('Attempting auto-reconnect...');
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            await provider.send('eth_requestAccounts', []);
-            const signer = await provider.getSigner();
-            const address = await signer.getAddress();
-            console.log('Auto-reconnect address:', address);
+        if (storedAddress && storedSignature && storedNonce && storedTimestamp) {
+          const now = Date.now();
+          const expiry = 24 * 60 * 60 * 1000; // 24 hours
+          if (now - parseInt(storedTimestamp) < expiry) {
+            try {
+              console.log('Attempting auto-reconnect...');
+              const provider = new ethers.BrowserProvider(window.ethereum);
+              // Skip eth_requestAccounts if already connected
+              const accounts = await provider.listAccounts();
+              if (accounts.length === 0) {
+                await provider.send('eth_requestAccounts', []);
+              }
+              const signer = await provider.getSigner();
+              const address = await signer.getAddress();
+              console.log('Auto-reconnect address:', address);
 
-            const message = {
-              content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
-              nonce: parseInt(storedNonce)
-            };
-            const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
-            console.log('Recovered address from signature:', recoveredAddress);
+              const message = {
+                content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
+                nonce: parseInt(storedNonce)
+              };
+              const recoveredAddress = ethers.verifyTypedData(domain, types, message, storedSignature);
+              console.log('Recovered address from signature:', recoveredAddress);
 
-            if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
-              console.log('Signature valid, setting wallet');
-              setWalletAddress(address);
-              fetchEthUsdPrice();
-              fetchAllInventory(address);
-              return;
-            } else {
-              console.log('Signature invalid, clearing storage');
+              if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+                console.log('Signature valid, setting wallet');
+                setWalletAddress(address);
+                fetchEthUsdPrice();
+                fetchAllInventory(address);
+                return;
+              } else {
+                console.log('Signature invalid, clearing storage');
+              }
+            } catch (err) {
+              console.error('Auto-reconnect error:', err);
             }
-          } catch (err) {
-            console.error('Auto-reconnect error:', err);
+          } else {
+            console.log('Signature expired, clearing storage');
           }
+          localStorage.clear();
         } else {
-          console.log('Signature expired, clearing storage');
+          console.log('No stored data, redirect to home');
         }
-        localStorage.clear();
       } else {
-        console.log('No stored data, redirect to home');
+        console.log('Unsupported preferred wallet, redirect to home');
       }
       router.push('/');
     };
