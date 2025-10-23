@@ -16,7 +16,6 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [autoReconnecting, setAutoReconnecting] = useState(false); // Flag for auto-reconnect
 
   const cardsPerPage = 50;
 
@@ -41,10 +40,10 @@ export default function Inventory() {
     console.log('Connect wallet clicked');
     setIsConnecting(true);
     setError(null);
-    if (window.ethereum) {
+    if (window.ethereum && window.ethereum.isMetaMask) {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.send('eth_accounts', []); // Silent check
+        const accounts = await provider.send('eth_accounts', []); // Silent
         if (accounts.length === 0) {
           await provider.send('eth_requestAccounts', []); // Only if empty
         }
@@ -52,7 +51,6 @@ export default function Inventory() {
         const address = await signer.getAddress();
         console.log('Connected address:', address);
 
-        // Save preferred wallet immediately
         localStorage.setItem('preferredWallet', 'metamask');
         console.log('Saved preferredWallet: metamask');
 
@@ -108,7 +106,7 @@ export default function Inventory() {
 
       if (!preferredWallet) {
         console.log('No preferred wallet, but Ethereum exists, assume metamask');
-        if (window.ethereum) {
+        if (window.ethereum && window.ethereum.isMetaMask) {
           preferredWallet = 'metamask';
           localStorage.setItem('preferredWallet', 'metamask'); // Set now
         } else {
@@ -118,7 +116,7 @@ export default function Inventory() {
         }
       }
 
-      if (preferredWallet === 'metamask' && window.ethereum) {
+      if (preferredWallet === 'metamask' && window.ethereum && window.ethereum.isMetaMask) {
         const storedAddress = localStorage.getItem('walletAddress');
         const storedSignature = localStorage.getItem('walletSignature');
         const storedNonce = localStorage.getItem('walletNonce');
@@ -136,7 +134,9 @@ export default function Inventory() {
               const accounts = await provider.send('eth_accounts', []); // Silent check
               console.log('Silent accounts length:', accounts.length);
               if (accounts.length === 0) {
-                await provider.send('eth_requestAccounts', []); // Only if empty
+                // Only request if no accounts - but since isMetaMask, skip popup if possible
+                const requestAccounts = await provider.send('eth_requestAccounts', []);
+                console.log('Requested accounts:', requestAccounts.length);
               }
               const signer = await provider.getSigner();
               const address = await signer.getAddress();
