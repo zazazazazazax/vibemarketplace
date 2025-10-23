@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 
@@ -17,6 +17,7 @@ export default function Inventory() {
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [provider, setProvider] = useState(null); // Provider persistente per evitare ri-creazione
+  const debounceRef = useRef(null); // NUOVO: Per debounce su hover
 
   const cardsPerPage = 50;
 
@@ -59,6 +60,11 @@ export default function Inventory() {
       console.log('Inventory loaded, cards length:', data.cards.length);
       setAllInventory(data.cards);
       updateCurrentPage(data.cards, 1);
+
+      // NUOVO: Pre-calcola prezzi per tutte le carte con delay per evitare rate limit
+      if (provider && data.cards.length > 0 && data.cards.some(card => card.contract?.tokenAddress)) {
+        preCalculatePrices(data.cards);
+      }
     } catch (err) {
       console.error('Fetch inventory error:', err);
       setError('Error loading: ' + err.message);
@@ -66,6 +72,26 @@ export default function Inventory() {
       setLoading(false);
     }
   }, []); // No deps, stable
+
+  // NUOVO: Funzione per pre-calcolare prezzi con delay sequenziale
+  const preCalculatePrices = useCallback(async (cards) => {
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
+      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      if (!prices[cacheKey] && card.contract?.tokenAddress) {
+        try {
+          const price = await calculateCardPrice(card);
+          setPrices(prev => ({ ...prev, [cacheKey]: price }));
+        } catch (err) {
+          console.error('Pre-calc error for card', card.tokenId, err);
+        }
+        // Delay 100ms tra calls per evitare rate limit
+        if (i < cards.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+    }
+  }, [prices, provider, ethUsdPrice]); // Deps per cache e provider
 
   const connectWallet = async () => {
     console.log('Connect wallet clicked');
@@ -362,7 +388,7 @@ export default function Inventory() {
 
       const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n);
 
-      // FIX: ParseFloat per toFixed su stringa da formatEther
+      // ParseFloat per toFixed su stringa da formatEther
       const priceInEthRaw = ethers.formatEther(listingPrice);
       const priceInEth = parseFloat(priceInEthRaw).toFixed(6);
       const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
@@ -376,18 +402,27 @@ export default function Inventory() {
     }
   };
 
-  const handleMouseEnter = async (card) => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-    if (!prices[cacheKey] && card.contract?.tokenAddress) {
-      const price = await calculateCardPrice(card);
-      setPrices(prev => ({ ...prev, [cacheKey]: price }));
+  // NUOVO: Debounce per handleMouseEnter (500ms delay per evitare burst calls)
+  const handleMouseEnter = useCallback(async (card) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
-    setHoveredCardId(cacheKey);
-  };
+    debounceRef.current = setTimeout(async () => {
+      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      if (!prices[cacheKey] && card.contract?.tokenAddress) {
+        const price = await calculateCardPrice(card);
+        setPrices(prev => ({ ...prev, [cacheKey]: price }));
+      }
+      setHoveredCardId(cacheKey);
+    }, 500);
+  }, [prices, provider, ethUsdPrice]); // Deps per cache e provider
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
     setHoveredCardId(null);
-  };
+  }, []);
 
   const updateCurrentPage = useCallback((cards, page) => {
     const startIndex = (page - 1) * cardsPerPage;
@@ -419,6 +454,15 @@ export default function Inventory() {
       updateCurrentPage(allInventory, currentPage);
     }
   }, [currentPage, allInventory.length, updateCurrentPage]);
+
+  // NUOVO: Cleanup debounce su unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
