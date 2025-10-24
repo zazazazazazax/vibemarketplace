@@ -18,6 +18,7 @@ export default function Inventory() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [provider, setProvider] = useState(null); // Provider MetaMask per signer
   const [publicProvider, setPublicProvider] = useState(null); // Provider pubblico per view calls
+  const [isProviderReady, setIsProviderReady] = useState(false); // MODIFICA: Nuovo flag per readiness
   const [offerCache, setOfferCache] = useState({}); // Cache per OFFER per contract
   const debounceRef = useRef(null); // Per debounce su hover
 
@@ -63,8 +64,8 @@ export default function Inventory() {
       setAllInventory(data.cards);
       updateCurrentPage(data.cards, 1);
 
-      // Pre-calcola prezzi solo dopo 3s per warm-up
-      if (publicProvider && data.cards.length > 0) {
+      // Pre-calcola prezzi solo dopo 3s per warm-up (ora più affidabile con provider ready)
+      if (publicProvider && data.cards.length > 0 && isProviderReady) { // MODIFICA: Check isProviderReady
         setTimeout(() => preCalculatePrices(data.cards), 3000);
       }
     } catch (err) {
@@ -73,10 +74,32 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }, [publicProvider]); // Dep per publicProvider
+  }, [publicProvider, isProviderReady]); // MODIFICA: Aggiunta dep isProviderReady
 
-  // Funzione per fetch OFFER cached con retry su rate limit
-  const getOffer = useCallback(async (contractAddress, rarity, retries = 3) => {
+  // MODIFICA: Inizializzazione immediata e asincrona del publicProvider all'avvio del componente
+  useEffect(() => {
+    const initPublicProvider = async () => {
+      console.log('Initializing public provider...'); // MODIFICA: Log per debug
+      try {
+        const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
+        // Readiness check: Aspetta che il provider supporti chiamate RPC
+        await pubProv.getNetwork(); // O usa getBlockNumber() se preferisci
+        console.log('Public provider ready!'); // MODIFICA: Log per debug
+        setPublicProvider(pubProv);
+        setIsProviderReady(true);
+      } catch (err) {
+        console.error('Failed to initialize public provider:', err);
+        setError('Network issue: Provider not ready. Retry in a moment.'); // MODIFICA: Gestione errore
+        // Retry automatico dopo 5s
+        setTimeout(initPublicProvider, 5000);
+      }
+    };
+
+    initPublicProvider();
+  }, []); // Dependency vuota: corre solo al mount
+
+  // Funzione per fetch OFFER cached con retry su rate limit (aumentato a 5 tentativi)
+  const getOffer = useCallback(async (contractAddress, rarity, retries = 5) => { // MODIFICA: retries da 3 a 5
     const cacheKey = `${contractAddress}_OFFER_${rarity}`;
     if (offerCache[cacheKey]) return offerCache[cacheKey];
 
@@ -108,7 +131,7 @@ export default function Inventory() {
         console.warn(`Offer fetch attempt ${attempt + 1} failed for ${contractAddress} ${rarity}:`, err.message);
         if (err.code === -32005 || err.message.includes('rate limited') || err.message.includes('UNSUPPORTED_OPERATION')) { // Rate limit o provider not ready
           if (attempt < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1))); // Backoff: 1.5s, 3s, 4.5s
+            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // MODIFICA: Backoff aumentato a 2s,4s,6s,8s,10s per più margine
           } else {
             console.error('Offer fetch failed after retries for', contractAddress, rarity);
             return 0n;
@@ -179,9 +202,7 @@ export default function Inventory() {
         // Salva provider persistente (MetaMask per signer)
         setProvider(prov);
 
-        // Crea public provider per view calls (subito, sync)
-        const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
-        setPublicProvider(pubProv);
+        // MODIFICA: Rimossa creazione publicProvider qui (ora gestita globalmente all'avvio)
 
         const signer = await prov.getSigner();
         const address = await signer.getAddress();
@@ -235,14 +256,7 @@ export default function Inventory() {
     setIsConnecting(false);
   };
 
-  // Crea public provider persistente quando walletAddress è set
-  useEffect(() => {
-    if (walletAddress && !publicProvider) {
-      console.log('Creating public provider after wallet set');
-      const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
-      setPublicProvider(pubProv);
-    }
-  }, [walletAddress]);
+  // MODIFICA: Rimosso useEffect per creazione publicProvider su walletAddress (ora globale)
 
   // Auto-reconnect: usa solo verifica signature (senza provider o eth_accounts) per evitare popup multi-wallet
   useEffect(() => {
@@ -293,7 +307,7 @@ export default function Inventory() {
 
               if (recoveredAddress.toLowerCase() === storedAddress.toLowerCase()) {
                 console.log('Signature valid, using recovered address for session');
-                setWalletAddress(recoveredAddress); // Questo triggera il useEffect per creare public provider
+                setWalletAddress(recoveredAddress); // Questo triggera fetch, ma provider è già pronto
                 fetchEthUsdPrice();
                 fetchAllInventory(recoveredAddress);
                 success = true;
@@ -376,6 +390,7 @@ export default function Inventory() {
     }
     setProvider(null); // Clear provider su disconnect
     setPublicProvider(null); // Clear public provider
+    setIsProviderReady(false); // MODIFICA: Reset flag
     setOfferCache({}); // Clear cache
     setWalletAddress(null);
     localStorage.clear();
@@ -390,14 +405,13 @@ export default function Inventory() {
 
     if (!card.contract?.tokenAddress) return 'N/A';
 
+    // MODIFICA: Check readiness; no more on-the-fly creation
+    if (!publicProvider || !isProviderReady) {
+      console.warn('Provider not ready for price calc'); // MODIFICA: Log
+      return 'Loading provider...'; // Temp message invece di N/A
+    }
+
     try {
-      // Usa publicProvider per view calls (no rate limit MetaMask)
-      let prov = publicProvider;
-      if (!prov) {
-        console.warn('No public provider available for price calc, creating on-the-fly');
-        prov = new ethers.JsonRpcProvider('https://base.publicnode.com');
-        setPublicProvider(prov);
-      }
       const collectionDrop = new ethers.Contract(
         card.contractAddress,
         [
@@ -407,7 +421,7 @@ export default function Inventory() {
           'function LEGENDARY_OFFER() external view returns (uint256)',
           'function MYTHIC_OFFER() external view returns (uint256)'
         ],
-        prov
+        publicProvider
       );
 
       const boosterToken = new ethers.Contract(
@@ -415,7 +429,7 @@ export default function Inventory() {
         [
           'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
         ],
-        prov
+        publicProvider
       );
 
       // Usa cached OFFER
@@ -463,12 +477,17 @@ export default function Inventory() {
     debounceRef.current = setTimeout(async () => {
       const cacheKey = `${card.tokenId}-${card.contractAddress}`;
       if (!prices[cacheKey] && card.contract?.tokenAddress) {
-        const price = await calculateCardPrice(card);
-        setPrices(prev => ({ ...prev, [cacheKey]: price }));
+        // MODIFICA: Check readiness prima di calcolare
+        if (isProviderReady) {
+          const price = await calculateCardPrice(card);
+          setPrices(prev => ({ ...prev, [cacheKey]: price }));
+        } else {
+          setPrices(prev => ({ ...prev, [cacheKey]: 'Provider loading...' })); // Temp
+        }
       }
       setHoveredCardId(cacheKey);
     }, 0);
-  }, [prices]);
+  }, [prices, isProviderReady]); // MODIFICA: Aggiunta dep isProviderReady
 
   const handleMouseLeave = useCallback(() => {
     if (debounceRef.current) {
@@ -537,6 +556,7 @@ export default function Inventory() {
           <p className="mb-4">Connected: {walletAddress} <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">Disconnect</button></p>
           {error && <p className="text-red-500">{error}</p>}
           {loading && <p>Loading all pages...</p>}
+          {!isProviderReady && <p className="text-yellow-500 mb-4">Initializing network provider... (first-time setup)</p>} {/* MODIFICA: Messaggio temporaneo */}
           {inventory.length > 0 ? (
             <>
               <ul className="space-y-4">
