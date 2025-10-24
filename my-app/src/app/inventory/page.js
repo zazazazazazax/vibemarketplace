@@ -14,18 +14,14 @@ export default function Inventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [prices, setPrices] = useState({});
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
-  const [isEthPriceLoaded, setIsEthPriceLoaded] = useState(false); // MODIFICA: Nuovo flag per ETH/USD readiness
+  const [isEthPriceLoaded, setIsEthPriceLoaded] = useState(false); // Flag per ETH/USD readiness (backend)
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [provider, setProvider] = useState(null); // Provider MetaMask per signer
-  const [publicProvider, setPublicProvider] = useState(null); // Provider pubblico per view calls
-  const [isProviderReady, setIsProviderReady] = useState(false);
-  const [offerCache, setOfferCache] = useState({}); // Cache per OFFER per contract
+  const [offerCache, setOfferCache] = useState({}); // Non più usato, ma tenuto per compatibilità (rimuovi se vuoi)
   const debounceRef = useRef(null); // Per debounce su hover
 
   const cardsPerPage = 50;
-
-  // console.log('Inventory component mounted'); // Commentato per evitare spam
 
   // EIP-712 typed data for signature
   const domain = {
@@ -42,37 +38,33 @@ export default function Inventory() {
   };
   const nonce = Math.floor(Date.now() / 1000 / 3600);
 
-  const fetchEthUsdPrice = useCallback(async () => {
-    if (isEthPriceLoaded) return; // MODIFICA: Evita fetch multipli se già loaded
-    console.log('Fetching ETH/USD price...'); // MODIFICA: Log per debug
-    try {
-      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-      const data = await response.json();
-      const price = data.ethereum.usd || 0;
-      setEthUsdPrice(price);
-      setIsEthPriceLoaded(true);
-      console.log('ETH/USD price loaded:', price); // MODIFICA: Log per debug
-    } catch (err) {
-      console.error('Error fetching ETH price:', err);
-      setIsEthPriceLoaded(false); // MODIFICA: Non setta loaded su errore
+  // Fetch ETH/USD dal backend con retry manuale (no loop infinito)
+  const fetchEthUsdPrice = useCallback(async (retries = 3) => {
+    if (isEthPriceLoaded) return;
+    console.log('Fetching ETH/USD price from backend...');
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch('/api/inventory?endpoint=eth-price');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        setEthUsdPrice(data.price || 0);
+        setIsEthPriceLoaded(true);
+        console.log('ETH/USD price loaded from backend:', data.price);
+        return;
+      } catch (err) {
+        console.error(`ETH price fetch attempt ${i + 1} failed:`, err.message);
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1))); // Backoff: 2s, 4s
+        }
+      }
     }
+    setError('Failed to load ETH price. Retrying later...'); // UX fallback
   }, [isEthPriceLoaded]);
 
-  // MODIFICA: Fetch ETH/USD immediato all'avvio del componente (indipendente dal wallet)
+  // Fetch iniziale ETH price all'avvio (no interval, solo retry manuale)
   useEffect(() => {
     fetchEthUsdPrice();
-
-    // Retry se fallisce (ogni 5s, max 3 tentativi impliciti via loop)
-    const retryInterval = setInterval(() => {
-      if (!isEthPriceLoaded && ethUsdPrice === 0) {
-        console.log('Retrying ETH/USD fetch...');
-        fetchEthUsdPrice();
-      } else {
-        clearInterval(retryInterval);
-      }
-    }, 5000);
-
-    return () => clearInterval(retryInterval);
   }, []); // Dependency vuota: solo al mount
 
   const fetchAllInventory = useCallback(async (address) => {
@@ -88,8 +80,8 @@ export default function Inventory() {
       setAllInventory(data.cards);
       updateCurrentPage(data.cards, 1);
 
-      // Pre-calcola prezzi solo dopo 3s per warm-up
-      if (publicProvider && data.cards.length > 0 && isProviderReady && isEthPriceLoaded) { // MODIFICA: Check anche isEthPriceLoaded
+      // Pre-calcola prezzi solo dopo 3s per warm-up (ora backend, con check ETH loaded)
+      if (data.cards.length > 0 && isEthPriceLoaded) {
         setTimeout(() => preCalculatePrices(data.cards), 3000);
       }
     } catch (err) {
@@ -98,96 +90,27 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }, [publicProvider, isProviderReady, isEthPriceLoaded]); // MODIFICA: Aggiunta dep isEthPriceLoaded
+  }, [isEthPriceLoaded]);
 
-  // MODIFICA: Inizializzazione immediata e asincrona del publicProvider all'avvio del componente
-  useEffect(() => {
-    const initPublicProvider = async () => {
-      console.log('Initializing public provider...');
-      try {
-        const pubProv = new ethers.JsonRpcProvider('https://base.publicnode.com');
-        // Readiness check: Aspetta che il provider supporti chiamate RPC
-        await pubProv.getNetwork(); // O usa getBlockNumber() se preferisci
-        console.log('Public provider ready!');
-        setPublicProvider(pubProv);
-        setIsProviderReady(true);
-      } catch (err) {
-        console.error('Failed to initialize public provider:', err);
-        setError('Network issue: Provider not ready. Retry in a moment.');
-        // Retry automatico dopo 5s
-        setTimeout(initPublicProvider, 5000);
-      }
-    };
-
-    initPublicProvider();
-  }, []); // Dependency vuota: corre solo al mount
-
-  // Funzione per fetch OFFER cached con retry su rate limit (aumentato a 5 tentativi)
-  const getOffer = useCallback(async (contractAddress, rarity, retries = 5) => {
-    const cacheKey = `${contractAddress}_OFFER_${rarity}`;
-    if (offerCache[cacheKey]) return offerCache[cacheKey];
-
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        const collectionDrop = new ethers.Contract(
-          contractAddress,
-          [
-            'function COMMON_OFFER() external view returns (uint256)',
-            'function RARE_OFFER() external view returns (uint256)',
-            'function EPIC_OFFER() external view returns (uint256)',
-            'function LEGENDARY_OFFER() external view returns (uint256)',
-            'function MYTHIC_OFFER() external view returns (uint256)'
-          ],
-          publicProvider
-        );
-
-        let baseTokens;
-        if (rarity === 1) baseTokens = await collectionDrop.COMMON_OFFER();
-        else if (rarity === 2) baseTokens = await collectionDrop.RARE_OFFER();
-        else if (rarity === 3) baseTokens = await collectionDrop.EPIC_OFFER();
-        else if (rarity === 4) baseTokens = await collectionDrop.LEGENDARY_OFFER();
-        else if (rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
-        else throw new Error('Invalid rarity');
-
-        setOfferCache(prev => ({ ...prev, [cacheKey]: baseTokens }));
-        return baseTokens;
-      } catch (err) {
-        console.warn(`Offer fetch attempt ${attempt + 1} failed for ${contractAddress} ${rarity}:`, err.message);
-        if (err.code === -32005 || err.message.includes('rate limited') || err.message.includes('UNSUPPORTED_OPERATION')) { // Rate limit o provider not ready
-          if (attempt < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1))); // Backoff aumentato a 2s,4s,6s,8s,10s per più margine
-          } else {
-            console.error('Offer fetch failed after retries for', contractAddress, rarity);
-            return 0n;
-          }
-        } else {
-          console.error('Unexpected error fetching offer for', contractAddress, rarity, err);
-          return 0n;
-        }
-      }
-    }
-    return 0n;
-  }, [offerCache, publicProvider]);
-
-  // Pre-calcola prezzi con delay sequenziale maggiore
+  // Pre-calcola prezzi con fetch backend sequenziale (delay per evitare overload)
   const preCalculatePrices = useCallback(async (cards) => {
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
       const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-      if (!prices[cacheKey] && card.contract?.tokenAddress && isEthPriceLoaded) { // MODIFICA: Check isEthPriceLoaded
+      if (!prices[cacheKey] && card.contract?.tokenAddress) {
         try {
           const price = await calculateCardPrice(card);
           setPrices(prev => ({ ...prev, [cacheKey]: price }));
         } catch (err) {
           console.error('Pre-calc error for card', card.tokenId, err);
         }
-        // Delay 500ms tra calls per evitare rate limit
+        // Delay 500ms tra calls per evitare rate limit backend
         if (i < cards.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
     }
-  }, [prices, isEthPriceLoaded]); // MODIFICA: Aggiunta dep isEthPriceLoaded
+  }, [prices]);
 
   const connectWallet = async () => {
     console.log('Connect wallet clicked');
@@ -248,7 +171,6 @@ export default function Inventory() {
         console.log('All localStorage saved');
 
         setWalletAddress(address);
-        // MODIFICA: Rimosso fetchEthUsdPrice() qui (ora gestito globalmente all'avvio)
         fetchAllInventory(address);
       } catch (err) {
         console.error('Connect error:', err);
@@ -266,7 +188,6 @@ export default function Inventory() {
         localStorage.setItem('preferredWallet', 'phantom');
         localStorage.setItem('walletAddress', address);
         setWalletAddress(address);
-        // MODIFICA: Rimosso fetchEthUsdPrice() qui
         fetchAllInventory(address);
       } catch (err) {
         console.error('Phantom connect error:', err);
@@ -327,8 +248,7 @@ export default function Inventory() {
 
               if (recoveredAddress.toLowerCase() === storedAddress.toLowerCase()) {
                 console.log('Signature valid, using recovered address for session');
-                setWalletAddress(recoveredAddress); // Questo triggera fetch, ma provider è già pronto
-                // MODIFICA: Rimosso fetchEthUsdPrice() qui
+                setWalletAddress(recoveredAddress);
                 fetchAllInventory(recoveredAddress);
                 success = true;
                 return;
@@ -356,7 +276,6 @@ export default function Inventory() {
           const address = solana.publicKey.toString();
           console.log('Phantom silent connect success, address:', address);
           setWalletAddress(address);
-          // MODIFICA: Rimosso fetchEthUsdPrice() qui
           fetchAllInventory(address);
           success = true;
           return;
@@ -398,7 +317,7 @@ export default function Inventory() {
         window.ethereum.removeListener('accountsChanged', accountsChangedHandler);
       }
     };
-  }, [router, isConnecting]); // Removed fetch deps, now stable with useCallback
+  }, [router, isConnecting, fetchAllInventory]);
 
   const disconnectWallet = () => {
     console.log('Disconnect clicked');
@@ -409,130 +328,46 @@ export default function Inventory() {
       window.solana.disconnect();
     }
     setProvider(null); // Clear provider su disconnect
-    setPublicProvider(null); // Clear public provider
-    setIsProviderReady(false); // Reset flag
-    setOfferCache({}); // Clear cache
     setWalletAddress(null);
-    // MODIFICA: Non reset ethUsdPrice (utile anche su disconnect, ma reset flag per retry futuri)
-    setIsEthPriceLoaded(false);
+    setIsEthPriceLoaded(false); // Reset per retry futuri
     localStorage.clear();
     setAllInventory([]);
     setInventory([]);
+    setPrices({}); // Clear prices cache
     router.push('/'); // Redirect to home on disconnect
   };
 
-  const calculateCardPrice = async (card) => {
+  // Calcola prezzo card via backend fetch
+  const calculateCardPrice = useCallback(async (card) => {
     const cacheKey = `${card.tokenId}-${card.contractAddress}`;
     if (prices[cacheKey]) return prices[cacheKey];
 
     if (!card.contract?.tokenAddress) return 'N/A';
 
-    if (!publicProvider || !isProviderReady) {
-      console.warn('Provider not ready for price calc');
-      return 'Loading provider...';
-    }
-
-    if (!isEthPriceLoaded || ethUsdPrice === 0) { // MODIFICA: Check per ETH/USD
-      console.warn('ETH/USD price not loaded yet for price calc');
-      // Calcola solo ETH per ora
-      try {
-        // ... (codice per baseTokens e ethBase, uguale)
-        let baseTokens = await getOffer(card.contractAddress, card.rarity);
-        if (baseTokens === 0n) return 'N/A';
-
-        const boosterToken = new ethers.Contract(
-          card.contract.tokenAddress,
-          [
-            'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
-          ],
-          publicProvider
-        );
-
-        const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
-
-        console.log(`Card ${card.tokenId}: ethBase = ${ethers.formatEther(ethBase)}`);
-
-        const foilType = card.metadata.foil;
-        let foilMult = 100n;
-        if (foilType === 'Standard') foilMult = 200n;
-        else if (foilType === 'Prize') foilMult = 400n;
-
-        const wearStr = card.metadata.wear;
-        const wear = parseFloat(wearStr);
-        let wearMult = 100n;
-        if (wear < 0.05) wearMult = 180n;
-        else if (wear < 0.2) wearMult = 160n;
-        else if (wear < 0.45) wearMult = 140n;
-        else if (wear < 0.75) wearMult = 120n;
-
-        const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n);
-
-        const priceInEthRaw = ethers.formatEther(listingPrice);
-        const priceInEth = parseFloat(priceInEthRaw).toFixed(6);
-        return `${priceInEth} ETH (Loading USD...)`; // MODIFICA: Mostra solo ETH + loading per USD
-      } catch (err) {
-        console.error('Error calculating price for card', card.tokenId, err);
-        return 'N/A';
-      }
-    }
-
     try {
-      const collectionDrop = new ethers.Contract(
-        card.contractAddress,
-        [
-          'function COMMON_OFFER() external view returns (uint256)',
-          'function RARE_OFFER() external view returns (uint256)',
-          'function EPIC_OFFER() external view returns (uint256)',
-          'function LEGENDARY_OFFER() external view returns (uint256)',
-          'function MYTHIC_OFFER() external view returns (uint256)'
-        ],
-        publicProvider
-      );
-
-      const boosterToken = new ethers.Contract(
-        card.contract.tokenAddress,
-        [
-          'function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256)'
-        ],
-        publicProvider
-      );
-
-      // Usa cached OFFER
-      let baseTokens = await getOffer(card.contractAddress, card.rarity);
-      if (baseTokens === 0n) return 'N/A';
-
-      const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
-
-      console.log(`Card ${card.tokenId}: ethBase = ${ethers.formatEther(ethBase)}`);
-
-      const foilType = card.metadata.foil;
-      let foilMult = 100n;
-      if (foilType === 'Standard') foilMult = 200n;
-      else if (foilType === 'Prize') foilMult = 400n;
-
-      const wearStr = card.metadata.wear;
-      const wear = parseFloat(wearStr);
-      let wearMult = 100n;
-      if (wear < 0.05) wearMult = 180n;
-      else if (wear < 0.2) wearMult = 160n;
-      else if (wear < 0.45) wearMult = 140n;
-      else if (wear < 0.75) wearMult = 120n;
-
-      const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n);
-
-      // ParseFloat per toFixed su stringa da formatEther
-      const priceInEthRaw = ethers.formatEther(listingPrice);
-      const priceInEth = parseFloat(priceInEthRaw).toFixed(6);
-      const priceInUsd = (parseFloat(priceInEth) * ethUsdPrice).toFixed(2);
-      const price = `${priceInEth} ETH (${priceInUsd} USD)`;
-
+      const cardData = JSON.stringify({
+        metadata: card.metadata,
+        rarity: card.rarity,
+        contract: card.contract
+      });
+      const params = new URLSearchParams({
+        endpoint: 'card-price',
+        tokenId: card.tokenId,
+        contractAddress: card.contractAddress,
+        cardData: cardData
+      });
+      const response = await fetch(`/api/inventory?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      const price = data.price || 'N/A';
       setPrices(prev => ({ ...prev, [cacheKey]: price }));
       return price;
     } catch (err) {
       console.error('Error calculating price for card', card.tokenId, err);
       return 'N/A';
     }
-  };
+  }, [prices]);
 
   // Debounce per handleMouseEnter (0ms per istantaneo)
   const handleMouseEnter = useCallback(async (card) => {
@@ -541,15 +376,17 @@ export default function Inventory() {
     }
     debounceRef.current = setTimeout(async () => {
       const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-      if (!prices[cacheKey] && card.contract?.tokenAddress && isEthPriceLoaded) { // MODIFICA: Check isEthPriceLoaded
-        const price = await calculateCardPrice(card);
-        setPrices(prev => ({ ...prev, [cacheKey]: price }));
-      } else if (!isEthPriceLoaded) {
-        setPrices(prev => ({ ...prev, [cacheKey]: 'Loading USD price...' })); // Temp
+      if (!prices[cacheKey] && card.contract?.tokenAddress) {
+        if (isEthPriceLoaded) {
+          const price = await calculateCardPrice(card);
+          setPrices(prev => ({ ...prev, [cacheKey]: price }));
+        } else {
+          setPrices(prev => ({ ...prev, [cacheKey]: 'Loading USD price...' })); // Temp
+        }
       }
       setHoveredCardId(cacheKey);
     }, 0);
-  }, [prices, isEthPriceLoaded]); // MODIFICA: Aggiunta dep isEthPriceLoaded
+  }, [prices, isEthPriceLoaded, calculateCardPrice]);
 
   const handleMouseLeave = useCallback(() => {
     if (debounceRef.current) {
@@ -618,8 +455,7 @@ export default function Inventory() {
           <p className="mb-4">Connected: {walletAddress} <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">Disconnect</button></p>
           {error && <p className="text-red-500">{error}</p>}
           {loading && <p>Loading all pages...</p>}
-          {!isProviderReady && <p className="text-yellow-500 mb-4">Initializing network provider... (first-time setup)</p>}
-          {!isEthPriceLoaded && <p className="text-yellow-500 mb-4">Loading ETH/USD price... (quick fetch)</p>} {/* MODIFICA: Messaggio temporaneo per USD */}
+          {!isEthPriceLoaded && <p className="text-yellow-500 mb-4">Loading ETH/USD price... (quick fetch)</p>}
           {inventory.length > 0 ? (
             <>
               <ul className="space-y-4">
