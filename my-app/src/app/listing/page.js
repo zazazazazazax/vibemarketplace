@@ -1,50 +1,49 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useSearchParams, Link } from 'next/navigation'; // FIX: useSearchParams solo; Link per nav
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { ethers } from 'ethers';
 
-const CONTRACT_ADDRESS = '0x...'; // SOSTITUISCI CON DEPLOYATO
+export const dynamic = 'force-dynamic'; // FIX: No SSR/prerender
+export const revalidate = 0; // FIX: No static cache
+
+const CONTRACT_ADDRESS = '0x...'; // Sostituisci con deployato
 
 const ABI = [
-  // Da VibeMarketplaceV2.sol
   'function createListing(address _collection, address _boosterToken, uint256 tokenId)',
   'function createListingBatch(address _collection, address _boosterToken, uint256[] calldata tokenIds)',
   'function buyListing(uint256 tokenId) external payable',
   'function delist(uint256 tokenId) external',
   'function getListingDetails(uint256 tokenId) external view returns (uint8 rarity, string memory wear, string memory foilType, uint256 baseTokens, uint256 ethBase, uint256 listingPrice)',
-  // Aggiungi delistBatch se implementi nel contratto
 ];
 
 export default function Listing() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const { address: walletAddress, isConnected } = useAccount();
   const { writeContract, data: txHash } = useWriteContract();
   const { isLoading: txLoading, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-  const [form, setForm] = useState({ tokenIds: [], collection: '', boosterToken: '', action: 'create' }); // 'create', 'buy', 'delist'
+  const [form, setForm] = useState({ tokenIds: [], collection: '', boosterToken: '', action: 'create' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (router.query) {
-      const tokenId = router.query.tokenId ? [router.query.tokenId] : [];
-      setForm({
-        tokenIds: tokenId,
-        collection: router.query.collection || '',
-        boosterToken: router.query.boosterToken || '',
-        action: 'create' // Default
-      });
-    }
-  }, [router.query]);
+    const tokenIdsStr = searchParams.get('tokenIds') || '';
+    const tokenIds = tokenIdsStr.split(',').filter(id => id.trim());
+    setForm({
+      tokenIds,
+      collection: searchParams.get('collection') || '',
+      boosterToken: searchParams.get('boosterToken') || '',
+      action: searchParams.get('action') || 'create'
+    });
+  }, [searchParams]);
 
-  // Read prezzo/details on-chain (per confirm)
   const { data: listingDetails } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
     functionName: 'getListingDetails',
-    args: [BigInt(form.tokenIds[0] || 0)], // Solo primo per preview
-    enabled: form.action === 'buy' && form.tokenIds.length > 0,
+    args: [BigInt(form.tokenIds[0] || 0)],
+    enabled: form.action === 'buy' && form.tokenIds.length > 0 && CONTRACT_ADDRESS !== '0x...',
   });
 
   const handleSubmit = async (e) => {
@@ -53,26 +52,40 @@ export default function Listing() {
     setLoading(true);
     setError(null);
     try {
-      const args = [form.collection, form.boosterToken, form.tokenIds.map(id => BigInt(id))];
-      const value = form.action === 'buy' ? ethers.parseEther((listingDetails?.listingPrice * form.tokenIds.length / 1e18).toString()) : 0n; // ETH per buy batch approx
+      const collection = form.collection;
+      const boosterToken = form.action === 'create' ? form.boosterToken : ethers.ZeroAddress; // Safe dummy
+      const tokenIdsBigInt = form.tokenIds.map(id => BigInt(id.trim()));
+      let value = 0n;
 
-      if (form.action === 'create' && form.tokenIds.length === 1) {
-        writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'createListing', args: args.slice(2) }); // Single
-      } else if (form.action === 'create') {
-        writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'createListingBatch', args });
+      if (form.action === 'create') {
+        if (form.tokenIds.length === 1) {
+          writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'createListing', args: [collection, boosterToken, tokenIdsBigInt[0]] });
+        } else {
+          writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'createListingBatch', args: [collection, boosterToken, tokenIdsBigInt] });
+        }
       } else if (form.action === 'buy') {
-        // Loop per buy (aggiungi batch fn al contratto per parallel)
-        await Promise.all(form.tokenIds.map(id => 
-          writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'buyListing', args: [BigInt(id)], value })
+        // Safe BigInt calc per total ETH
+        const ethPerItem = listingDetails?.listingPrice || 0n;
+        value = ethPerItem * BigInt(form.tokenIds.length);
+        await Promise.all(tokenIdsBigInt.map(id => 
+          writeContract({ 
+            address: CONTRACT_ADDRESS, 
+            abi: ABI, 
+            functionName: 'buyListing', 
+            args: [id], 
+            value: ethPerItem // Per item, non total
+          })
         ));
       } else if (form.action === 'delist') {
-        // Loop per delist (aggiungi batch al contratto)
-        await Promise.all(form.tokenIds.map(id => 
-          writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'delist', args: [BigInt(id)] })
+        await Promise.all(tokenIdsBigInt.map(id => 
+          writeContract({ address: CONTRACT_ADDRESS, abi: ABI, functionName: 'delist', args: [id] })
         ));
       }
 
-      if (isSuccess) router.push('/inventory');
+      if (isSuccess) {
+        // FIX: Usa Link per redirect invece di router.push
+        window.location.href = '/inventory'; // Fallback safe
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -80,7 +93,7 @@ export default function Listing() {
     }
   };
 
-  if (!isConnected) return <p className="text-center">Connect wallet to list.</p>;
+  if (!isConnected) return <p className="text-center">Connect wallet to manage listings.</p>;
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
@@ -91,16 +104,23 @@ export default function Listing() {
           <option value="buy">Buy Listing</option>
           <option value="delist">Delist</option>
         </select>
-        <input type="text" placeholder="Collection Address" value={form.collection} onChange={(e) => setForm({...form, collection: e.target.value})} required={form.action === 'create'} />
-        <input type="text" placeholder="Booster Token Address" value={form.boosterToken} onChange={(e) => setForm({...form, boosterToken: e.target.value})} required={form.action === 'create'} />
-        <textarea placeholder="Token IDs (comma-separated for batch)" value={form.tokenIds.join(', ')} onChange={(e) => setForm({...form, tokenIds: e.target.value.split(',').map(s => s.trim())})} />
-        {form.action === 'buy' && listingDetails && <p>Price: {ethers.formatEther(listingDetails.listingPrice)} ETH</p>}
+        {form.action === 'create' && (
+          <>
+            <input type="text" placeholder="Collection Address" value={form.collection} onChange={(e) => setForm({...form, collection: e.target.value})} required />
+            <input type="text" placeholder="Booster Token Address" value={form.boosterToken} onChange={(e) => setForm({...form, boosterToken: e.target.value})} required />
+          </>
+        )}
+        <textarea placeholder="Token IDs (comma-separated for batch)" value={form.tokenIds.join(', ')} onChange={(e) => setForm({...form, tokenIds: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} required />
+        {form.action === 'buy' && listingDetails && (
+          <p>Est. Price per Item: {ethers.formatEther(listingDetails.listingPrice)} ETH 
+            (Total for {form.tokenIds.length}: {ethers.formatEther(listingDetails.listingPrice * BigInt(form.tokenIds.length))} ETH)</p>
+        )}
         <button type="submit" disabled={loading || txLoading} className="bg-blue-500 text-white px-4 py-2 rounded w-full">
-          {loading ? 'Processing...' : `${form.action === 'create' ? 'List' : form.action.toUpperCase()} Selected`}
+          {loading ? 'Processing...' : `${form.action.charAt(0).toUpperCase() + form.action.slice(1)} Selected`}
         </button>
         {error && <p className="text-red-500">{error}</p>}
-        {txLoading && <p>Waiting for tx...</p>}
-        {isSuccess && <p>Success! Redirecting...</p>}
+        {txLoading && <p>Waiting for transaction...</p>}
+        {isSuccess && <p>Success! <Link href="/inventory" className="text-blue-500 underline">Back to Inventory</Link></p>}
       </form>
     </main>
   );
