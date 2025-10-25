@@ -3,15 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
-import { useAccount, useConnect, useDisconnect, useChainId, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
-import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors'; // Per connectors manuali se needed
-import { config } from '../providers'; // Importa config (assumi in /app/providers.js)
+
+export const dynamic = 'force-dynamic'; // FIX: Disabilita SSR/prerender per Wagmi hooks
 
 export default function Inventory() {
   const router = useRouter();
   const { address: walletAddress, isConnected } = useAccount();
-  const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect({ config });
+  const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect(); // FIX: Rimosso { config } – usa globale dal layout
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const [allInventory, setAllInventory] = useState([]);
@@ -23,12 +23,12 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [isEthPriceLoaded, setIsEthPriceLoaded] = useState(false);
   const [hoveredCardId, setHoveredCardId] = useState(null);
-  const [selectedCards, setSelectedCards] = useState([]); // NUOVO: Array per multi-select
+  const [selectedCards, setSelectedCards] = useState([]); // Per multi-select
   const debounceRef = useRef(null);
 
   const cardsPerPage = 50;
 
-  // EIP-712 typed data for signature (persistenza opzionale)
+  // EIP-712 per persistenza sessione (opzionale)
   const domain = {
     name: 'Vibe.Marketplace',
     version: '1',
@@ -43,17 +43,17 @@ export default function Inventory() {
   };
   const nonce = Math.floor(Date.now() / 1000 / 3600);
 
-  // Fetch ETH/USD con Wagmi query (caching 1min)
+  // Fetch ETH/USD con query caching
   const { data: ethPriceData } = useQuery({
     queryKey: ['ethPrice'],
     queryFn: async () => {
-      const response = await fetch('/api/inventory?endpoint=eth-price');
+      const response = await fetch('/api-inventory?endpoint=eth-price'); // Usa tuo path API
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
       return data;
     },
-    staleTime: 60000, // 1min cache
+    staleTime: 60000, // 1min
     retry: 3,
   });
 
@@ -78,7 +78,7 @@ export default function Inventory() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/inventory?address=${address}`);
+      const response = await fetch(`/api-inventory?address=${address}`); // Usa tuo path API
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
@@ -97,7 +97,6 @@ export default function Inventory() {
     }
   }, [isEthPriceLoaded]);
 
-  // Pre-calcola prezzi
   const preCalculatePrices = useCallback(async (cards) => {
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
@@ -116,12 +115,10 @@ export default function Inventory() {
     }
   }, [prices]);
 
-  // Connect wallet (multi-connector)
   const connectWallet = useCallback((connector) => {
     connect({ connector });
   }, [connect]);
 
-  // Disconnect
   const disconnectWallet = useCallback(() => {
     disconnect();
     localStorage.clear();
@@ -130,7 +127,6 @@ export default function Inventory() {
     setSelectedCards([]);
   }, [disconnect]);
 
-  // Calcola prezzo card via backend
   const calculateCardPrice = useCallback(async (card) => {
     const cacheKey = `${card.tokenId}-${card.contractAddress}`;
     if (prices[cacheKey]) return prices[cacheKey];
@@ -149,7 +145,7 @@ export default function Inventory() {
         contractAddress: card.contractAddress,
         cardData: cardData
       });
-      const response = await fetch(`/api/inventory?${params}`);
+      const response = await fetch(`/api-inventory?${params}`); // Usa tuo path API
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -162,7 +158,6 @@ export default function Inventory() {
     }
   }, [prices]);
 
-  // Handle hover
   const handleMouseEnter = useCallback(async (card) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
@@ -180,17 +175,14 @@ export default function Inventory() {
     setHoveredCardId(null);
   }, []);
 
-  // Multi-select toggle
   const toggleSelect = useCallback((card) => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
     setSelectedCards(prev => 
-      prev.some(c => c.tokenId === card.tokenId && c.contractAddress === card.cacheKey) 
-        ? prev.filter(c => c.tokenId !== card.tokenId || c.contractAddress !== card.contractAddress)
+      prev.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress) 
+        ? prev.filter(c => !(c.tokenId === card.tokenId && c.contractAddress === card.contractAddress))
         : [...prev, card]
     );
   }, []);
 
-  // Redirect to listing (single or batch)
   const handleGoToListing = useCallback(() => {
     const tokenIds = selectedCards.map(c => c.tokenId).join(',');
     const collection = selectedCards[0]?.contractAddress || '';
@@ -243,7 +235,7 @@ export default function Inventory() {
           <p>Please connect your wallet to view inventory.</p>
           <div className="mt-2 space-x-2">
             {connectors
-              .filter(c => c.ready) // Solo ready connectors
+              .filter(c => c.ready)
               .map((connector) => (
                 <button
                   key={connector.id}
@@ -272,7 +264,6 @@ export default function Inventory() {
             <button
               onClick={handleGoToListing}
               className="bg-green-500 text-white px-4 py-2 rounded mb-4"
-              disabled={selectedCards.length === 0}
             >
               Batch List {selectedCards.length} Cards
             </button>
