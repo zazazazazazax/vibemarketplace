@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { LRUCache } from 'lru-cache';
-import { ethers } from 'ethers'; // FIX: Import at top, no dynamic
+import { ethers } from 'ethers'; // Top import for server
 
-// Cache (dal tuo originale)
+// Cache (dal tuo)
 const inventoryCache = new LRUCache({
   max: 100,
   ttl: 1000 * 60 * 5,
@@ -21,17 +21,17 @@ const cardPriceCache = new LRUCache({
   dispose: (value, key) => { }
 });
 
-// API keys (dal tuo originale)
+// API keys (dal tuo)
 const apiKeys = [
   '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2',
   'RR2C1-EZ7I3-7O792-94NRG-AR07M',
   'RTDVD-E68MA-2FA63-UGAGA-WJUAR'
 ];
 
-// Provider RPC (dal tuo originale)
+// Provider RPC (dal tuo)
 const publicProvider = new ethers.JsonRpcProvider('https://base.publicnode.com');
 
-// Fetch ETH/USD with retry (dal tuo originale)
+// fetchEthUsdWithRetry (dal tuo)
 async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   const cacheKey = 'eth_usd';
   if (ethPriceCache.has(cacheKey)) return ethPriceCache.get(cacheKey);
@@ -56,7 +56,7 @@ async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   }
 }
 
-// Calculate card price (dal tuo originale, with try/catch for contract calls)
+// calculateCardPrice (dal tuo snippet, with try/catch)
 async function calculateCardPrice(card) {
   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
   if (cardPriceCache.has(cacheKey)) return cardPriceCache.get(cacheKey);
@@ -121,7 +121,7 @@ async function calculateCardPrice(card) {
   }
 }
 
-// fetchWithRetry (dal tuo originale)
+// fetchWithRetry (dal tuo)
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -140,7 +140,7 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
   }
 }
 
-// fetchPagesForStatus (dal tuo originale)
+// fetchPagesForStatus (dal tuo)
 async function fetchPagesForStatus(address, status, apiKey) {
   let allCards = [];
   let page = 1;
@@ -164,7 +164,7 @@ async function fetchPagesForStatus(address, status, apiKey) {
   return allCards;
 }
 
-// GET handler (dal tuo originale, with endpoint support)
+// GET handler (dal tuo, with endpoint support)
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const endpoint = searchParams.get('endpoint') || 'inventory'; // Default 'inventory'
@@ -196,7 +196,7 @@ export async function GET(request) {
     }
   }
 
-  // Default: inventory (dal tuo originale)
+  // Default: inventory (dal tuo)
   const address = searchParams.get('address');
   if (!address) return NextResponse.json({ error: 'Address required' }, { status: 400 });
 
@@ -225,7 +225,7 @@ export async function GET(request) {
       if (!success) throw new Error(`Failed to fetch for status ${status}`);
     }
 
-    // Remove duplicates (dal tuo originale)
+    // Remove duplicates (dal tuo)
     const uniqueCards = allCards.filter((card, index, self) =>
       index === self.findIndex(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress)
     );
