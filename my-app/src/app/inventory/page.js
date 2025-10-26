@@ -1,5 +1,7 @@
 import { Suspense } from 'react';
-import InventoryContent from './InventoryContent';
+import InventoryContent from './InventoryContent.jsx'; // Aggiunta .jsx per fix resolve
+
+export const dynamic = 'force-dynamic'; // Forza dynamic: no prerendering, fix ReferenceError
 
 export default function Inventory() {
   return (
