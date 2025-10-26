@@ -19,10 +19,16 @@ export default function Home() {
       return;
     }
 
-    const { connector } = await connect({ chainId: base.id, connector: connectors[0] });
-    const { connector } = result || {};
-    if (connector) {
-      await handleSignatureAndRedirect();
+    try {
+      const result = await connect({ chainId: base.id, connector: connectors[0] });
+      const { connector: connectedConnector } = result || {}; // FIX: Rinominato per evitare duplicate declaration
+      if (connectedConnector) {
+        await handleSignatureAndRedirect();
+      } else {
+        setError('Connection failed - try again');
+      }
+    } catch (err) {
+      setError('Connection error: ' + err.message);
     }
   };
 
@@ -55,7 +61,7 @@ export default function Home() {
       localStorage.setItem('walletNonce', nonce.toString());
       localStorage.setItem('walletTimestamp', Date.now().toString());
 
-      // FIX: Delay redirect per Wagmi storage save (persistence)
+      // Delay redirect per Wagmi storage save (persistence)
       setTimeout(() => router.push('/inventory'), 500);
     } catch (err) {
       setError('Error signing: ' + err.message);
