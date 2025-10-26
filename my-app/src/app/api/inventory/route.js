@@ -1,37 +1,37 @@
 import { NextResponse } from 'next/server';
 import { LRUCache } from 'lru-cache';
-import { ethers } from 'ethers'; // Top import for server
+import { ethers } from 'ethers'; // FIX: Import at top, no dynamic for server
 
-// Cache (dal tuo)
+// Cache in-memory (5 minuti per utente per inventory; 1min globale per ETH price)
 const inventoryCache = new LRUCache({
-  max: 100,
-  ttl: 1000 * 60 * 5,
+  max: 100, // Max 100 utenti
+  ttl: 1000 * 60 * 5, // 5 minuti
+  dispose: (value, key) => { /* Clean up if needed */ }
+});
+
+const ethPriceCache = new LRUCache({ // Cache globale per ETH/USD
+  max: 1, // Solo 1 entry
+  ttl: 1000 * 60, // 1 minuto
   dispose: (value, key) => { }
 });
 
-const ethPriceCache = new LRUCache({
-  max: 1,
-  ttl: 1000 * 60,
+const cardPriceCache = new LRUCache({ // Cache per prezzi cards
+  max: 1000, // Max 1000 unique cards
+  ttl: 1000 * 60 * 10, // 10 minuti
   dispose: (value, key) => { }
 });
 
-const cardPriceCache = new LRUCache({
-  max: 1000,
-  ttl: 1000 * 60 * 10,
-  dispose: (value, key) => { }
-});
-
-// API keys (dal tuo)
+// Array di chiavi API (principale + fallback)
 const apiKeys = [
-  '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2',
-  'RR2C1-EZ7I3-7O792-94NRG-AR07M',
-  'RTDVD-E68MA-2FA63-UGAGA-WJUAR'
+  '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2', // Principale
+  'RR2C1-EZ7I3-7O792-94NRG-AR07M', // Riserva 1
+  'RTDVD-E68MA-2FA63-UGAGA-WJUAR' // Riserva 2
 ];
 
-// Provider RPC (dal tuo)
+// Provider RPC server-side (usa public per reads)
 const publicProvider = new ethers.JsonRpcProvider('https://base.publicnode.com');
 
-// fetchEthUsdWithRetry (dal tuo)
+// Fetch ETH/USD con retry (nuovo)
 async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   const cacheKey = 'eth_usd';
   if (ethPriceCache.has(cacheKey)) return ethPriceCache.get(cacheKey);
@@ -56,7 +56,7 @@ async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   }
 }
 
-// calculateCardPrice (dal tuo snippet, with try/catch)
+// Calcola prezzo card (dal tuo snippet, server-side)
 async function calculateCardPrice(card) {
   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
   if (cardPriceCache.has(cacheKey)) return cardPriceCache.get(cacheKey);
@@ -121,7 +121,7 @@ async function calculateCardPrice(card) {
   }
 }
 
-// fetchWithRetry (dal tuo)
+// Funzione retry con backoff (dal tuo)
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -140,7 +140,7 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
   }
 }
 
-// fetchPagesForStatus (dal tuo)
+// Fetch multi-pagina per status (dal tuo)
 async function fetchPagesForStatus(address, status, apiKey) {
   let allCards = [];
   let page = 1;
@@ -164,16 +164,19 @@ async function fetchPagesForStatus(address, status, apiKey) {
   return allCards;
 }
 
-// GET handler (dal tuo, with endpoint support)
+// Handler principale GET
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const endpoint = searchParams.get('endpoint') || 'inventory'; // Default 'inventory'
+
+  console.log('API called with endpoint:', endpoint); // FIX: Debug log per Vercel Functions
 
   if (endpoint === 'eth-price') {
     try {
       const price = await fetchEthUsdWithRetry();
       return NextResponse.json({ price });
     } catch (err) {
+      console.error('Eth price error:', err);
       return NextResponse.json({ error: err.message }, { status: 500 });
     }
   }
@@ -183,7 +186,7 @@ export async function GET(request) {
     const contractAddress = searchParams.get('contractAddress');
     const cardData = searchParams.get('cardData');
     if (!tokenId || !contractAddress || !cardData) {
-      return NextResponse.json({ error: 'Missing params' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing params: tokenId, contractAddress, cardData' }, { status: 400 });
     }
     try {
       const card = JSON.parse(cardData);
@@ -192,11 +195,12 @@ export async function GET(request) {
       const price = await calculateCardPrice(card);
       return NextResponse.json({ price });
     } catch (err) {
+      console.error('Card price error:', err);
       return NextResponse.json({ error: err.message }, { status: 500 });
     }
   }
 
-  // Default: inventory (dal tuo)
+  // Default: inventory (dal tuo originale)
   const address = searchParams.get('address');
   if (!address) return NextResponse.json({ error: 'Address required' }, { status: 400 });
 
@@ -225,7 +229,7 @@ export async function GET(request) {
       if (!success) throw new Error(`Failed to fetch for status ${status}`);
     }
 
-    // Remove duplicates (dal tuo)
+    // Remove duplicates (dal tuo originale)
     const uniqueCards = allCards.filter((card, index, self) =>
       index === self.findIndex(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress)
     );
@@ -234,6 +238,7 @@ export async function GET(request) {
     inventoryCache.set(cacheKey, result);
     return NextResponse.json(result);
   } catch (err) {
+    console.error('Inventory error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
