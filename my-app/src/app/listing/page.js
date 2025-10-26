@@ -1,11 +1,12 @@
 'use client';
 
-import { Suspense } from 'react';import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'next/navigation'; // useSearchParams per query; Link per nav safe
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { ethers } from 'ethers';
+import { Suspense } from 'react';
 
-export const dynamic = 'force-dynamic'; // FIX: No SSR/prerender – risolve tutto
+export const dynamic = 'force-dynamic'; // Forza dynamic rendering, evita static prerender
 
 const CONTRACT_ADDRESS = '0x...'; // Sostituisci con address deployato
 
@@ -17,14 +18,34 @@ const ABI = [
   'function getListingDetails(uint256 tokenId) external view returns (uint8 rarity, string memory wear, string memory foilType, uint256 baseTokens, uint256 ethBase, uint256 listingPrice)',
 ];
 
-export default function Listing() {
+// Componente interno per useSearchParams (wrap in Suspense)
+function ListingContent() {
   const searchParams = useSearchParams();
-  const { address: walletAddress, isConnected } = useAccount();
-  const { writeContract, data: txHash } = useWriteContract();
-  const { isLoading: txLoading, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const [isMounted, setIsMounted] = useState(false); // FIX: Check per hooks client-only
+
+  // Hooks Wagmi: Condizionati su isMounted per evitare SSR errors
+  const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
+  const { writeContract, data: txHash } = isMounted ? useWriteContract() : { writeContract: () => {}, data: null };
+  const { isLoading: txLoading, isSuccess } = isMounted ? useWaitForTransactionReceipt({ hash: txHash }) : { isLoading: false, isSuccess: false };
+
   const [form, setForm] = useState({ tokenIds: [], collection: '', boosterToken: '', action: 'create' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // FIX: Mount check per useEffect che attiva hooks
+  useEffect(() => {
+    setIsMounted(true); // Attiva hooks solo dopo hydration client-side
+  }, []);
+
+  // Fallback UI durante mounting (evita flash/errors)
+  if (!isMounted) {
+    return (
+      <main className="flex min-h-screen flex-col items-center p-24">
+        <h1 className="text-4xl font-bold mb-8">Manage Listing</h1>
+        <p>Loading listing details...</p>
+      </main>
+    );
+  }
 
   useEffect(() => {
     const tokenIdsStr = searchParams.get('tokenIds') || '';
@@ -109,7 +130,12 @@ export default function Listing() {
   };
 
   if (!isConnected) {
-    return <p className="text-center">Connect wallet to manage listings.</p>;
+    return (
+      <main className="flex min-h-screen flex-col items-center p-24">
+        <h1 className="text-4xl font-bold mb-8">Manage Listing</h1>
+        <p className="text-center">Connect wallet to manage listings.</p>
+      </main>
+    );
   }
 
   return (
@@ -168,5 +194,18 @@ export default function Listing() {
         )}
       </form>
     </main>
+  );
+}
+
+export default function Listing() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen flex-col items-center p-24">
+        <h1 className="text-4xl font-bold mb-8">Manage Listing</h1>
+        <p>Loading listing params...</p>
+      </main>
+    }>
+      <ListingContent />
+    </Suspense>
   );
 }
