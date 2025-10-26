@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useConnect, useDisconnect, useChainId, useConfig } from 'wagmi'; // FIX: useConfig invece di useConnectors
+import { useAccount, useDisconnect, useChainId } from 'wagmi'; // FIX: Rimosso useConnect/useConfig per isolare crash
 import { useQuery } from '@tanstack/react-query';
 
 export const dynamic = 'force-dynamic'; // Forza dynamic rendering, evita static prerender
@@ -11,12 +11,8 @@ export default function Inventory() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false); // FIX: Check per hooks client-only
 
-  // Hooks Wagmi: Condizionati su isMounted
+  // Hooks Wagmi: Condizionati su isMounted, MINIMALI per test
   const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
-  const { connect, error: connectError, isPending: isConnecting } = isMounted ? useConnect() : { connect: () => {}, error: null, isPending: false };
-  // FIX: useConfig per connectors stabili dal root (mai undefined)
-  const config = isMounted ? useConfig() : null;
-  const connectors = config?.connectors || []; // Safe fallback
   const { disconnect } = isMounted ? useDisconnect() : { disconnect: () => {} };
   const chainId = isMounted ? useChainId() : null;
 
@@ -64,8 +60,8 @@ export default function Inventory() {
     );
   }
 
-  // Debug log immediato per connectors (nel render, pre-useEffect)
-  console.log('Inventory connectors from config:', connectors.length); // Dovrebbe log 3+ subito
+  // Debug log immediato (dovrebbe apparire ora, senza crash)
+  console.log('Inventory mounted and rendering - isConnected:', isConnected, 'address:', walletAddress);
 
   // Fetch ETH/USD con query caching
   const { data: ethPriceData } = useQuery({
@@ -140,11 +136,6 @@ export default function Inventory() {
     }
   }, [prices]);
 
-  const connectWallet = useCallback((connector) => {
-    console.log('Connecting with:', connector.name);
-    connect({ connector });
-  }, [connect]);
-
   const disconnectWallet = useCallback(() => {
     disconnect();
     localStorage.clear();
@@ -203,7 +194,7 @@ export default function Inventory() {
 
   const toggleSelect = useCallback((card) => {
     setSelectedCards(prev => {
-      const safePrev = Array.isArray(prev) ? prev : []; // Extra safe per undefined
+      const safePrev = Array.isArray(prev) ? prev : [];
       return safePrev.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress) 
         ? safePrev.filter(c => !(c.tokenId === card.tokenId && c.contractAddress === card.contractAddress))
         : [...safePrev, card]
@@ -211,7 +202,7 @@ export default function Inventory() {
   }, []);
 
   const handleGoToListing = useCallback(() => {
-    const safeSelected = Array.isArray(selectedCards) ? selectedCards : []; // Extra safe
+    const safeSelected = Array.isArray(selectedCards) ? selectedCards : [];
     const tokenIds = safeSelected.map(c => c.tokenId).join(',');
     const collection = safeSelected[0]?.contractAddress || '';
     const boosterToken = safeSelected[0]?.contract?.tokenAddress || '';
@@ -219,7 +210,7 @@ export default function Inventory() {
   }, [selectedCards, router]);
 
   const updateCurrentPage = useCallback((cards, page) => {
-    const safeCards = Array.isArray(cards) ? cards : []; // Extra safe
+    const safeCards = Array.isArray(cards) ? cards : [];
     const startIndex = (page - 1) * cardsPerPage;
     const endIndex = startIndex + cardsPerPage;
     const currentCards = safeCards.slice(startIndex, endIndex);
@@ -236,7 +227,7 @@ export default function Inventory() {
     return 'Heavily Played';
   };
 
-  const totalPages = Math.ceil((Array.isArray(allInventory) ? allInventory.length : 0) / cardsPerPage); // Extra safe
+  const totalPages = Math.ceil((Array.isArray(allInventory) ? allInventory.length : 0) / cardsPerPage);
 
   const goToPage = useCallback((page) => {
     if (page > 0 && page <= totalPages) {
@@ -261,21 +252,13 @@ export default function Inventory() {
       <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
       {!isConnected ? (
         <div>
-          <p>Please connect your wallet to view inventory.</p>
-          <div className="mt-2 space-x-2">
-            {/* FIX: Safe .filter/.map su connectors da config */}
-            {connectors.filter(c => c?.ready || true).map((connector) => ( // ready fallback per test
-              <button
-                key={connector.id}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
-                onClick={() => connectWallet(connector)}
-                disabled={isConnecting}
-              >
-                {isConnecting ? 'Connecting...' : `Connect ${connector.name}`}
-              </button>
-            ))}
-          </div>
-          {connectError && <p className="text-red-500 mt-2">{connectError.message}</p>}
+          <p>Please connect your wallet on the home page to view inventory.</p>
+          <button 
+            onClick={() => router.push('/')} 
+            className="bg-blue-500 text-white px-4 py-2 rounded mt-2"
+          >
+            Go to Home to Connect
+          </button>
         </div>
       ) : (
         <>
