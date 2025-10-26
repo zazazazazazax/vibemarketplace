@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi'; // V1 ok
+import { useAccount } from 'wagmi';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,9 +35,11 @@ export default function Inventory() {
 
   console.log('Inventory mounted and rendering - isConnected:', isConnected, 'address:', walletAddress);
 
+  // FIX: Delay fetch per hydration (evita race con Wagmi state)
   useEffect(() => {
     if (isConnected && walletAddress) {
-      fetchAllInventory(walletAddress);
+      const timer = setTimeout(() => fetchAllInventory(walletAddress), 100); // 100ms delay
+      return () => clearTimeout(timer);
     }
   }, [isConnected, walletAddress]);
 
