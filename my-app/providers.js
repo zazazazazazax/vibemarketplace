@@ -20,10 +20,10 @@ export function Providers({ children }) {
       coinbaseWallet({ appName: 'Vibe.Market' }),
       walletConnect({ 
         projectId: '8e4f39df88b73f8ff1e701f88b4fea0c', // ID reale
-        metadata: { // FIX: Metadata per prevenire multi-init su nav
+        metadata: { // FIX: URL static per server-side (no window)
           name: 'Vibe.Market',
           description: 'NFT Marketplace on Base',
-          url: window.location.origin,
+          url: 'https://vibemarketplace.vercel.app', // Il tuo domain Vercel
           icons: ['/favicon.ico'],
         },
       }),
@@ -32,7 +32,7 @@ export function Providers({ children }) {
     storage: createStorage({
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     }),
-    autoConnect: true, // FIX: Persiste connection post-redirect (isConnected true in inventory)
+    autoConnect: true, // Persiste connection
   });
 
   return (
