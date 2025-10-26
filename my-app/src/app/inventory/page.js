@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import InventoryContent from './InventoryContent.jsx'; // Aggiunta .jsx per fix resolve
+import InventoryContent from './InventoryContent'; // No .js – Next.js risolve auto
 
 export const dynamic = 'force-dynamic'; // Forza dynamic: no prerendering, fix ReferenceError
 
