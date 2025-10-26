@@ -2,23 +2,23 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useConnect, useDisconnect, useChainId, useConfig } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
-import { Suspense } from 'react'; // Per sub-wrap se serve
+import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
 
 function InventoryContent() {
   const router = useRouter();
 
-  // Hooks Wagmi: Ora in sub-componente (isola da parent hydration)
+  // Hooks Wagmi
   const { address: walletAddress, isConnected } = useAccount();
   const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-  const config = useConfig(); // Per connectors se needed
-  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress);
-  
+
+  const [walletLoaded, setWalletLoaded] = useState(false); // FIX: Flag per storage load
+
   const [allInventory, setAllInventory] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,26 @@ function InventoryContent() {
 
   const cardsPerPage = 50;
 
-  // Fetch ETH/USD con query caching
+  // FIX: Wait for localStorage 'wagmi.wallet' (persistence)
+  useEffect(() => {
+    const wagmiWallet = localStorage.getItem('wagmi.wallet');
+    if (wagmiWallet || isConnected) {
+      setWalletLoaded(true);
+    }
+    console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress, 'walletLoaded:', walletLoaded);
+  }, [isConnected, walletAddress]);
+
+  // Fallback loading fino a walletLoaded
+  if (!walletLoaded) {
+    return (
+      <main className="flex min-h-screen flex-col items-center p-24">
+        <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
+        <p>Loading wallet...</p>
+      </main>
+    );
+  }
+
+  // Fetch ETH/USD
   const { data: ethPriceData } = useQuery({
     queryKey: ['ethPrice'],
     queryFn: async () => {
@@ -54,7 +73,7 @@ function InventoryContent() {
     }
   }, [ethPriceData]);
 
-  // Fetch inventory su connect + chain check
+  // Fetch inventory
   useEffect(() => {
     if (isConnected && chainId === 8453 && walletAddress) {
       fetchAllInventory(walletAddress);
@@ -69,6 +88,7 @@ function InventoryContent() {
     setError(null);
     try {
       const response = await fetch(`/api-inventory?address=${address}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
