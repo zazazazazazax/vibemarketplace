@@ -56,7 +56,7 @@ async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   }
 }
 
-// Calcola prezzo card (server-side)
+// Calcola prezzo card (server-side, dal tuo snippet)
 async function calculateCardPrice(card) {
   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
   if (cardPriceCache.has(cacheKey)) return cardPriceCache.get(cacheKey);
@@ -121,7 +121,7 @@ async function calculateCardPrice(card) {
   }
 }
 
-// Funzione retry con backoff (invariata)
+// Funzione retry con backoff (invariato)
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -164,10 +164,10 @@ async function fetchPagesForStatus(address, status, apiKey) {
   return allCards;
 }
 
-// Handler principale
+// Handler principale GET
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const endpoint = searchParams.get('endpoint') || 'inventory'; // Default inventory, o eth-price / card-price
+  const endpoint = searchParams.get('endpoint') || 'inventory'; // Default 'inventory', o 'eth-price' o 'card-price'
 
   if (endpoint === 'eth-price') {
     try {
@@ -181,7 +181,7 @@ export async function GET(request) {
   if (endpoint === 'card-price') {
     const tokenId = searchParams.get('tokenId');
     const contractAddress = searchParams.get('contractAddress');
-    const cardData = searchParams.get('cardData'); // JSON string
+    const cardData = searchParams.get('cardData'); // JSON string per metadata/rarity/foil/wear
     if (!tokenId || !contractAddress || !cardData) {
       return NextResponse.json({ error: 'Missing params: tokenId, contractAddress, cardData' }, { status: 400 });
     }
@@ -196,7 +196,7 @@ export async function GET(request) {
     }
   }
 
-  // Handler originale per inventory (address)
+  // Handler originale per inventory (endpoint default o address)
   const address = searchParams.get('address');
   if (!address) return NextResponse.json({ error: 'Address required' }, { status: 400 });
 
