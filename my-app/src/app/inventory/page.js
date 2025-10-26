@@ -33,14 +33,33 @@ function InventoryContent() {
 
   const cardsPerPage = 50;
 
-  // FIX: Wait for localStorage 'wagmi.wallet' (persistence)
+  // FIX: UseEffect per walletLoaded con deps [isConnected] + StorageEvent listener + timeout fallback
   useEffect(() => {
-    const wagmiWallet = localStorage.getItem('wagmi.wallet');
-    if (wagmiWallet || isConnected) {
+    const checkWalletLoaded = () => {
+      const wagmiWallet = localStorage.getItem('wagmi.wallet');
+      if (isConnected || wagmiWallet) {
+        setWalletLoaded(true);
+      }
+    };
+
+    checkWalletLoaded(); // Check iniziale
+
+    // Listener per changes in localStorage (Wagmi save)
+    const handleStorageChange = () => checkWalletLoaded();
+    window.addEventListener('storage', handleStorageChange);
+
+    // Timeout fallback (2s max wait)
+    const timeoutId = setTimeout(() => {
       setWalletLoaded(true);
-    }
-    console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress, 'walletLoaded:', walletLoaded);
-  }, [isConnected, walletAddress]);
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearTimeout(timeoutId);
+    };
+  }, [isConnected]); // Dep su isConnected per re-run su change
+
+  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress, 'walletLoaded:', walletLoaded);
 
   // Fallback loading fino a walletLoaded
   if (!walletLoaded) {
