@@ -34,7 +34,7 @@ export default function InventoryContent() {
   const { data: ethPriceData } = useQuery({
     queryKey: ['ethPrice'],
     queryFn: async () => {
-      const response = await fetch('/api-inventory?endpoint=eth-price');
+      const response = await fetch('/api/inventory?endpoint=eth-price'); // FIX: Path corretto
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -101,7 +101,7 @@ export default function InventoryContent() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api-inventory?address=${address}`);
+      const response = await fetch(`/api/inventory?address=${address}`); // FIX: Path corretto
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -164,7 +164,7 @@ export default function InventoryContent() {
         contractAddress: card.contractAddress,
         cardData: cardData
       });
-      const response = await fetch(`/api-inventory?${params}`);
+      const response = await fetch(`/api/inventory?${params}`); // FIX: Path corretto
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
