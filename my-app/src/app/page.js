@@ -21,12 +21,11 @@ export default function Home() {
 
     try {
       const result = await connect({ chainId: base.id, connector: connectors[0] });
-      const { connector: connectedConnector } = result || {}; // FIX: Rinominato per evitare duplicate declaration
+      const { connector: connectedConnector } = result || {}; // FIX: Rinominato, optional
       if (connectedConnector) {
+        // No error, connection success
         await handleSignatureAndRedirect();
-      } else {
-        setError('Connection failed - try again');
-      }
+      } // Else: Ignore, MetaMask might connect async
     } catch (err) {
       setError('Connection error: ' + err.message);
     }
@@ -54,14 +53,20 @@ export default function Home() {
         nonce: nonce
       };
 
-      const signature = await signTypedDataAsync({ domain, types, message });
+      // FIX V2: Aggiungi primaryType: 'Message' per viem
+      const signature = await signTypedDataAsync({ 
+        domain, 
+        types, 
+        message, 
+        primaryType: 'Message' 
+      });
 
       localStorage.setItem('walletAddress', address);
       localStorage.setItem('walletSignature', signature);
       localStorage.setItem('walletNonce', nonce.toString());
       localStorage.setItem('walletTimestamp', Date.now().toString());
 
-      // Delay redirect per Wagmi storage save (persistence)
+      // Delay redirect per Wagmi storage save
       setTimeout(() => router.push('/inventory'), 500);
     } catch (err) {
       setError('Error signing: ' + err.message);
