@@ -11,13 +11,11 @@ export const dynamic = 'force-dynamic';
 function InventoryContent() {
   const router = useRouter();
 
-  // FIX: Tutti hooks al top, unconditional (no #310)
+  // Hooks Wagmi (unconditional)
   const { address: walletAddress, isConnected } = useAccount();
   const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-
-  const [walletLoaded, setWalletLoaded] = useState(false); // Flag per storage load
 
   const [allInventory, setAllInventory] = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -33,36 +31,7 @@ function InventoryContent() {
 
   const cardsPerPage = 50;
 
-  // FIX: Check walletLoaded una volta (no deps, no re-run; manual + timeout)
-  useEffect(() => {
-    const checkWalletLoaded = () => {
-      const wagmiWallet = localStorage.getItem('wagmi.wallet');
-      if (isConnected || wagmiWallet) {
-        setWalletLoaded(true);
-      }
-    };
-
-    checkWalletLoaded(); // Check iniziale
-
-    // Timeout fallback (2s max wait)
-    const timeoutId = setTimeout(() => {
-      setWalletLoaded(true);
-    }, 2000);
-
-    return () => clearTimeout(timeoutId);
-  }, []); // No deps: Run once on mount
-
-  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress, 'walletLoaded:', walletLoaded);
-
-  // Fallback loading fino a walletLoaded
-  if (!walletLoaded) {
-    return (
-      <main className="flex min-h-screen flex-col items-center p-24">
-        <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
-        <p>Loading wallet...</p>
-      </main>
-    );
-  }
+  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress);
 
   // Fetch ETH/USD
   const { data: ethPriceData } = useQuery({
