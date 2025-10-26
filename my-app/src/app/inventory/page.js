@@ -13,7 +13,10 @@ export default function Inventory() {
 
   // Hooks Wagmi: Condizionati su isMounted per evitare SSR errors
   const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
-  const { connect, connectors, error: connectError, isPending: isConnecting } = isMounted ? useConnect() : { connect: () => {}, connectors: [], error: null, isPending: false };
+  const connectHook = isMounted ? useConnect() : { connect: () => {}, connectors: [], error: null, isPending: false };
+  const { connect, connectors: rawConnectors, error: connectError, isPending: isConnecting } = connectHook;
+  // FIX: Fallback esplicito per connectors (evita undefined.length)
+  const connectors = rawConnectors || [];
   const { disconnect } = isMounted ? useDisconnect() : { disconnect: () => {} };
   const chainId = isMounted ? useChainId() : null;
 
@@ -100,12 +103,12 @@ export default function Inventory() {
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
-      console.log('Inventory loaded, cards length:', data.cards.length);
-      setAllInventory(data.cards);
-      updateCurrentPage(data.cards, 1);
+      console.log('Inventory loaded, cards length:', data.cards?.length || 0); // FIX: Safe access
+      setAllInventory(data.cards || []); // FIX: Fallback empty array
+      updateCurrentPage(data.cards || [], 1);
 
-      if (data.cards.length > 0 && isEthPriceLoaded) {
-        setTimeout(() => preCalculatePrices(data.cards), 3000);
+      if ((data.cards?.length || 0) > 0 && isEthPriceLoaded) {
+        setTimeout(() => preCalculatePrices(data.cards || []), 3000);
       }
     } catch (err) {
       console.error('Fetch inventory error:', err);
@@ -116,8 +119,9 @@ export default function Inventory() {
   }, [isEthPriceLoaded]);
 
   const preCalculatePrices = useCallback(async (cards) => {
-    for (let i = 0; i < cards.length; i++) {
-      const card = cards[i];
+    const safeCards = cards || []; // FIX: Safe access
+    for (let i = 0; i < safeCards.length; i++) { // Safe .length
+      const card = safeCards[i];
       const cacheKey = `${card.tokenId}-${card.contractAddress}`;
       if (!prices[cacheKey] && card.contract?.tokenAddress) {
         try {
@@ -126,7 +130,7 @@ export default function Inventory() {
         } catch (err) {
           console.error('Pre-calc error for card', card.tokenId, err);
         }
-        if (i < cards.length - 1) {
+        if (i < safeCards.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
@@ -194,24 +198,27 @@ export default function Inventory() {
   }, []);
 
   const toggleSelect = useCallback((card) => {
-    setSelectedCards(prev => 
-      prev.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress) 
-        ? prev.filter(c => !(c.tokenId === card.tokenId && c.contractAddress === card.contractAddress))
-        : [...prev, card]
-    );
+    setSelectedCards(prev => {
+      const safePrev = prev || []; // FIX: Safe
+      return safePrev.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress) 
+        ? safePrev.filter(c => !(c.tokenId === card.tokenId && c.contractAddress === card.contractAddress))
+        : [...safePrev, card]
+    });
   }, []);
 
   const handleGoToListing = useCallback(() => {
-    const tokenIds = selectedCards.map(c => c.tokenId).join(',');
-    const collection = selectedCards[0]?.contractAddress || '';
-    const boosterToken = selectedCards[0]?.contract?.tokenAddress || '';
+    const safeSelected = selectedCards || []; // FIX: Safe .length
+    const tokenIds = safeSelected.map(c => c.tokenId).join(',');
+    const collection = safeSelected[0]?.contractAddress || '';
+    const boosterToken = safeSelected[0]?.contract?.tokenAddress || '';
     router.push(`/listing?tokenIds=${tokenIds}&collection=${collection}&boosterToken=${boosterToken}&action=create`);
   }, [selectedCards, router]);
 
   const updateCurrentPage = useCallback((cards, page) => {
+    const safeCards = cards || []; // FIX: Safe
     const startIndex = (page - 1) * cardsPerPage;
     const endIndex = startIndex + cardsPerPage;
-    const currentCards = cards.slice(startIndex, endIndex);
+    const currentCards = safeCards.slice(startIndex, endIndex);
     setInventory(currentCards);
     setCurrentPage(page);
   }, [cardsPerPage]);
@@ -225,25 +232,30 @@ export default function Inventory() {
     return 'Heavily Played';
   };
 
-  const totalPages = Math.ceil(allInventory.length / cardsPerPage);
+  const totalPages = Math.ceil((allInventory?.length || 0) / cardsPerPage); // FIX: Safe .length
 
   const goToPage = useCallback((page) => {
     if (page > 0 && page <= totalPages) {
-      updateCurrentPage(allInventory, page);
+      updateCurrentPage(allInventory || [], page); // FIX: Safe
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
   useEffect(() => {
-    if (allInventory.length > 0) {
+    if ((allInventory?.length || 0) > 0) { // FIX: Safe
       updateCurrentPage(allInventory, currentPage);
     }
-  }, [currentPage, allInventory.length, updateCurrentPage]);
+  }, [currentPage, allInventory, updateCurrentPage]); // Aggiunto allInventory dep per re-run
 
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
+
+  // Debug log per connectors (rimuovilo dopo test)
+  useEffect(() => {
+    console.log('Inventory connectors:', connectors.length); // Per tracciare se undefined
+  }, [connectors]);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
@@ -252,25 +264,24 @@ export default function Inventory() {
         <div>
           <p>Please connect your wallet to view inventory.</p>
           <div className="mt-2 space-x-2">
-            {connectors
-              .filter(c => c.ready)
-              .map((connector) => (
-                <button
-                  key={connector.id}
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
-                  onClick={() => connectWallet(connector)}
-                  disabled={isConnecting}
-                >
-                  {isConnecting ? 'Connecting...' : `Connect ${connector.name}`}
-                </button>
-              ))}
+            {/* FIX: Safe .filter e .map su connectors */}
+            {(connectors || []).filter(c => c?.ready).map((connector) => (
+              <button
+                key={connector.id}
+                className="bg-blue-500 text-white px-4 py-2 rounded"
+                onClick={() => connectWallet(connector)}
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : `Connect ${connector.name}`}
+              </button>
+            ))}
           </div>
           {connectError && <p className="text-red-500 mt-2">{connectError.message}</p>}
         </div>
       ) : (
         <>
           <p className="mb-4">
-            Connected: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}{' '}
+            Connected: {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}{' '}
             <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">
               Disconnect
             </button>
@@ -278,20 +289,22 @@ export default function Inventory() {
           {error && <p className="text-red-500">{error}</p>}
           {loading && <p>Loading all pages...</p>}
           {!isEthPriceLoaded && <p className="text-yellow-500 mb-4">Loading ETH/USD price...</p>}
-          {selectedCards.length > 0 && (
+          {/* FIX: Safe .length su selectedCards */}
+          {(selectedCards || []).length > 0 && (
             <button
               onClick={handleGoToListing}
               className="bg-green-500 text-white px-4 py-2 rounded mb-4"
             >
-              Batch List {selectedCards.length} Cards
+              Batch List {(selectedCards || []).length} Cards
             </button>
           )}
-          {inventory.length > 0 ? (
+          {/* FIX: Safe .length su inventory */}
+          {(inventory || []).length > 0 ? (
             <>
               <ul className="space-y-4">
-                {inventory.map((card, index) => {
+                {(inventory || []).map((card, index) => { // Safe .map
                   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-                  const isSelected = selectedCards.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress);
+                  const isSelected = (selectedCards || []).some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress); // Safe .some
                   return (
                     <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)} onMouseLeave={handleMouseLeave}>
                       <input
@@ -333,7 +346,7 @@ export default function Inventory() {
                 >
                   Previous
                 </button>
-                <span>Page {currentPage} of {totalPages} (Total cards: {allInventory.length})</span>
+                <span>Page {currentPage} of {totalPages} (Total cards: {(allInventory || []).length})</span> {/* Safe */}
                 <button
                   className="bg-blue-500 text-white px-2 py-1 rounded ml-2 disabled:bg-gray-400"
                   onClick={() => goToPage(currentPage + 1)}
