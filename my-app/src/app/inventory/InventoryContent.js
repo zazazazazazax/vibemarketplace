@@ -30,7 +30,7 @@ export default function InventoryContent() {
 
   const cardsPerPage = 50;
 
-  // useQuery per ETH price (sempre al top, con retry)
+  // useQuery per ETH price (sempre al top)
   const { data: ethPriceData } = useQuery({
     queryKey: ['ethPrice'],
     queryFn: async () => {
@@ -42,10 +42,10 @@ export default function InventoryContent() {
     },
     staleTime: 60000,
     retry: 3,
-    enabled: true, // Sempre attivo
+    enabled: true,
   });
 
-  // useEffect per ETH price (sempre al top)
+  // useEffect per ETH price
   useEffect(() => {
     if (ethPriceData?.price) {
       setEthUsdPrice(ethPriceData.price);
@@ -53,7 +53,7 @@ export default function InventoryContent() {
     }
   }, [ethPriceData]);
 
-  // useEffect per showUI (sempre al top)
+  // useEffect per showUI
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowUI(true);
@@ -67,34 +67,35 @@ export default function InventoryContent() {
     return () => clearTimeout(timer);
   }, [isConnected]);
 
-  // useEffect per fetch inventory (sempre al top, ma guardia interna)
+  // useEffect per fetch inventory (deps pulite, no cicli)
   useEffect(() => {
     if (isConnected && chainId === 8453 && walletAddress) {
       fetchAllInventory(walletAddress);
     } else if (isConnected && chainId !== 8453) {
       setError('Please switch to Base chain (ID: 8453)');
     } else if (!isConnected) {
-      setError(null); // Reset error su disconnect
+      setError(null);
       setAllInventory([]);
       setPrices({});
       setSelectedCards([]);
     }
-  }, [walletAddress, chainId, isConnected]); // Dipendenze precise, no loop
+  }, [walletAddress, chainId, isConnected]); // Solo deps Wagmi, no funzioni
 
-  // useEffect per cleanup debounce (sempre al top)
+  // useEffect per cleanup debounce
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
 
-  // useEffect per paginazione (sempre al top)
+  // useEffect per paginazione
   useEffect(() => {
     if (Array.isArray(allInventory) && allInventory.length > 0) {
       updateCurrentPage(allInventory, currentPage);
     }
-  }, [currentPage, allInventory, updateCurrentPage]);
+  }, [currentPage, allInventory]); // updateCurrentPage è stabile, no deps extra
 
+  // Funzioni (dopo hooks, deps pulite)
   const fetchAllInventory = useCallback(async (address) => {
     console.log('Fetching inventory for', address);
     setLoading(true);
@@ -109,8 +110,21 @@ export default function InventoryContent() {
       setAllInventory(data.cards || []);
       updateCurrentPage(data.cards || [], 1);
 
+      // Opzionale: Pre-calcola prezzi solo dopo load ETH (no deps ciclo)
       if ((data.cards?.length || 0) > 0 && isEthPriceLoaded) {
-        setTimeout(() => preCalculatePrices(data.cards || []), 3000);
+        const cards = data.cards || [];
+        for (let i = 0; i < cards.length; i++) {
+          const card = cards[i];
+          if (card.contract?.tokenAddress && !prices[`${card.tokenId}-${card.contractAddress}`]) {
+            try {
+              const price = await calculateCardPrice(card);
+              setPrices(prev => ({ ...prev, [`${card.tokenId}-${card.contractAddress}`]: price }));
+            } catch (err) {
+              console.error('Pre-calc error for card', card.tokenId, err);
+            }
+            if (i < cards.length - 1) await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
       }
     } catch (err) {
       console.error('Fetch inventory error:', err);
@@ -118,26 +132,7 @@ export default function InventoryContent() {
     } finally {
       setLoading(false);
     }
-  }, [isEthPriceLoaded, updateCurrentPage, preCalculatePrices]);
-
-  const preCalculatePrices = useCallback(async (cards) => {
-    const safeCards = cards || [];
-    for (let i = 0; i < safeCards.length; i++) {
-      const card = safeCards[i];
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-      if (!prices[cacheKey] && card.contract?.tokenAddress) {
-        try {
-          const price = await calculateCardPrice(card);
-          setPrices(prev => ({ ...prev, [cacheKey]: price }));
-        } catch (err) {
-          console.error('Pre-calc error for card', card.tokenId, err);
-        }
-        if (i < safeCards.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-    }
-  }, [prices, calculateCardPrice]);
+  }, [isEthPriceLoaded, prices]); // Solo stati, no funzioni ricorsive
 
   const connectWallet = useCallback((connector) => {
     connect({ connector });
@@ -180,9 +175,9 @@ export default function InventoryContent() {
       console.error('Error calculating price for card', card.tokenId, err);
       return 'N/A';
     }
-  }, [prices]);
+  }, [prices]); // Solo prices, stabile
 
-  const handleMouseEnter = useCallback(async (card) => {
+  const handleMouseEnter = useCallback((card) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       const cacheKey = `${card.tokenId}-${card.contractAddress}`;
@@ -192,7 +187,7 @@ export default function InventoryContent() {
       }
       setHoveredCardId(cacheKey);
     }, 0);
-  }, [prices, isEthPriceLoaded, calculateCardPrice]);
+  }, [prices, isEthPriceLoaded, calculateCardPrice]); // Deps esplicite
 
   const handleMouseLeave = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -223,7 +218,7 @@ export default function InventoryContent() {
     const currentCards = safeCards.slice(startIndex, endIndex);
     setInventory(currentCards);
     setCurrentPage(page);
-  }, [cardsPerPage]);
+  }, []); // cardsPerPage è const, no deps
 
   const getWearCondition = (wearValue) => {
     const wear = parseFloat(wearValue);
@@ -242,7 +237,7 @@ export default function InventoryContent() {
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
-  // Render condizionale (hooks già eseguiti)
+  // Render (stesso di prima)
   if (!showUI) {
     return (
       <main className="flex min-h-screen flex-col items-center p-24">
