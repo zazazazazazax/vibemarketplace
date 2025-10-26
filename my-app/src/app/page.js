@@ -20,6 +20,7 @@ export default function Home() {
     }
 
     const { connector } = await connect({ chainId: base.id, connector: connectors[0] });
+    const { connector } = result || {};
     if (connector) {
       await handleSignatureAndRedirect();
     }
