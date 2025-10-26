@@ -1,32 +1,36 @@
 'use client';
 
-import { createClient } from 'wagmi';
-import { publicProvider } from 'wagmi/providers/public';
-import { InjectedConnector } from 'wagmi/connectors/injected';
-import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
+import { createConfig, http } from 'wagmi';
+import { base } from 'wagmi/chains';
+import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
+import { createStorage } from 'wagmi'; // FIX: Per persistence
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiConfig } from 'wagmi';
+import { WagmiProvider } from 'wagmi';
 
 const queryClient = new QueryClient();
 
 export function Providers({ children }) {
-  const client = createClient({
-    autoConnect: true, // FIX: Ripristina session post-redirect
+  const config = createConfig({
+    chains: [base],
+    transports: {
+      [base.id]: http('https://base.publicnode.com'),
+    },
     connectors: [
-      new InjectedConnector(), // MetaMask, etc. (no chains needed)
-      new CoinbaseWalletConnector({
-        appName: 'Vibe.Market',
-      }),
-      // Ri-aggiungi WalletConnect dopo test: import { WalletConnectConnector } from 'wagmi/connectors/walletConnect'; + new WalletConnectConnector({ options: { projectId: 'TUO_ID' } })
+      injected({ target: 'metaMask' }),
+      coinbaseWallet({ appName: 'Vibe.Market' }),
+      walletConnect({ projectId: 'IL_TUO_WC_PROJECT_ID_QUI' }),
     ],
-    provider: publicProvider(), // FIX V1: Default RPC (usa Base se auto-detect)
+    ssr: true, // FIX: Per Next.js hydration
+    storage: createStorage({
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined, // Persistence localStorage
+    }),
   });
 
   return (
-    <WagmiConfig client={client}>
+    <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         {children}
       </QueryClientProvider>
-    </WagmiConfig>
+    </WagmiProvider>
   );
 }
