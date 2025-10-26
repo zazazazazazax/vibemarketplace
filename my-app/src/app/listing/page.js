@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'next/navigation';
-import { useAccount, useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi'; // FIX V1: Hooks v1
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'; // FIX V2: Hooks v2
 import { ethers } from 'ethers';
 import { Suspense } from 'react';
 
@@ -23,20 +23,14 @@ function ListingContent() {
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
 
+  // FIX V2: Hooks v2
   const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
-  const contractRead = useContractRead; // V1 alias if needed
-  const { data: listingDetails } = isMounted ? useContractRead({
+  const { writeContractAsync, error: writeError } = isMounted ? useWriteContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
-    functionName: 'getListingDetails',
-    args: [BigInt(form.tokenIds[0] || 0)], // Note: form defined below
-    enabled: form.action === 'buy' && form.tokenIds.length > 0 && CONTRACT_ADDRESS !== '0x...',
-  }) : { data: null };
-  const { write, data: txHash, error: writeError } = isMounted ? useContractWrite({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-  }) : { write: () => {}, data: null, error: null };
-  const { isLoading: txLoading, isSuccess } = isMounted ? useWaitForTransaction({ hash: txHash }) : { isLoading: false, isSuccess: false };
+  }) : { writeContractAsync: async () => {}, error: null };
+  const { data: txHash } = writeError ? {} : {}; // Track txHash from write
+  const { isLoading: txLoading, isSuccess } = isMounted ? useWaitForTransactionReceipt({ hash: txHash }) : { isLoading: false, isSuccess: false };
 
   const [form, setForm] = useState({ tokenIds: [], collection: '', boosterToken: '', action: 'create' });
   const [loading, setLoading] = useState(false);
@@ -66,6 +60,15 @@ function ListingContent() {
     });
   }, [searchParams]);
 
+  // FIX V2: useReadContract
+  const { data: listingDetails } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: ABI,
+    functionName: 'getListingDetails',
+    args: [BigInt(form.tokenIds[0] || 0)],
+    enabled: form.action === 'buy' && form.tokenIds.length > 0 && CONTRACT_ADDRESS !== '0x...',
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isConnected || form.tokenIds.length === 0) return setError('Connect wallet and select cards');
@@ -78,18 +81,31 @@ function ListingContent() {
 
       if (form.action === 'create') {
         if (form.tokenIds.length === 1) {
-          write({ mode: 'reckless', functionName: 'createListing', args: [collection, boosterToken, tokenIdsBigInt[0]] });
+          await writeContractAsync({ 
+            functionName: 'createListing', 
+            args: [collection, boosterToken, tokenIdsBigInt[0]] 
+          });
         } else {
-          write({ mode: 'reckless', functionName: 'createListingBatch', args: [collection, boosterToken, tokenIdsBigInt] });
+          await writeContractAsync({ 
+            functionName: 'createListingBatch', 
+            args: [collection, boosterToken, tokenIdsBigInt] 
+          });
         }
       } else if (form.action === 'buy') {
         const ethPerItem = listingDetails?.listingPrice || 0n;
         await Promise.all(tokenIdsBigInt.map(id => 
-          write({ mode: 'reckless', functionName: 'buyListing', args: [id], value: ethPerItem })
+          writeContractAsync({ 
+            functionName: 'buyListing', 
+            args: [id], 
+            value: ethPerItem 
+          })
         ));
       } else if (form.action === 'delist') {
         await Promise.all(tokenIdsBigInt.map(id => 
-          write({ mode: 'reckless', functionName: 'delist', args: [id] })
+          writeContractAsync({ 
+            functionName: 'delist', 
+            args: [id] 
+          })
         ));
       }
 
