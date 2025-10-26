@@ -2,14 +2,10 @@
 const nextConfig = {
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Fix per MetaMask SDK: Ignora dip React Native (non usate in web)
+      // Merger unico per fallback (fix doppio override)
       config.resolve.fallback = {
         ...config.resolve.fallback,
         '@react-native-async-storage/async-storage': false,
-      };
-      // Fix per WalletConnect: Ignora pino-pretty (non essenziale per web, e WC è commentato)
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
         'pino-pretty': false,
       };
     }
