@@ -18,6 +18,8 @@ function InventoryContent() {
   const chainId = useChainId();
   const config = useConfig(); // Per connectors se needed
 
+  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress);  
+  
   const [allInventory, setAllInventory] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
