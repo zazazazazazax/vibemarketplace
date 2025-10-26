@@ -2,18 +2,21 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ethers } from 'ethers';
 import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
 
-export const dynamic = 'force-dynamic'; // FIX: Disabilita SSR/prerender per Wagmi hooks
+export const dynamic = 'force-dynamic'; // Forza dynamic rendering, evita static prerender
 
 export default function Inventory() {
   const router = useRouter();
-  const { address: walletAddress, isConnected } = useAccount();
-  const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect(); // FIX: Rimosso { config } – usa globale dal layout
-  const { disconnect } = useDisconnect();
-  const chainId = useChainId();
+  const [isMounted, setIsMounted] = useState(false); // FIX: Check per hooks client-only
+
+  // Hooks Wagmi: Condizionati su isMounted per evitare SSR errors
+  const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
+  const { connect, connectors, error: connectError, isPending: isConnecting } = isMounted ? useConnect() : { connect: () => {}, connectors: [], error: null, isPending: false };
+  const { disconnect } = isMounted ? useDisconnect() : { disconnect: () => {} };
+  const chainId = isMounted ? useChainId() : null;
+
   const [allInventory, setAllInventory] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +45,21 @@ export default function Inventory() {
     ]
   };
   const nonce = Math.floor(Date.now() / 1000 / 3600);
+
+  // FIX: Mount check per useEffect che attiva hooks
+  useEffect(() => {
+    setIsMounted(true); // Attiva hooks solo dopo hydration client-side
+  }, []);
+
+  // Fallback UI durante mounting (evita flash/errors)
+  if (!isMounted) {
+    return (
+      <main className="flex min-h-screen flex-col items-center p-24">
+        <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
+        <p>Loading...</p>
+      </main>
+    );
+  }
 
   // Fetch ETH/USD con query caching
   const { data: ethPriceData } = useQuery({
