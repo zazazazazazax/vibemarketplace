@@ -1,59 +1,64 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { ethers } from 'ethers';
+import { useState, useEffect } from 'react';
+import { useConnect, useAccount, useSignTypedData } from 'wagmi';
+import { base } from 'wagmi/chains';
 
 export default function Home() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { address, isConnected, isConnecting } = useAccount();
+  const { connect, connectors, error: connectError, isPending } = useConnect();
+  const { signTypedDataAsync } = useSignTypedData();
   const [error, setError] = useState(null);
 
   const connectWallet = async () => {
-    setLoading(true);
     setError(null);
-    if (window.ethereum) {
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send('eth_requestAccounts', []);
-        const signer = await provider.getSigner();
-        const address = await signer.getAddress();
-
-        // Request signature for persistence
-        const domain = {
-          name: 'Vibe.Marketplace',
-          version: '1',
-          chainId: 8453,
-          verifyingContract: '0x0000000000000000000000000000000000000000'
-        };
-        const types = {
-          Message: [
-            { name: 'content', type: 'string' },
-            { name: 'nonce', type: 'uint256' }
-          ]
-        };
-        const nonce = Math.floor(Date.now() / 1000 / 3600);
-        const message = {
-          content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
-          nonce: nonce
-        };
-        const signature = await signer.signTypedData(domain, types, message);
-
-        // Save to localStorage
-        localStorage.setItem('walletAddress', address);
-        localStorage.setItem('walletSignature', signature);
-        localStorage.setItem('walletNonce', nonce.toString());
-        localStorage.setItem('walletTimestamp', Date.now().toString());
-
-        // Redirect to inventory after connect
-        router.push('/inventory');
-      } catch (err) {
-        setError('Error connecting: ' + err.message);
-      }
-    } else {
-      setError('Install MetaMask!');
+    if (isConnected) {
+      await handleSignatureAndRedirect();
+      return;
     }
-    setLoading(false);
+
+    const { connector } = await connect({ chainId: base.id, connector: connectors[0] });
+    if (connector) {
+      await handleSignatureAndRedirect();
+    }
+  };
+
+  const handleSignatureAndRedirect = async () => {
+    if (!address) return;
+
+    try {
+      const domain = {
+        name: 'Vibe.Marketplace',
+        version: '1',
+        chainId: base.id,
+        verifyingContract: '0x0000000000000000000000000000000000000000'
+      };
+      const types = {
+        Message: [
+          { name: 'content', type: 'string' },
+          { name: 'nonce', type: 'uint256' }
+        ]
+      };
+      const nonce = Math.floor(Date.now() / 1000 / 3600);
+      const message = {
+        content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
+        nonce: nonce
+      };
+
+      const signature = await signTypedDataAsync({ domain, types, message });
+
+      localStorage.setItem('walletAddress', address);
+      localStorage.setItem('walletSignature', signature);
+      localStorage.setItem('walletNonce', nonce.toString());
+      localStorage.setItem('walletTimestamp', Date.now().toString());
+
+      // FIX: Delay redirect per Wagmi storage save (persistence)
+      setTimeout(() => router.push('/inventory'), 500);
+    } catch (err) {
+      setError('Error signing: ' + err.message);
+    }
   };
 
   return (
@@ -62,11 +67,13 @@ export default function Home() {
       <button
         className="bg-blue-500 text-white px-4 py-2 rounded"
         onClick={connectWallet}
-        disabled={loading}
+        disabled={isPending || isConnecting}
       >
-        {loading ? 'Connecting...' : 'Connect Wallet'}
+        {isConnected ? 'Sign & Continue' : isPending ? 'Connecting...' : 'Connect Wallet'}
       </button>
+      {connectError && <p className="text-red-500 mt-4">{connectError.message}</p>}
       {error && <p className="text-red-500 mt-4">{error}</p>}
+      {isConnected && <p className="text-green-500 mt-4">Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>}
     </main>
   );
 }
