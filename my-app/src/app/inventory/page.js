@@ -11,11 +11,13 @@ export const dynamic = 'force-dynamic';
 function InventoryContent() {
   const router = useRouter();
 
-  // Hooks Wagmi (unconditional)
+  // Hooks Wagmi
   const { address: walletAddress, isConnected } = useAccount();
   const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
+
+  const [showUI, setShowUI] = useState(false); // FIX: Loading fino a isConnected true (no flash)
 
   const [allInventory, setAllInventory] = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -31,7 +33,31 @@ function InventoryContent() {
 
   const cardsPerPage = 50;
 
-  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress);
+  // FIX: Set showUI dopo 1s o quando isConnected true (no deps loop)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowUI(true);
+    }, 1000); // 1s delay per Wagmi load
+
+    if (isConnected) {
+      clearTimeout(timer);
+      setShowUI(true);
+    }
+
+    return () => clearTimeout(timer);
+  }, [isConnected]); // Dep su isConnected (re-run solo su change, no loop)
+
+  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress, 'showUI:', showUI);
+
+  // Fallback loading fino a showUI
+  if (!showUI) {
+    return (
+      <main className="flex min-h-screen flex-col items-center p-24">
+        <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
+        <p>Loading wallet...</p>
+      </main>
+    );
+  }
 
   // Fetch ETH/USD
   const { data: ethPriceData } = useQuery({
