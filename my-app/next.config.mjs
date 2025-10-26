@@ -5,9 +5,11 @@ const nextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback || {},
         '@react-native-async-storage/async-storage': false,
-        'pino-pretty': false,
       };
     }
+    // Fix per Pino/WC logger: Esternalizza pino-pretty (non necessario in bundle)
+    config.externals = config.externals || [];
+    config.externals.push('pino-pretty');
     return config;
   },
 };
