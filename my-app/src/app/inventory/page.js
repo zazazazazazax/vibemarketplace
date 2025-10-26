@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useConnect, useDisconnect, useChainId, useConnectors } from 'wagmi'; // FIX: Aggiunto useConnectors
+import { useAccount, useConnect, useDisconnect, useChainId, useConfig } from 'wagmi'; // FIX: useConfig invece di useConnectors
 import { useQuery } from '@tanstack/react-query';
 
 export const dynamic = 'force-dynamic'; // Forza dynamic rendering, evita static prerender
@@ -13,10 +13,10 @@ export default function Inventory() {
 
   // Hooks Wagmi: Condizionati su isMounted
   const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
-  // FIX: Separa - useConnect solo per action connect (no connectors qui)
   const { connect, error: connectError, isPending: isConnecting } = isMounted ? useConnect() : { connect: () => {}, error: null, isPending: false };
-  // FIX: useConnectors per listing stabile (non undefined mai)
-  const { connectors: stableConnectors } = isMounted ? useConnectors() : { connectors: [] };
+  // FIX: useConfig per connectors stabili dal root (mai undefined)
+  const config = isMounted ? useConfig() : null;
+  const connectors = config?.connectors || []; // Safe fallback
   const { disconnect } = isMounted ? useDisconnect() : { disconnect: () => {} };
   const chainId = isMounted ? useChainId() : null;
 
@@ -29,7 +29,7 @@ export default function Inventory() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [isEthPriceLoaded, setIsEthPriceLoaded] = useState(false);
   const [hoveredCardId, setHoveredCardId] = useState(null);
-  const [selectedCards, setSelectedCards] = useState([]); // Per multi-select
+  const [selectedCards, setSelectedCards] = useState([]); // Inizializza sempre []
   const debounceRef = useRef(null);
 
   const cardsPerPage = 50;
@@ -64,11 +64,14 @@ export default function Inventory() {
     );
   }
 
+  // Debug log immediato per connectors (nel render, pre-useEffect)
+  console.log('Inventory connectors from config:', connectors.length); // Dovrebbe log 3+ subito
+
   // Fetch ETH/USD con query caching
   const { data: ethPriceData } = useQuery({
     queryKey: ['ethPrice'],
     queryFn: async () => {
-      const response = await fetch('/api-inventory?endpoint=eth-price'); // Usa tuo path API
+      const response = await fetch('/api-inventory?endpoint=eth-price');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -99,12 +102,12 @@ export default function Inventory() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api-inventory?address=${address}`); // Usa tuo path API
+      const response = await fetch(`/api-inventory?address=${address}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
-      console.log('Inventory loaded, cards length:', data.cards?.length || 0); // Safe access
-      setAllInventory(data.cards || []); // Fallback empty array
+      console.log('Inventory loaded, cards length:', data.cards?.length || 0);
+      setAllInventory(data.cards || []);
       updateCurrentPage(data.cards || [], 1);
 
       if ((data.cards?.length || 0) > 0 && isEthPriceLoaded) {
@@ -119,7 +122,7 @@ export default function Inventory() {
   }, [isEthPriceLoaded]);
 
   const preCalculatePrices = useCallback(async (cards) => {
-    const safeCards = cards || []; // Safe access
+    const safeCards = cards || [];
     for (let i = 0; i < safeCards.length; i++) {
       const card = safeCards[i];
       const cacheKey = `${card.tokenId}-${card.contractAddress}`;
@@ -138,7 +141,7 @@ export default function Inventory() {
   }, [prices]);
 
   const connectWallet = useCallback((connector) => {
-    console.log('Connecting with:', connector.name); // Debug
+    console.log('Connecting with:', connector.name);
     connect({ connector });
   }, [connect]);
 
@@ -168,7 +171,7 @@ export default function Inventory() {
         contractAddress: card.contractAddress,
         cardData: cardData
       });
-      const response = await fetch(`/api-inventory?${params}`); // Usa tuo path API
+      const response = await fetch(`/api-inventory?${params}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -200,7 +203,7 @@ export default function Inventory() {
 
   const toggleSelect = useCallback((card) => {
     setSelectedCards(prev => {
-      const safePrev = prev || []; // Safe
+      const safePrev = Array.isArray(prev) ? prev : []; // Extra safe per undefined
       return safePrev.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress) 
         ? safePrev.filter(c => !(c.tokenId === card.tokenId && c.contractAddress === card.contractAddress))
         : [...safePrev, card]
@@ -208,7 +211,7 @@ export default function Inventory() {
   }, []);
 
   const handleGoToListing = useCallback(() => {
-    const safeSelected = selectedCards || []; // Safe .length
+    const safeSelected = Array.isArray(selectedCards) ? selectedCards : []; // Extra safe
     const tokenIds = safeSelected.map(c => c.tokenId).join(',');
     const collection = safeSelected[0]?.contractAddress || '';
     const boosterToken = safeSelected[0]?.contract?.tokenAddress || '';
@@ -216,7 +219,7 @@ export default function Inventory() {
   }, [selectedCards, router]);
 
   const updateCurrentPage = useCallback((cards, page) => {
-    const safeCards = cards || []; // Safe
+    const safeCards = Array.isArray(cards) ? cards : []; // Extra safe
     const startIndex = (page - 1) * cardsPerPage;
     const endIndex = startIndex + cardsPerPage;
     const currentCards = safeCards.slice(startIndex, endIndex);
@@ -233,16 +236,16 @@ export default function Inventory() {
     return 'Heavily Played';
   };
 
-  const totalPages = Math.ceil((allInventory?.length || 0) / cardsPerPage); // Safe .length
+  const totalPages = Math.ceil((Array.isArray(allInventory) ? allInventory.length : 0) / cardsPerPage); // Extra safe
 
   const goToPage = useCallback((page) => {
     if (page > 0 && page <= totalPages) {
-      updateCurrentPage(allInventory || [], page); // Safe
+      updateCurrentPage(allInventory, page);
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
   useEffect(() => {
-    if ((allInventory?.length || 0) > 0) { // Safe
+    if (Array.isArray(allInventory) && allInventory.length > 0) {
       updateCurrentPage(allInventory, currentPage);
     }
   }, [currentPage, allInventory, updateCurrentPage]);
@@ -253,11 +256,6 @@ export default function Inventory() {
     };
   }, []);
 
-  // Debug log per connectors (rimuovilo dopo test)
-  useEffect(() => {
-    console.log('Inventory stableConnectors length:', stableConnectors.length); // Dovrebbe essere 3+ (injected, coinbase, wc)
-  }, [stableConnectors]);
-
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
       <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
@@ -265,8 +263,8 @@ export default function Inventory() {
         <div>
           <p>Please connect your wallet to view inventory.</p>
           <div className="mt-2 space-x-2">
-            {/* FIX: Usa stableConnectors - safe .filter/.map */}
-            {stableConnectors.filter(c => c.ready).map((connector) => (
+            {/* FIX: Safe .filter/.map su connectors da config */}
+            {connectors.filter(c => c?.ready || true).map((connector) => ( // ready fallback per test
               <button
                 key={connector.id}
                 className="bg-blue-500 text-white px-4 py-2 rounded"
@@ -290,20 +288,20 @@ export default function Inventory() {
           {error && <p className="text-red-500">{error}</p>}
           {loading && <p>Loading all pages...</p>}
           {!isEthPriceLoaded && <p className="text-yellow-500 mb-4">Loading ETH/USD price...</p>}
-          {(selectedCards || []).length > 0 && (
+          {Array.isArray(selectedCards) && selectedCards.length > 0 && (
             <button
               onClick={handleGoToListing}
               className="bg-green-500 text-white px-4 py-2 rounded mb-4"
             >
-              Batch List {(selectedCards || []).length} Cards
+              Batch List {selectedCards.length} Cards
             </button>
           )}
-          {(inventory || []).length > 0 ? (
+          {Array.isArray(inventory) && inventory.length > 0 ? (
             <>
               <ul className="space-y-4">
-                {(inventory || []).map((card, index) => {
+                {inventory.map((card, index) => {
                   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
-                  const isSelected = (selectedCards || []).some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress);
+                  const isSelected = Array.isArray(selectedCards) && selectedCards.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress);
                   return (
                     <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)} onMouseLeave={handleMouseLeave}>
                       <input
@@ -312,14 +310,14 @@ export default function Inventory() {
                         onChange={() => toggleSelect(card)}
                         className="mr-2 mt-1"
                       />
-                      <img src={card.metadata.imageUrl} alt="Card" className="w-32 h-48 object-cover mr-4" />
+                      <img src={card.metadata?.imageUrl || ''} alt="Card" className="w-32 h-48 object-cover mr-4" />
                       <div className="flex-1">
-                        <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
-                        <p><strong>Contract Address:</strong> {card.contractAddress}</p>
+                        <p><strong>Collection Name:</strong> {card.metadata?.name?.split(' #')[0] || 'Unknown Collection'}</p>
+                        <p><strong>Contract Address:</strong> {card.contractAddress || 'N/A'}</p>
                         <p><strong>Token Address:</strong> {card.contract?.tokenAddress || 'N/A'}</p>
-                        <p><strong>Token ID:</strong> {card.tokenId}</p>
-                        <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
-                        <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
+                        <p><strong>Token ID:</strong> {card.tokenId || 'N/A'}</p>
+                        <p><strong>Wear:</strong> {getWearCondition(card.metadata?.wear) || 'N/A'}</p>
+                        <p><strong>Foil:</strong> {card.metadata?.foil === 'Normal' ? 'None' : card.metadata?.foil || 'N/A'}</p>
                         <p><strong>Estimated Price:</strong> {hoveredCardId === cacheKey ? prices[cacheKey] || 'Calculating...' : 'Hover to calculate'}</p>
                         {hoveredCardId === cacheKey && prices[cacheKey] && prices[cacheKey] !== 'N/A' && (
                           <button
@@ -345,7 +343,7 @@ export default function Inventory() {
                 >
                   Previous
                 </button>
-                <span>Page {currentPage} of {totalPages} (Total cards: {(allInventory || []).length})</span>
+                <span>Page {currentPage} of {totalPages} (Total cards: {Array.isArray(allInventory) ? allInventory.length : 0})</span>
                 <button
                   className="bg-blue-500 text-white px-2 py-1 rounded ml-2 disabled:bg-gray-400"
                   onClick={() => goToPage(currentPage + 1)}
