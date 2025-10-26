@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'next/navigation'; // useSearchParams per query; Link per nav safe
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useSearchParams, Link } from 'next/navigation';
+import { useAccount, useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi'; // FIX V1: Hooks v1
 import { ethers } from 'ethers';
 import { Suspense } from 'react';
 
-export const dynamic = 'force-dynamic'; // Forza dynamic rendering, evita static prerender
+export const dynamic = 'force-dynamic';
 
 const CONTRACT_ADDRESS = '0x...'; // Sostituisci con address deployato
 
@@ -21,23 +21,31 @@ const ABI = [
 // Componente interno per useSearchParams (wrap in Suspense)
 function ListingContent() {
   const searchParams = useSearchParams();
-  const [isMounted, setIsMounted] = useState(false); // FIX: Check per hooks client-only
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Hooks Wagmi: Condizionati su isMounted per evitare SSR errors
   const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
-  const { writeContract, data: txHash } = isMounted ? useWriteContract() : { writeContract: () => {}, data: null };
-  const { isLoading: txLoading, isSuccess } = isMounted ? useWaitForTransactionReceipt({ hash: txHash }) : { isLoading: false, isSuccess: false };
+  const contractRead = useContractRead; // V1 alias if needed
+  const { data: listingDetails } = isMounted ? useContractRead({
+    address: CONTRACT_ADDRESS,
+    abi: ABI,
+    functionName: 'getListingDetails',
+    args: [BigInt(form.tokenIds[0] || 0)], // Note: form defined below
+    enabled: form.action === 'buy' && form.tokenIds.length > 0 && CONTRACT_ADDRESS !== '0x...',
+  }) : { data: null };
+  const { write, data: txHash, error: writeError } = isMounted ? useContractWrite({
+    address: CONTRACT_ADDRESS,
+    abi: ABI,
+  }) : { write: () => {}, data: null, error: null };
+  const { isLoading: txLoading, isSuccess } = isMounted ? useWaitForTransaction({ hash: txHash }) : { isLoading: false, isSuccess: false };
 
   const [form, setForm] = useState({ tokenIds: [], collection: '', boosterToken: '', action: 'create' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // FIX: Mount check per useEffect che attiva hooks
   useEffect(() => {
-    setIsMounted(true); // Attiva hooks solo dopo hydration client-side
+    setIsMounted(true);
   }, []);
 
-  // Fallback UI durante mounting (evita flash/errors)
   if (!isMounted) {
     return (
       <main className="flex min-h-screen flex-col items-center p-24">
@@ -58,14 +66,6 @@ function ListingContent() {
     });
   }, [searchParams]);
 
-  const { data: listingDetails } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'getListingDetails',
-    args: [BigInt(form.tokenIds[0] || 0)],
-    enabled: form.action === 'buy' && form.tokenIds.length > 0 && CONTRACT_ADDRESS !== '0x...',
-  });
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isConnected || form.tokenIds.length === 0) return setError('Connect wallet and select cards');
@@ -73,54 +73,28 @@ function ListingContent() {
     setError(null);
     try {
       const collection = form.collection;
-      const boosterToken = form.action === 'create' ? form.boosterToken : ethers.ZeroAddress; // Safe dummy per buy/delist
+      const boosterToken = form.action === 'create' ? form.boosterToken : ethers.ZeroAddress;
       const tokenIdsBigInt = form.tokenIds.map(id => BigInt(id.trim()));
-      let value = 0n;
 
       if (form.action === 'create') {
         if (form.tokenIds.length === 1) {
-          writeContract({ 
-            address: CONTRACT_ADDRESS, 
-            abi: ABI, 
-            functionName: 'createListing', 
-            args: [collection, boosterToken, tokenIdsBigInt[0]] 
-          });
+          write({ mode: 'reckless', functionName: 'createListing', args: [collection, boosterToken, tokenIdsBigInt[0]] });
         } else {
-          writeContract({ 
-            address: CONTRACT_ADDRESS, 
-            abi: ABI, 
-            functionName: 'createListingBatch', 
-            args: [collection, boosterToken, tokenIdsBigInt] 
-          });
+          write({ mode: 'reckless', functionName: 'createListingBatch', args: [collection, boosterToken, tokenIdsBigInt] });
         }
       } else if (form.action === 'buy') {
-        // Safe BigInt calc: total ETH = price per item * count
         const ethPerItem = listingDetails?.listingPrice || 0n;
-        value = ethPerItem * BigInt(form.tokenIds.length);
-        // Loop parallel tx per batch (una per item)
         await Promise.all(tokenIdsBigInt.map(id => 
-          writeContract({ 
-            address: CONTRACT_ADDRESS, 
-            abi: ABI, 
-            functionName: 'buyListing', 
-            args: [id], 
-            value: ethPerItem // ETH per item
-          })
+          write({ mode: 'reckless', functionName: 'buyListing', args: [id], value: ethPerItem })
         ));
       } else if (form.action === 'delist') {
         await Promise.all(tokenIdsBigInt.map(id => 
-          writeContract({ 
-            address: CONTRACT_ADDRESS, 
-            abi: ABI, 
-            functionName: 'delist', 
-            args: [id] 
-          })
+          write({ mode: 'reckless', functionName: 'delist', args: [id] })
         ));
       }
 
       if (isSuccess) {
-        // Safe redirect con Link (no useRouter)
-        window.location.href = '/inventory'; // Fallback; o usa <Link> in UI
+        window.location.href = '/inventory';
       }
     } catch (err) {
       setError(err.message);
