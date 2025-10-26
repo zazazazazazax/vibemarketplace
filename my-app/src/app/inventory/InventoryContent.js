@@ -138,13 +138,14 @@ export default function InventoryContent() {
     connect({ connector });
   }, [connect]);
 
-  const disconnectWallet = useCallback(() => {
-    disconnect();
-    localStorage.clear();
-    setAllInventory([]);
-    setPrices({});
-    setSelectedCards([]);
-  }, [disconnect]);
+const disconnectWallet = useCallback(() => {
+  disconnect();
+  localStorage.clear();
+  setAllInventory([]);
+  setPrices({});
+  setSelectedCards([]);
+  router.push('/'); // FIX: Redirect alla home per reconnect facile
+}, [disconnect, router]);
 
   const calculateCardPrice = useCallback(async (card) => {
     const cacheKey = `${card.tokenId}-${card.contractAddress}`;
