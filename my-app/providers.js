@@ -2,33 +2,27 @@
 
 import { createConfig, http } from 'wagmi';
 import { base } from 'wagmi/chains';
-import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
-import { createStorage } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit'; // Nuovo
-import { base as baseNetwork } from 'wagmi/chains'; // Per RainbowKit
+import { createStorage } from 'wagmi';
+import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit';
 
 const queryClient = new QueryClient();
 
 export function Providers({ children }) {
   const { chains, publicClient } = createConfig({
     chains: [base],
-    transports: {
-      [base.id]: http('https://base.publicnode.com'),
-    },
-    connectors: [
-      ...(getDefaultWallets({
-        chains,
-        projectId: '8e4f39df88b73f8ff1e701f88b4fea0c', // Il tuo WC projectId
-      })).accounts, // Auto-aggiunge injected + WC con icone
-      coinbaseWallet({ appName: 'Vibe.Market' }),
-    ],
   });
 
   const config = createConfig({
     chains,
-    connectors,
+    connectors: [
+      ...getDefaultWallets({
+        chains,
+        projectId: '8e4f39df88b73f8ff1e701f88b4fea0c', // Il tuo WalletConnect projectId
+      }).accounts,
+      // Opzionale: Aggiungi Coinbase se vuoi, ma RainbowKit copre già injected + WC
+    ],
     transports: {
       [base.id]: http('https://base.publicnode.com'),
     },
