@@ -2,14 +2,14 @@
 const nextConfig = {
   webpack: (config, { isServer }) => {
     if (!isServer) {
+      // Fix MetaMask SDK: Ignora React Native deps
       config.resolve.fallback = {
         ...config.resolve.fallback || {},
         '@react-native-async-storage/async-storage': false,
       };
     }
-    // Fix per Pino/WC logger: Esternalizza pino-pretty (non necessario in bundle)
-    config.externals = config.externals || [];
-    config.externals.push('pino-pretty');
+    // Fix Pino/WC logger: Esternalizza pino-pretty (non bundle in serverless)
+    config.externals = [...(config.externals || []), 'pino-pretty'];
     return config;
   },
 };
