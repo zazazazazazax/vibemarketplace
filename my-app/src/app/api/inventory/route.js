@@ -1,37 +1,37 @@
 import { NextResponse } from 'next/server';
-import { LRUCache } from 'lru-cache'; // Named import for v10+
+import { LRUCache } from 'lru-cache';
+import { ethers } from 'ethers'; // FIX: Import at top, no dynamic
 
-// Cache in-memory (5 minuti per utente per inventory; 1min globale per ETH price)
+// Cache (dal tuo originale)
 const inventoryCache = new LRUCache({
-  max: 100, // Max 100 utenti
-  ttl: 1000 * 60 * 5, // 5 minuti
-  dispose: (value, key) => { /* Clean up if needed */ }
-});
-
-const ethPriceCache = new LRUCache({ // Cache globale per ETH/USD
-  max: 1, // Solo 1 entry
-  ttl: 1000 * 60, // 1 minuto
+  max: 100,
+  ttl: 1000 * 60 * 5,
   dispose: (value, key) => { }
 });
 
-const cardPriceCache = new LRUCache({ // Cache per prezzi cards
-  max: 1000, // Max 1000 unique cards
-  ttl: 1000 * 60 * 10, // 10 minuti
+const ethPriceCache = new LRUCache({
+  max: 1,
+  ttl: 1000 * 60,
   dispose: (value, key) => { }
 });
 
-// Array di chiavi API (principale + fallback)
+const cardPriceCache = new LRUCache({
+  max: 1000,
+  ttl: 1000 * 60 * 10,
+  dispose: (value, key) => { }
+});
+
+// API keys (dal tuo originale)
 const apiKeys = [
-  '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2', // Principale
-  'RR2C1-EZ7I3-7O792-94NRG-AR07M', // Riserva 1
-  'RTDVD-E68MA-2FA63-UGAGA-WJUAR' // Riserva 2
+  '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2',
+  'RR2C1-EZ7I3-7O792-94NRG-AR07M',
+  'RTDVD-E68MA-2FA63-UGAGA-WJUAR'
 ];
 
-// Provider RPC server-side (usa public per reads)
-const { ethers } = await import('ethers'); // Dynamic import per server
+// Provider RPC (dal tuo originale)
 const publicProvider = new ethers.JsonRpcProvider('https://base.publicnode.com');
 
-// Fetch ETH/USD con retry
+// Fetch ETH/USD with retry (dal tuo originale)
 async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   const cacheKey = 'eth_usd';
   if (ethPriceCache.has(cacheKey)) return ethPriceCache.get(cacheKey);
@@ -56,7 +56,7 @@ async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   }
 }
 
-// Calcola prezzo card (server-side, dal tuo snippet)
+// Calculate card price (dal tuo originale, with try/catch for contract calls)
 async function calculateCardPrice(card) {
   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
   if (cardPriceCache.has(cacheKey)) return cardPriceCache.get(cacheKey);
@@ -121,14 +121,14 @@ async function calculateCardPrice(card) {
   }
 }
 
-// Funzione retry con backoff (invariato)
+// fetchWithRetry (dal tuo originale)
 async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, options);
-      if (response.status === 429) { // Rate limit
+      if (response.status === 429) {
         await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; // Backoff esponenziale (1s, 2s, 4s)
+        delay *= 2;
         continue;
       }
       return response;
@@ -140,7 +140,7 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
   }
 }
 
-// Fetch multi-pagina per status (invariato)
+// fetchPagesForStatus (dal tuo originale)
 async function fetchPagesForStatus(address, status, apiKey) {
   let allCards = [];
   let page = 1;
@@ -164,10 +164,10 @@ async function fetchPagesForStatus(address, status, apiKey) {
   return allCards;
 }
 
-// Handler principale GET
+// GET handler (dal tuo originale, with endpoint support)
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const endpoint = searchParams.get('endpoint') || 'inventory'; // Default 'inventory', o 'eth-price' o 'card-price'
+  const endpoint = searchParams.get('endpoint') || 'inventory'; // Default 'inventory'
 
   if (endpoint === 'eth-price') {
     try {
@@ -181,9 +181,9 @@ export async function GET(request) {
   if (endpoint === 'card-price') {
     const tokenId = searchParams.get('tokenId');
     const contractAddress = searchParams.get('contractAddress');
-    const cardData = searchParams.get('cardData'); // JSON string per metadata/rarity/foil/wear
+    const cardData = searchParams.get('cardData');
     if (!tokenId || !contractAddress || !cardData) {
-      return NextResponse.json({ error: 'Missing params: tokenId, contractAddress, cardData' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing params' }, { status: 400 });
     }
     try {
       const card = JSON.parse(cardData);
@@ -196,7 +196,7 @@ export async function GET(request) {
     }
   }
 
-  // Handler originale per inventory (endpoint default o address)
+  // Default: inventory (dal tuo originale)
   const address = searchParams.get('address');
   if (!address) return NextResponse.json({ error: 'Address required' }, { status: 400 });
 
@@ -225,7 +225,7 @@ export async function GET(request) {
       if (!success) throw new Error(`Failed to fetch for status ${status}`);
     }
 
-    // Remove duplicates
+    // Remove duplicates (dal tuo originale)
     const uniqueCards = allCards.filter((card, index, self) =>
       index === self.findIndex(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress)
     );
