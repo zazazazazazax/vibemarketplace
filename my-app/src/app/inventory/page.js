@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi'; // FIX: SOLO useAccount per test
+import { useAccount } from 'wagmi'; // V1 ok
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +10,6 @@ export default function Inventory() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
 
-  // FIX: SOLO useAccount, condizionato
   const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
 
   const [allInventory, setAllInventory] = useState([]);
@@ -18,7 +17,6 @@ export default function Inventory() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isEthPriceLoaded, setIsEthPriceLoaded] = useState(true); // Hardcode per bypass
 
   const cardsPerPage = 50;
 
@@ -35,10 +33,8 @@ export default function Inventory() {
     );
   }
 
-  // Debug log immediato - DOVREBBE apparire ora
   console.log('Inventory mounted and rendering - isConnected:', isConnected, 'address:', walletAddress);
 
-  // Fetch inventory su connect (hardcode chainId 8453 per test, no useChainId)
   useEffect(() => {
     if (isConnected && walletAddress) {
       fetchAllInventory(walletAddress);
@@ -72,10 +68,6 @@ export default function Inventory() {
     const currentCards = safeCards.slice(startIndex, endIndex);
     setInventory(currentCards);
     setCurrentPage(page);
-  };
-
-  const handleGoToListing = () => {
-    router.push('/listing?action=create'); // Minimal per test
   };
 
   const totalPages = Math.ceil((Array.isArray(allInventory) ? allInventory.length : 0) / cardsPerPage);
