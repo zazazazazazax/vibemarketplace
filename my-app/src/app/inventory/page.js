@@ -11,13 +11,13 @@ export const dynamic = 'force-dynamic';
 function InventoryContent() {
   const router = useRouter();
 
-  // Hooks Wagmi
+  // FIX: Tutti hooks al top, unconditional (no #310)
   const { address: walletAddress, isConnected } = useAccount();
   const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
 
-  const [walletLoaded, setWalletLoaded] = useState(false); // FIX: Flag per storage load
+  const [walletLoaded, setWalletLoaded] = useState(false); // Flag per storage load
 
   const [allInventory, setAllInventory] = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -33,7 +33,7 @@ function InventoryContent() {
 
   const cardsPerPage = 50;
 
-  // FIX: UseEffect per walletLoaded con deps [isConnected] + manual localStorage check + timeout (no listener per #310)
+  // FIX: Check walletLoaded una volta (no deps, no re-run; manual + timeout)
   useEffect(() => {
     const checkWalletLoaded = () => {
       const wagmiWallet = localStorage.getItem('wagmi.wallet');
@@ -50,7 +50,7 @@ function InventoryContent() {
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [isConnected]); // Dep su isConnected per re-run su change
+  }, []); // No deps: Run once on mount
 
   console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress, 'walletLoaded:', walletLoaded);
 
