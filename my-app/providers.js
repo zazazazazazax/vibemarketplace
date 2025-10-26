@@ -18,7 +18,7 @@ export function Providers({ children }) {
     connectors: [
       injected({ target: 'metaMask' }),
       coinbaseWallet({ appName: 'Vibe.Market' }),
-      walletConnect({ projectId: 'IL_TUO_WC_PROJECT_ID_QUI' }),
+      walletConnect({ projectId: '8e4f39df88b73f8ff1e701f88b4fea0c' }),
     ],
     ssr: true, // FIX: Per Next.js hydration
     storage: createStorage({
