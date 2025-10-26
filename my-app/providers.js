@@ -1,36 +1,29 @@
 'use client';
 
-import { createConfig, http } from 'wagmi';
+import { createClient } from 'wagmi';
 import { base } from 'wagmi/chains';
-import { coinbaseWallet, injected } from 'wagmi/connectors'; // FIX: Rimosso walletConnect temporaneamente per test
+import { coinbaseWallet, injected } from 'wagmi/connectors';
+import { http } from 'viem'; // FIX V1: http da viem, non wagmi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { useState } from 'react'; // FIX: Per QueryClient persistente
+
+const queryClient = new QueryClient();
 
 export function Providers({ children }) {
-  // FIX: Crea QueryClient dentro con useState (persiste across re-renders, no sharing issues)
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 1000 * 60 * 5, // 5 min cache default
-      },
-    },
-  }));
-
-  const config = createConfig({
-    chains: [base], // Solo Base (chainId 8453)
+  const client = createClient({
+    chains: [base],
     transports: {
-      [base.id]: http('https://base.publicnode.com'), // RPC pubblico per reads
+      [base.id]: http('https://base.publicnode.com'), // FIX V1: http() da viem
     },
     connectors: [
-      injected({ target: 'metaMask' }), // Copre MetaMask, Phantom EVM, Brave, etc.
+      injected({ target: 'metaMask' }),
       coinbaseWallet({ appName: 'Vibe.Market' }),
-      // walletConnect rimosso per test - ri-aggiungi sotto dopo
+      // Ri-aggiungi walletConnect dopo test: import { walletConnect } from 'wagmi/connectors'; + walletConnect({ projectId: 'TUO_ID' })
     ],
   });
 
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider client={client}>
       <QueryClientProvider client={queryClient}>
         {children}
       </QueryClientProvider>
