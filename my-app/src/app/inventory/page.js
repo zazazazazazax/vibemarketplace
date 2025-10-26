@@ -11,14 +11,14 @@ export const dynamic = 'force-dynamic';
 function InventoryContent() {
   const router = useRouter();
 
-  // Hooks Wagmi
+  // Hooks Wagmi (sempre al top)
   const { address: walletAddress, isConnected } = useAccount();
   const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
 
-  const [showUI, setShowUI] = useState(false); // FIX: Loading fino a isConnected true (no flash)
-
+  // Stati (sempre al top)
+  const [showUI, setShowUI] = useState(false);
   const [allInventory, setAllInventory] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -33,33 +33,7 @@ function InventoryContent() {
 
   const cardsPerPage = 50;
 
-  // FIX: Set showUI dopo 1s o quando isConnected true (no deps loop)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowUI(true);
-    }, 1000); // 1s delay per Wagmi load
-
-    if (isConnected) {
-      clearTimeout(timer);
-      setShowUI(true);
-    }
-
-    return () => clearTimeout(timer);
-  }, [isConnected]); // Dep su isConnected (re-run solo su change, no loop)
-
-  console.log('InventoryContent mounted - isConnected:', isConnected, 'address:', walletAddress, 'showUI:', showUI);
-
-  // Fallback loading fino a showUI
-  if (!showUI) {
-    return (
-      <main className="flex min-h-screen flex-col items-center p-24">
-        <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
-        <p>Loading wallet...</p>
-      </main>
-    );
-  }
-
-  // Fetch ETH/USD
+  // useQuery per ETH price (sempre al top, con retry)
   const { data: ethPriceData } = useQuery({
     queryKey: ['ethPrice'],
     queryFn: async () => {
@@ -71,8 +45,10 @@ function InventoryContent() {
     },
     staleTime: 60000,
     retry: 3,
+    enabled: true, // Sempre attivo
   });
 
+  // useEffect per ETH price (sempre al top)
   useEffect(() => {
     if (ethPriceData?.price) {
       setEthUsdPrice(ethPriceData.price);
@@ -80,14 +56,47 @@ function InventoryContent() {
     }
   }, [ethPriceData]);
 
-  // Fetch inventory
+  // useEffect per showUI (sempre al top)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowUI(true);
+    }, 1000);
+
+    if (isConnected) {
+      clearTimeout(timer);
+      setShowUI(true);
+    }
+
+    return () => clearTimeout(timer);
+  }, [isConnected]);
+
+  // useEffect per fetch inventory (sempre al top, ma guardia interna)
   useEffect(() => {
     if (isConnected && chainId === 8453 && walletAddress) {
       fetchAllInventory(walletAddress);
     } else if (isConnected && chainId !== 8453) {
       setError('Please switch to Base chain (ID: 8453)');
+    } else if (!isConnected) {
+      setError(null); // Reset error su disconnect
+      setAllInventory([]);
+      setPrices({});
+      setSelectedCards([]);
     }
-  }, [isConnected, chainId, walletAddress]);
+  }, [walletAddress, chainId, isConnected]); // Dipendenze precise, no loop
+
+  // useEffect per cleanup debounce (sempre al top)
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  // useEffect per paginazione (sempre al top)
+  useEffect(() => {
+    if (Array.isArray(allInventory) && allInventory.length > 0) {
+      updateCurrentPage(allInventory, currentPage);
+    }
+  }, [currentPage, allInventory, updateCurrentPage]);
 
   const fetchAllInventory = useCallback(async (address) => {
     console.log('Fetching inventory for', address);
@@ -112,7 +121,7 @@ function InventoryContent() {
     } finally {
       setLoading(false);
     }
-  }, [isEthPriceLoaded]);
+  }, [isEthPriceLoaded, updateCurrentPage, preCalculatePrices]);
 
   const preCalculatePrices = useCallback(async (cards) => {
     const safeCards = cards || [];
@@ -131,7 +140,7 @@ function InventoryContent() {
         }
       }
     }
-  }, [prices]);
+  }, [prices, calculateCardPrice]);
 
   const connectWallet = useCallback((connector) => {
     connect({ connector });
@@ -236,17 +245,15 @@ function InventoryContent() {
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
-  useEffect(() => {
-    if (Array.isArray(allInventory) && allInventory.length > 0) {
-      updateCurrentPage(allInventory, currentPage);
-    }
-  }, [currentPage, allInventory, updateCurrentPage]);
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
+  // Render condizionale (hooks già eseguiti)
+  if (!showUI) {
+    return (
+      <main className="flex min-h-screen flex-col items-center p-24">
+        <h1 className="text-4xl font-bold mb-8">My Inventory on Vibe.Market</h1>
+        <p>Loading wallet...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
