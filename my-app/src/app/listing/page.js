@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense } from 'react';import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'next/navigation'; // useSearchParams per query; Link per nav safe
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { ethers } from 'ethers';
