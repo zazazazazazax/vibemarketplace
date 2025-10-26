@@ -8,13 +8,13 @@ const inventoryCache = new LRUCache({
   dispose: (value, key) => { /* Clean up if needed */ }
 });
 
-const ethPriceCache = new LRUCache({ // NUOVO: Cache globale per ETH/USD
+const ethPriceCache = new LRUCache({ // Cache globale per ETH/USD
   max: 1, // Solo 1 entry
-  ttl: 1000 * 60, // 1 minuto (ETH varia poco)
+  ttl: 1000 * 60, // 1 minuto
   dispose: (value, key) => { }
 });
 
-const cardPriceCache = new LRUCache({ // NUOVO: Cache per prezzi cards (per tokenId+contract)
+const cardPriceCache = new LRUCache({ // Cache per prezzi cards
   max: 1000, // Max 1000 unique cards
   ttl: 1000 * 60 * 10, // 10 minuti
   dispose: (value, key) => { }
@@ -27,11 +27,11 @@ const apiKeys = [
   'RTDVD-E68MA-2FA63-UGAGA-WJUAR' // Riserva 2
 ];
 
-// NUOVO: Provider RPC server-side (usa public per reads)
+// Provider RPC server-side (usa public per reads)
 const { ethers } = await import('ethers'); // Dynamic import per server
 const publicProvider = new ethers.JsonRpcProvider('https://base.publicnode.com');
 
-// NUOVO: Fetch ETH/USD con retry (simile a fetchWithRetry)
+// Fetch ETH/USD con retry
 async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   const cacheKey = 'eth_usd';
   if (ethPriceCache.has(cacheKey)) return ethPriceCache.get(cacheKey);
@@ -56,7 +56,7 @@ async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   }
 }
 
-// NUOVO: Calcola prezzo card (server-side, simile a frontend ma con cache)
+// Calcola prezzo card (server-side)
 async function calculateCardPrice(card) {
   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
   if (cardPriceCache.has(cacheKey)) return cardPriceCache.get(cacheKey);
@@ -164,10 +164,10 @@ async function fetchPagesForStatus(address, status, apiKey) {
   return allCards;
 }
 
-// NUOVO: Handler per /api/eth-price
+// Handler principale
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const endpoint = searchParams.get('endpoint') || 'inventory'; // Default a inventory, o specifica ?endpoint=eth-price o card-price?tokenId=...&contract=...
+  const endpoint = searchParams.get('endpoint') || 'inventory'; // Default inventory, o eth-price / card-price
 
   if (endpoint === 'eth-price') {
     try {
@@ -181,9 +181,9 @@ export async function GET(request) {
   if (endpoint === 'card-price') {
     const tokenId = searchParams.get('tokenId');
     const contractAddress = searchParams.get('contractAddress');
-    const cardData = searchParams.get('cardData'); // JSON string per metadata/foil/wear/rarity
+    const cardData = searchParams.get('cardData'); // JSON string
     if (!tokenId || !contractAddress || !cardData) {
-      return NextResponse.json({ error: 'Missing params' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing params: tokenId, contractAddress, cardData' }, { status: 400 });
     }
     try {
       const card = JSON.parse(cardData);
@@ -196,7 +196,7 @@ export async function GET(request) {
     }
   }
 
-  // Handler originale per inventory
+  // Handler originale per inventory (address)
   const address = searchParams.get('address');
   if (!address) return NextResponse.json({ error: 'Address required' }, { status: 400 });
 
