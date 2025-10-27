@@ -1,16 +1,10 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import dynamic from 'next/dynamic';
+import { GeistSans } from 'geist/font/sans'; // FIX: Corretti da geist package
+import { GeistMono } from 'geist/font/mono'; // FIX: Corretti da geist package
 import "./globals.css";
-import { Providers } from '../../providers'; // Da root (my-app/providers.js)
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// FIX: Dynamic import Providers – solo client-side, no SSR crash
+const Providers = dynamic(() => import('../../providers'), { ssr: false });
 
 export const metadata = {
   title: "Vibe.Market",
@@ -20,7 +14,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}> {/* FIX: Usa .variable per CSS vars */}
         <Providers>
           {children}
         </Providers>
