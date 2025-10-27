@@ -1,61 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { useAccount, useSignTypedData, useConnect, useWalletClient } from 'wagmi'; // useConnect per custom
+import { useState, useEffect, useMemo } from 'react';
+import { useAccount, useSignTypedData, useConnect } from 'wagmi';
 import { base } from 'wagmi/chains';
-import { ConnectButton } from '@rainbow-me/rainbowkit'; // Per base logic, ma custom UI
-import { getDefaultWallets } from '@rainbow-me/rainbowkit'; // Per connectors
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { getDefaultWallets } from '@rainbow-me/rainbowkit';
 
 export const dynamic = 'force-dynamic'; // No prerender
-
-// Connectors da providers (per custom connect)
-const projectId = '8e4f39df88b73f8ff1e701f88b4fea0c';
-const { connectors } = getDefaultWallets({
-  appName: 'Vibe.Market',
-  projectId,
-  chains: [base],
-});
-
-// Wallet options con icons reali e handler (ispirato RainbowKit demo)
-const walletOptions = [
-  {
-    id: 'phantom',
-    name: 'Phantom',
-    icon: 'https://phantom.app/favicon.ico',
-    connector: connectors.find(c => c.id.includes('phantom')),
-    link: 'https://phantom.app/download',
-  },
-  {
-    id: 'rainbow',
-    name: 'Rainbow',
-    icon: 'https://rainbow.me/favicon.ico',
-    connector: connectors.find(c => c.id.includes('rainbow')),
-    link: 'https://rainbow.me/download',
-  },
-  {
-    id: 'metamask',
-    name: 'MetaMask',
-    icon: 'https://metamask.io/favicon.ico',
-    connector: connectors.find(c => c.id.includes('metaMask')),
-    link: 'https://metamask.io/download/',
-  },
-  {
-    id: 'coinbase',
-    name: 'Coinbase Wallet',
-    icon: 'https://www.coinbase.com/favicon.ico',
-    connector: connectors.find(c => c.id.includes('coinbaseWallet')),
-    link: 'https://www.coinbase.com/wallet',
-  },
-  {
-    id: 'walletconnect',
-    name: 'WalletConnect',
-    icon: 'https://walletconnect.com/favicon.ico',
-    connector: connectors.find(c => c.id.includes('walletConnect')),
-    qr: true, // Apri QR via WalletConnect
-  },
-  // Aggiungi altri come 'argent' se vuoi
-];
 
 export default function Home() {
   const router = useRouter();
@@ -65,6 +17,57 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [hasSigned, setHasSigned] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [walletOptions, setWalletOptions] = useState([]);
+
+  // FIX: getDefaultWallets e walletOptions solo client-side (in useEffect, evita SSR/build error)
+  useEffect(() => {
+    const projectId = '8e4f39df88b73f8ff1e701f88b4fea0c';
+    const { connectors } = getDefaultWallets({
+      appName: 'Vibe.Market',
+      projectId,
+      chains: [base],
+    });
+
+    const options = [
+      {
+        id: 'phantom',
+        name: 'Phantom',
+        icon: 'https://phantom.app/favicon.ico',
+        connector: connectors.find(c => c?.id?.includes('phantom')),
+        link: 'https://phantom.app/download',
+      },
+      {
+        id: 'rainbow',
+        name: 'Rainbow',
+        icon: 'https://rainbow.me/favicon.ico',
+        connector: connectors.find(c => c?.id?.includes('rainbow')),
+        link: 'https://rainbow.me/download',
+      },
+      {
+        id: 'metamask',
+        name: 'MetaMask',
+        icon: 'https://metamask.io/favicon.ico',
+        connector: connectors.find(c => c?.id?.includes('metaMask')),
+        link: 'https://metamask.io/download/',
+      },
+      {
+        id: 'coinbase',
+        name: 'Coinbase Wallet',
+        icon: 'https://www.coinbase.com/favicon.ico',
+        connector: connectors.find(c => c?.id?.includes('coinbaseWallet')),
+        link: 'https://www.coinbase.com/wallet',
+      },
+      {
+        id: 'walletconnect',
+        name: 'WalletConnect',
+        icon: 'https://walletconnect.com/favicon.ico',
+        connector: connectors.find(c => c?.id?.includes('walletConnect')),
+        qr: true,
+      },
+    ];
+
+    setWalletOptions(options);
+  }, []);
 
   useEffect(() => {
     if (isConnected && address && !hasSigned) {
@@ -127,7 +130,6 @@ export default function Home() {
         setShowModal(false);
       } else if (wallet.qr) {
         // Apri QR WalletConnect (come in RainbowKit demo)
-        const uri = `wc:example?projectId=${projectId}`; // Usa WalletConnect URI reale se hai lib
         window.open('https://walletconnect.com/', '_blank'); // Fallback a site per QR
       } else if (wallet.link) {
         window.open(wallet.link, '_blank'); // Download come in demo
