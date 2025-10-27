@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
-import { useAccount, useSignTypedData, useConnect } from 'wagmi';
+import { useState, useEffect } from 'react';
+import { useAccount, useSignTypedData, useConnect, useWalletConnectConnector } from 'wagmi'; // Aggiunto useWalletConnectConnector per QR
 import { base } from 'wagmi/chains';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { getDefaultWallets } from '@rainbow-me/rainbowkit';
+import { createWalletConnectConnector } from 'wagmi/connectors/walletConnect'; // Per URI QR dinamico
 
 export const dynamic = 'force-dynamic'; // No prerender
 
@@ -19,7 +20,7 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [walletOptions, setWalletOptions] = useState([]);
 
-  // FIX: getDefaultWallets e walletOptions solo client-side (in useEffect, evita SSR/build error)
+  // FIX: getDefaultWallets client-side
   useEffect(() => {
     const projectId = '8e4f39df88b73f8ff1e701f88b4fea0c';
     const { connectors } = getDefaultWallets({
@@ -28,40 +29,46 @@ export default function Home() {
       chains: [base],
     });
 
+    // Crea WalletConnect connector per QR dinamico
+    const wcConnector = createWalletConnectConnector({
+      chains: [base],
+      options: { projectId, showQrModal: false }, // No modal auto, gestiamo manual
+    });
+
     const options = [
       {
         id: 'phantom',
         name: 'Phantom',
-        icon: 'https://phantom.app/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('phantom')),
+        icon: 'https://raw.githubusercontent.com/solana-labs/phantom-wallet-assets/main/assets/images/phantom-logo-icon.png', // FIX: PNG valido, visibile
+        connector: connectors.find(c => c.id === 'phantom'), // Matcher esatto Wagmi
         link: 'https://phantom.app/download',
       },
       {
         id: 'rainbow',
         name: 'Rainbow',
-        icon: 'https://rainbow.me/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('rainbow')),
+        icon: 'https://raw.githubusercontent.com/rainbow-me/rainbowkit/master/packages/assets/src/logos/rainbow.png', // FIX: Logo ufficiale Rainbow
+        connector: connectors.find(c => c.id === 'rainbow'), // Esatto
         link: 'https://rainbow.me/download',
       },
       {
         id: 'metamask',
         name: 'MetaMask',
-        icon: 'https://metamask.io/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('metaMask')),
+        icon: 'https://raw.githubusercontent.com/MetaMask/metamask-extension/master/images/icon-128x128.png', // FIX: PNG ufficiale
+        connector: connectors.find(c => c.id === 'io.metamask'), // Esatto per injected
         link: 'https://metamask.io/download/',
       },
       {
         id: 'coinbase',
         name: 'Coinbase Wallet',
-        icon: 'https://www.coinbase.com/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('coinbaseWallet')),
+        icon: 'https://raw.githubusercontent.com/coinbase/coinbase-wallet-sdk/main/packages/coinbase-wallet-sdk/img/cb-logo.svg', // FIX: SVG ufficiale
+        connector: connectors.find(c => c.id === 'coinbaseWallet'),
         link: 'https://www.coinbase.com/wallet',
       },
       {
         id: 'walletconnect',
         name: 'WalletConnect',
-        icon: 'https://walletconnect.com/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('walletConnect')),
+        icon: 'https://raw.githubusercontent.com/WalletConnect/foundation-main/main/logos/walletconnect-logo.svg', // FIX: SVG ufficiale
+        connector: wcConnector, // Usa dinamico per QR
         qr: true,
       },
     ];
@@ -122,17 +129,30 @@ export default function Home() {
     }
   };
 
-  // Handler click wallet (RainbowKit-style: connect o QR/link)
+  // Handler click wallet (ora con popup estensione per installed, QR dinamico per WC)
   const handleWalletClick = async (wallet) => {
     try {
       if (wallet.connector) {
-        await connectAsync({ connector: wallet.connector, chainId: base.id });
-        setShowModal(false);
-      } else if (wallet.qr) {
-        // Apri QR WalletConnect (come in RainbowKit demo)
-        window.open('https://walletconnect.com/', '_blank'); // Fallback a site per QR
+        // FIX: Check se ready (installed) – connect apre popup estensione
+        const provider = await wallet.connector.getProvider();
+        if (provider) {
+          await connectAsync({ connector: wallet.connector, chainId: base.id });
+          setShowModal(false);
+          return;
+        }
+      }
+      // Fallback non-installed
+      if (wallet.qr) {
+        // FIX: Per WC, genera URI e apri QR (usa RainbowKit-style)
+        const uri = await wallet.connector.getProvider(); // Genera URI dinamico
+        if (uri) {
+          // Apri QR modal o window (qui fallback a site con URI, ma per full QR installa @walletconnect/modal)
+          window.open(`https://walletconnect.com/?uri=${encodeURIComponent(uri)}`, '_blank');
+        } else {
+          window.open('https://walletconnect.com/', '_blank');
+        }
       } else if (wallet.link) {
-        window.open(wallet.link, '_blank'); // Download come in demo
+        window.open(wallet.link, '_blank');
       }
     } catch (err) {
       setError('Errore connessione: ' + err.message);
@@ -181,7 +201,7 @@ export default function Home() {
                   return (
                     <div className="flex flex-col items-center space-y-2">
                       <button
-                        onClick={() => setShowModal(true)} // Trigger custom modal RainbowKit-style
+                        onClick={() => setShowModal(true)}
                         type="button"
                         className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
                       >
@@ -231,7 +251,7 @@ export default function Home() {
         }}
       </ConnectButton.Custom>
 
-      {/* Custom Modal centrato, RainbowKit-inspired (griglia orizzontale, QR/download) */}
+      {/* Modal custom (stesso di prima, centrato e gradevole) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-gray-200">
@@ -242,7 +262,7 @@ export default function Home() {
               </button>
             </div>
             <p className="text-sm text-gray-600 mb-6">Select a wallet to connect to Vibe.Market</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"> {/* Griglia 2/4 col, orizzontale */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {walletOptions.map((wallet) => (
                 <button
                   key={wallet.id}
