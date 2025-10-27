@@ -6,25 +6,25 @@ import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
 import { createStorage } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'; // Nuovo: darkTheme
-import merge from 'lodash.merge'; // Per merge theme (installa se non presente)
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
+import merge from 'lodash.merge'; // Per theme merge
 
 const queryClient = new QueryClient();
 
-// Custom theme: Modal centrato, shadows, rounded
+// Custom theme: Modal rounded + shadow
 const customTheme = merge(darkTheme(), {
   radii: {
-    modal: '16px', // Rounded per modal
+    modal: '16px',
   },
   shadows: {
-    dialog: '0 4px 20px rgba(0, 0, 0, 0.15)', // Shadow centrato
+    dialog: '0 4px 20px rgba(0, 0, 0, 0.15)',
   },
   colors: {
-    modalBackground: '#ffffff', // Bianco per desktop
+    modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
-    accentColor: '#10b981', // Verde per Vibe.Market
+    accentColor: '#10b981',
   },
-} as any);
+}); // FIX: No "as any" – merge funziona in JS
 
 export function Providers({ children }) {
   const config = createConfig({
@@ -47,7 +47,7 @@ export function Providers({ children }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider chains={[base]} theme={customTheme}> {/* Nuovo: Custom theme */}
+        <RainbowKitProvider chains={[base]} theme={customTheme}>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
