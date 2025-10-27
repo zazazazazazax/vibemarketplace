@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAccount, useSignTypedData } from 'wagmi';
 import { base } from 'wagmi/chains';
-import { ConnectButton } from '@rainbow-me/rainbowkit'; // Per custom
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-export const dynamic = 'force-dynamic'; // No prerender crash
+export const dynamic = 'force-dynamic'; // No prerender
 
 export default function Home() {
   const router = useRouter();
@@ -71,7 +71,7 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
       <h1 className="text-4xl font-bold mb-8">Home Page</h1>
-      <ConnectButton.Custom>
+      <ConnectButton.Custom className="connectButton-custom">
         {({
           account,
           chain,
@@ -87,26 +87,36 @@ export default function Home() {
             <div
               className={`
                 ${ready ? 'opacity-100' : 'opacity-0'}
-                flex flex-col items-center justify-center
+                flex flex-col items-center justify-center space-y-2
               `}
             >
               {(() => {
                 if (!connected) {
                   return (
-                    <button
-                      onClick={openConnectModal}
-                      type="button"
-                      className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      Connect Wallet
-                    </button>
+                    <div className="flex flex-col items-center space-y-2">
+                      <button
+                        onClick={openConnectModal}
+                        type="button"
+                        className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        Connect Wallet
+                      </button>
+                      <a
+                        href="https://ethereum.org/en/wallets/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        What is a wallet?
+                      </a>
+                    </div>
                   );
                 }
 
                 if (chain.unsupported) {
                   return (
-                    <button onClick={openChainModal} type="button">
-                      Wrong network
+                    <button onClick={openChainModal} type="button" className="text-red-500">
+                      Switch to Base
                     </button>
                   );
                 }
@@ -116,28 +126,16 @@ export default function Home() {
                     <button
                       onClick={openChainModal}
                       type="button"
-                      className="text-sm"
+                      className="text-sm text-gray-500"
                     >
-                      {chain.hasIcon && (
-                        <div className="flex items-center">
-                          <img
-                            alt={chain.name ?? 'Chain icon'}
-                            src={chain.iconUrl}
-                            className="rounded-full w-4 h-4 mr-2"
-                          />
-                          {chain.name}
-                        </div>
-                      )}
+                      {chain.name}
                     </button>
                     <button
                       onClick={openAccountModal}
                       type="button"
-                      className="bg-green-500 text-white px-4 py-2 rounded-lg"
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
                     >
-                      {account.displayName}
-                      {account.displayBalance
-                        ? ` (${account.displayBalance})`
-                        : ''}
+                      {account.displayName || `${address.slice(0, 6)}...${address.slice(-4)}`}
                     </button>
                   </div>
                 );
