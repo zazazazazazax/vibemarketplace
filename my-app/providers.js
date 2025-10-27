@@ -59,9 +59,8 @@ export function Providers({ children }) {
         <RainbowKitProvider 
           chains={[base]} 
           theme={customTheme} 
-          modalSize="compact" // Compact per centrato
-          showMore={true} // FIX: Mostra tutte le icone fin da subito (no lazy/secondo click)
-          locale="it-IT" // FIX: Layout EU meno buggy su desktop
+          modalSize="compact"
+          showMore={true} // Mostra tutte le icone fin da subito
         >
           {children}
         </RainbowKitProvider>
