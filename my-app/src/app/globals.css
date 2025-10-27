@@ -21,156 +21,97 @@ body {
 }
 
 /* -------------------------------------------------
-   RainbowKit Connect Modal – overrides con selettori esatti (da docs 2025)
+   RainbowKit Modal Overrides (da docs 2025: .rainbowkit-modal per centering)
    ------------------------------------------------- */
 
-/* Overlay: visibile, z-high, semi-trasparente */
-.modalBackdrop {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
+/* Overlay: backdrop semi-trasparente */
+.rainbowkit-modal-backdrop {
   background: rgba(0, 0, 0, 0.6) !important;
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 9998 !important; /* Sopra tutto */
+  z-index: 9998 !important;
 }
 
-/* Modal principale: forza visible, height auto (fix 0x0), centrato su desktop */
-.modal,
-[data-theme] .modal { /* Copre light/dark theme */
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  height: auto !important; /* Fix 0x0 size */
-  min-height: 300px !important; /* Espandi se collassato */
-  width: auto !important;
-  max-width: none !important;
-  clip-path: none !important; /* No tagli */
-  position: relative !important; /* Base per child */
-  z-index: 9999 !important;
-}
-
-/* Centratura desktop: flex + translate per popup centrato (no shift sinistra) */
+/* Modal principale: centrato su desktop con fixed + translate */
 @media (min-width: 768px) {
-  .modal {
+  .rainbowkit-modal {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
-    transform: translate(-50%, -50%) !important; /* Centra perfettamente */
-    width: 420px !important; /* Larghezza fissa come esempio */
-    max-width: 90vw !important; /* Responsive no overflow */
-    max-height: 90vh !important;
-    padding: 20px !important; /* Bordi per no tagli */
+    transform: translate(-50%, -50%) !important; /* FIX: Centra no shift sinistra */
     display: flex !important;
-    flex-direction: column !important;
     justify-content: center !important;
     align-items: center !important;
-  }
-
-  .modalBackground {
     width: 100% !important;
+    height: 100% !important;
+    padding: 1rem !important; /* Bordi no overflow */
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    z-index: 9999 !important;
+    overflow: auto !important; /* Scroll se lungo */
+  }
+
+  /* Contenuto: larghezza fissa, no tagli */
+  .rainbowkit-modal > div {
+    width: 100% !important;
+    max-width: 420px !important; /* Compact size */
+    margin: 0 auto !important;
     height: auto !important;
-    border-radius: 16px !important; /* Dal tuo theme */
-    overflow: visible !important; /* No cutoff icone */
+    overflow: visible !important;
   }
 }
 
-/* Contenuto interno: colonna flex, gap per layout pulito */
-.modalBackground,
-.modal > div { /* Copre background e child */
-  display: flex !important;
+/* Lista wallet: verticale, tutte visibili, gap uniforme */
+.rainbowkit-wallet-list {
   flex-direction: column !important;
-  gap: 1rem !important; /* Spazio sezioni */
-  height: auto !important;
+  gap: 0.75rem !important;
+  max-height: none !important; /* FIX: Mostra tutto, no cutoff */
   overflow: visible !important;
-  padding: 16px !important;
+  padding: 1rem !important;
 }
 
-/* Lista wallet: verticale, no cutoff, tutte visibili fin da subito */
-.menuItemBackground { /* Da docs: per wallet options/list */
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 12px !important; /* Spazio tra icone */
-  max-height: none !important; /* Mostra tutto, no scroll nascosto */
-  height: auto !important;
-  overflow: visible !important;
-  padding: 0 !important; /* No padding extra che taglia */
-}
-
-/* Opzioni wallet: cliccabili, allineate orizzontalmente (icona + testo) */
-.connectButton,
-.actionButton,
-.selectedWallet { /* Da docs: per wallet items e buttons */
-  display: flex !important;
-  align-items: center !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  height: auto !important;
-  padding: 12px !important;
+/* Opzioni: cliccabili, padding extra */
+.rainbowkit-wallet-item,
+.rainbowkit-wallet-option {
   cursor: pointer !important;
   pointer-events: auto !important;
-  transition: background-color 0.2s ease !important;
-  border-radius: 8px !important;
-  width: 100% !important; /* Piena larghezza no shift */
+  opacity: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.75rem !important;
+  border-radius: 0.5rem !important;
+  transition: background-color 0.2s !important;
 }
 
-/* Icone wallet: uniformi, visibili */
-.walletLogo {
+/* Icone: uniformi 32px, no schiacciamento */
+.rainbowkit-wallet-icon {
   width: 32px !important;
   height: 32px !important;
-  object-fit: contain !important; /* Proporzioni no distorsione */
+  object-fit: contain !important; /* FIX: Proporzioni corrette */
   flex-shrink: 0 !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  margin-right: 12px !important; /* Spazio testo */
-  border-radius: 8px !important;
+  margin-right: 0.75rem !important;
 }
 
 @media (min-width: 1024px) {
-  .walletLogo {
+  .rainbowkit-wallet-icon {
     width: 40px !important;
     height: 40px !important;
   }
 }
 
-/* Testo modal: visibile */
-.modalText,
-.modalTextDim,
-.modalTextSecondary {
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* Close button: cliccabile */
-.closeButton {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Mobile: drawer bottom (no rompe responsive) */
+/* Mobile: drawer bottom */
 @media (max-width: 767px) {
-  .modal {
-    position: fixed !important;
+  .rainbowkit-modal {
     top: auto !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: 80vh !important;
-    transform: none !important; /* No translate su mobile */
-    justify-content: flex-start !important;
-    align-items: stretch !important;
+    transform: none !important;
+    padding: 0.5rem !important;
     border-radius: 12px 12px 0 0 !important;
+    max-height: 80vh !important;
   }
 }
 
-/* Hover: feedback su opzioni */
-.connectButton:hover,
-.actionButton:hover,
-.selectedWallet:hover {
-  background-color: #f5f5f5 !important; /* Chiaro su light theme */
+/* Hover: polish */
+.rainbowkit-wallet-item:hover {
+  background-color: #f5f5f5 !important;
 }
