@@ -6,15 +6,16 @@ import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
 import { createStorage } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit'; // lightTheme per bianco come screenshot 2
 
 const queryClient = new QueryClient();
 
-// Theme semplice: Rounded + shadow (per modal pulito)
+// Theme semplice: Rounded + shadow
 const customTheme = {
   ...lightTheme(),
   radii: {
     modal: '16px',
+    modalMobile: '12px',
   },
   shadows: {
     dialog: '0 4px 20px rgba(0, 0, 0, 0.15)',
@@ -22,7 +23,7 @@ const customTheme = {
   colors: {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
-    accentColor: '#10b981', // Verde Vibe
+    accentColor: '#10b981',
   },
 };
 
@@ -47,7 +48,7 @@ export function Providers({ children }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider chains={[base]} theme={customTheme}>
+        <RainbowKitProvider chains={[base]} theme={customTheme} modalSize="md"> {/* FIX: md per centrato popup desktop */}
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
