@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'next/navigation';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'; // FIX V2: Hooks v2
 import { ethers } from 'ethers';
 import { Suspense } from 'react';
 
-export const dynamic = 'force-dynamic'; // Forza dynamic: evita prerendering SSR issues
+export const dynamic = 'force-dynamic';
 
 const CONTRACT_ADDRESS = '0x...'; // Sostituisci con address deployato
 
@@ -23,26 +23,14 @@ function ListingContent() {
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
 
-  // FIX: Hooks unconditional al top (Regola React: no condizionali)
-  const { address: walletAddress, isConnected } = useAccount();
-  const { writeContractAsync, error: writeError } = useWriteContract({
+  // FIX V2: Hooks v2
+  const { address: walletAddress, isConnected } = isMounted ? useAccount() : { address: null, isConnected: false };
+  const { writeContractAsync, error: writeError } = isMounted ? useWriteContract({
     address: CONTRACT_ADDRESS,
     abi: ABI,
-  });
-  const [txHash, setTxHash] = useState(null); // Track txHash manualmente
-  const { isLoading: txLoading, isSuccess } = useWaitForTransactionReceipt({ 
-    hash: txHash,
-    enabled: !!txHash, // Non runna in SSR
-  });
-
-  // FIX: useReadContract con enabled: false in SSR
-  const { data: listingDetails } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: ABI,
-    functionName: 'getListingDetails',
-    args: [BigInt(0)], // Default args
-    enabled: isMounted && form.action === 'buy' && form.tokenIds.length > 0 && CONTRACT_ADDRESS !== '0x...', // Solo client-side
-  });
+  }) : { writeContractAsync: async () => {}, error: null };
+  const { data: txHash } = writeError ? {} : {}; // Track txHash from write
+  const { isLoading: txLoading, isSuccess } = isMounted ? useWaitForTransactionReceipt({ hash: txHash }) : { isLoading: false, isSuccess: false };
 
   const [form, setForm] = useState({ tokenIds: [], collection: '', boosterToken: '', action: 'create' });
   const [loading, setLoading] = useState(false);
@@ -52,7 +40,6 @@ function ListingContent() {
     setIsMounted(true);
   }, []);
 
-  // Render loading se non mounted (SSR-safe)
   if (!isMounted) {
     return (
       <main className="flex min-h-screen flex-col items-center p-24">
@@ -73,6 +60,15 @@ function ListingContent() {
     });
   }, [searchParams]);
 
+  // FIX V2: useReadContract
+  const { data: listingDetails } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: ABI,
+    functionName: 'getListingDetails',
+    args: [BigInt(form.tokenIds[0] || 0)],
+    enabled: form.action === 'buy' && form.tokenIds.length > 0 && CONTRACT_ADDRESS !== '0x...',
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isConnected || form.tokenIds.length === 0) return setError('Connect wallet and select cards');
@@ -83,42 +79,35 @@ function ListingContent() {
       const boosterToken = form.action === 'create' ? form.boosterToken : ethers.ZeroAddress;
       const tokenIdsBigInt = form.tokenIds.map(id => BigInt(id.trim()));
 
-      let writeTxHash = null;
       if (form.action === 'create') {
         if (form.tokenIds.length === 1) {
-          const result = await writeContractAsync({ 
+          await writeContractAsync({ 
             functionName: 'createListing', 
             args: [collection, boosterToken, tokenIdsBigInt[0]] 
           });
-          writeTxHash = result; // Cattura hash
         } else {
-          const result = await writeContractAsync({ 
+          await writeContractAsync({ 
             functionName: 'createListingBatch', 
             args: [collection, boosterToken, tokenIdsBigInt] 
           });
-          writeTxHash = result;
         }
       } else if (form.action === 'buy') {
         const ethPerItem = listingDetails?.listingPrice || 0n;
-        for (const id of tokenIdsBigInt) { // Sequenziale per batch buy
-          const result = await writeContractAsync({ 
+        await Promise.all(tokenIdsBigInt.map(id => 
+          writeContractAsync({ 
             functionName: 'buyListing', 
             args: [id], 
             value: ethPerItem 
-          });
-          writeTxHash = result; // Ultimo hash
-        }
+          })
+        ));
       } else if (form.action === 'delist') {
-        for (const id of tokenIdsBigInt) {
-          const result = await writeContractAsync({ 
+        await Promise.all(tokenIdsBigInt.map(id => 
+          writeContractAsync({ 
             functionName: 'delist', 
             args: [id] 
-          });
-          writeTxHash = result;
-        }
+          })
+        ));
       }
-
-      setTxHash(writeTxHash); // Trigger waitForReceipt
 
       if (isSuccess) {
         window.location.href = '/inventory';
