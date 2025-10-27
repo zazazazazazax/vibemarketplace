@@ -6,13 +6,13 @@ import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
 import { createStorage } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
-import merge from 'lodash.merge';
+import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
 
 const queryClient = new QueryClient();
 
-// Custom theme: Rounded + shadow (no modalSize – usa CSS per layout)
-const customTheme = merge(darkTheme(), {
+// Theme semplice: Rounded + shadow (per modal pulito)
+const customTheme = {
+  ...lightTheme(),
   radii: {
     modal: '16px',
   },
@@ -22,9 +22,9 @@ const customTheme = merge(darkTheme(), {
   colors: {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
-    accentColor: '#10b981',
+    accentColor: '#10b981', // Verde Vibe
   },
-});
+};
 
 export function Providers({ children }) {
   const config = createConfig({
