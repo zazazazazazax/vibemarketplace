@@ -20,72 +20,90 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* FIX Next.js/Tailwind: Reset overflow/position per fixed modals (da SO issues) */
+html, body, #__next {
+  position: relative !important;
+  overflow: visible !important; /* Evita tagli bottom/left */
+  height: 100% !important;
+  width: 100% !important;
+}
+
 /* -------------------------------------------------
-   RainbowKit Modal Overrides (da docs 2025: .rainbowkit-modal per centering)
+   RainbowKit Modal: Forza fixed viewport + centering (fix cutoff bottom-left)
    ------------------------------------------------- */
 
-/* Overlay: backdrop semi-trasparente */
+/* Backdrop: full screen overlay */
 .rainbowkit-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important; /* Copre tutto lo screen */
   background: rgba(0, 0, 0, 0.6) !important;
   z-index: 9998 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-/* Modal principale: centrato su desktop con fixed + translate */
-@media (min-width: 768px) {
-  .rainbowkit-modal {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important; /* FIX: Centra no shift sinistra */
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    width: 100% !important;
-    height: 100% !important;
-    padding: 1rem !important; /* Bordi no overflow */
-    max-width: 90vw !important;
-    max-height: 90vh !important;
-    z-index: 9999 !important;
-    overflow: auto !important; /* Scroll se lungo */
-  }
-
-  /* Contenuto: larghezza fissa, no tagli */
-  .rainbowkit-modal > div {
-    width: 100% !important;
-    max-width: 420px !important; /* Compact size */
-    margin: 0 auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
+/* Modal container: fixed al viewport, centrato con flex */
+.rainbowkit-modal {
+  position: fixed !important;
+  inset: 0 !important; /* Da issues: forza viewport invece di relative */
+  top: 50% !important; /* Override per centering */
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important; /* Centra esattamente */
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 1rem !important; /* Bordi per no overflow su mobile */
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important; /* No tagli icone */
 }
 
-/* Lista wallet: verticale, tutte visibili, gap uniforme */
+/* Contenuto modal: larghezza compatta, no schiacciamento */
+.rainbowkit-modal > div,
+.rainbowkit-modal-container {
+  position: relative !important; /* Reset per child */
+  width: 100% !important;
+  max-width: 420px !important; /* Compact size da docs */
+  height: auto !important;
+  max-height: 90vh !important;
+  overflow: visible !important;
+  border-radius: 16px !important;
+  background: white !important; /* Dal tuo theme */
+}
+
+/* Lista: verticale, gap, tutte visibili */
 .rainbowkit-wallet-list {
   flex-direction: column !important;
   gap: 0.75rem !important;
-  max-height: none !important; /* FIX: Mostra tutto, no cutoff */
+  max-height: none !important; /* Fix: no cutoff verticale */
   overflow: visible !important;
   padding: 1rem !important;
+  height: auto !important;
 }
 
-/* Opzioni: cliccabili, padding extra */
-.rainbowkit-wallet-item,
-.rainbowkit-wallet-option {
-  cursor: pointer !important;
-  pointer-events: auto !important;
-  opacity: 1 !important;
+/* Opzioni: padding, cliccabili */
+.rainbowkit-wallet-item {
   display: flex !important;
   align-items: center !important;
   padding: 0.75rem !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
   border-radius: 0.5rem !important;
   transition: background-color 0.2s !important;
+  height: auto !important; /* No schiacciamento */
 }
 
-/* Icone: uniformi 32px, no schiacciamento */
+/* Icone: fisse, contain per no distort */
 .rainbowkit-wallet-icon {
   width: 32px !important;
   height: 32px !important;
-  object-fit: contain !important; /* FIX: Proporzioni corrette */
+  object-fit: contain !important; /* Fix schiacciamento */
   flex-shrink: 0 !important;
   margin-right: 0.75rem !important;
 }
@@ -97,7 +115,7 @@ body {
   }
 }
 
-/* Mobile: drawer bottom */
+/* Mobile: drawer bottom (responsive safe) */
 @media (max-width: 767px) {
   .rainbowkit-modal {
     top: auto !important;
@@ -105,9 +123,14 @@ body {
     left: 0 !important;
     right: 0 !important;
     transform: none !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
     padding: 0.5rem !important;
-    border-radius: 12px 12px 0 0 !important;
     max-height: 80vh !important;
+  }
+
+  .rainbowkit-modal > div {
+    border-radius: 12px 12px 0 0 !important;
   }
 }
 
