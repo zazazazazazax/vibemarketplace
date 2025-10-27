@@ -1,18 +1,14 @@
 'use client';
 
-import { createConfig, http } from 'wagmi';
+import { http } from 'wagmi'; // Solo http qui
 import { base } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit'; // Solo Provider, no getDefaultWallets
-import { configureChains, createConfig } from 'wagmi';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { configureChains, createConfig } from 'wagmi'; // createConfig solo qui (no duplicato)
 import { publicProvider } from 'wagmi/providers/public';
+import { injected, coinbaseWallet } from 'wagmi/connectors';
 import { createStorage } from 'wagmi';
-import { 
-  coinbaseWallet, 
-  injected, 
-  // walletConnect  // Decommenta sotto se vuoi
-} from 'wagmi/connectors';
 
 const queryClient = new QueryClient();
 
@@ -21,13 +17,10 @@ const { chains, publicClient } = configureChains(
   [publicProvider()]
 );
 
-// FIX: Connectors manuali – NESSUN MetaMask SDK, solo injected base
+// Connectors manuali: Evita MetaMask SDK e WalletConnect warning
 const connectors = [
-  injected({ target: 'metaMask' }), // MetaMask senza SDK (fix warning async-storage)
+  injected(),
   coinbaseWallet({ appName: 'Vibe.Market' }),
-  // walletConnect({ 
-  //   projectId: 'YOUR_WALLETCONNECT_PROJECT_ID', // Decommenta per WC
-  // }),
 ];
 
 const config = createConfig({
@@ -47,7 +40,7 @@ export function Providers({ children }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider chains={chains} connectors={connectors}> {/* Passa connectors manuali */}
+        <RainbowKitProvider chains={chains}>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
