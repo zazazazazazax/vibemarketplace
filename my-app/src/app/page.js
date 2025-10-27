@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'; // No prerender
 
 export default function Home() {
   const router = useRouter();
-  const { address, isConnected, isConnecting } = useAccount(); // FIX: Aggiunto () per hook call
+  const { address, isConnected, isConnecting } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
   const { connectAsync } = useConnect();
   const [error, setError] = useState(null);
@@ -33,7 +33,7 @@ export default function Home() {
     // Inizializza SDK per QR popup
     const coinbaseSDK = new CoinbaseWalletSDK({
       appName: 'Vibe.Market',
-      appLogoUrl: 'https://your-logo.com/logo.png', // Opzionale, usa favicon
+      appLogoUrl: 'https://your-logo.com/logo.png', // Opzionale
       darkMode: false,
     });
 
@@ -50,7 +50,7 @@ export default function Home() {
         name: 'Rainbow',
         icon: 'https://raw.githubusercontent.com/rainbow-me/rainbowkit/master/packages/assets/src/logos/rainbow.png',
         connector: connectors.find(c => c.id === 'rainbow'),
-        link: 'rainbow://connect?uri=wc%3A...', // FIX: Deep-link QR Rainbow (apre app o QR)
+        link: 'rainbow://connect?uri=wc%3A...', // Deep-link QR Rainbow
       },
       {
         id: 'metamask',
@@ -63,14 +63,14 @@ export default function Home() {
         id: 'coinbase',
         name: 'Coinbase Wallet',
         icon: 'https://seeklogo.com/images/C/coinbase-wallet-logo-F0B7A2A20E-seeklogo.com.png',
-        sdk: coinbaseSDK, // FIX: SDK per QR popup Coinbase
+        sdk: coinbaseSDK, // SDK per QR popup Coinbase
         link: 'https://www.coinbase.com/wallet',
       },
       {
         id: 'walletconnect',
         name: 'WalletConnect',
         icon: 'https://walletconnect.com/_next/static/media/walletconnect-logo.8f9f2e4f.svg',
-        modal: WalletConnectModal, // FIX: Modal per QR WC popup
+        modal: WalletConnectModal, // Modal per QR WC popup
         link: 'https://walletconnect.com/',
       },
     ];
@@ -123,7 +123,7 @@ export default function Home() {
       setTimeout(() => router.push('/inventory'), 500);
     } catch (err) {
       if (err.message.includes('User rejected') || err.message.includes('password')) {
-        setError('Sblocca MetaMask (inserisci password) prima di firmare.');
+        setError('Unlock MetaMask (enter password) before signing.');
       } else {
         setError('Error signing: ' + err.message);
       }
@@ -131,11 +131,11 @@ export default function Home() {
     }
   };
 
-  // Handler click wallet (Wagmi-integrated: popup estensione per installed, QR popup per non-installed)
+  // Handler click wallet (robust: popup estensione per installed, QR popup per non-installed)
   const handleWalletClick = async (wallet) => {
     try {
       if (wallet.connector) {
-        // FIX: Detection installed + connect Wagmi (apre popup estensione)
+        // Detection installed + connect Wagmi (apre popup estensione)
         const provider = await wallet.connector.getProvider();
         if (provider) {
           await connectAsync({ connector: wallet.connector, chainId: base.id });
@@ -143,7 +143,7 @@ export default function Home() {
           return;
         }
       }
-      // FIX: QR popup specifico per non-installed (come default RainbowKit)
+      // QR popup specifico per non-installed (come default RainbowKit)
       if (wallet.modal) {
         // WalletConnect QR popup
         const wcModal = new wallet.modal({ projectId: '8e4f39df88b73f8ff1e701f88b4fea0c' });
@@ -159,7 +159,9 @@ export default function Home() {
         window.open(wallet.link, '_blank');
       }
     } catch (err) {
-      setError('Errore connessione: ' + err.message);
+      console.error('Connection error:', err); // Log per debug
+      setError('Connection error: ' + err.message);
+      if (wallet.link) window.open(wallet.link, '_blank'); // Fallback redirect
     }
   };
 
@@ -196,7 +198,7 @@ export default function Home() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Connessione in corso...
+                      Connecting... // FIX: Inglese
                     </button>
                   );
                 }
@@ -205,7 +207,7 @@ export default function Home() {
                   return (
                     <div className="flex flex-col items-center space-y-2">
                       <button
-                        onClick={() => setShowModal(true)} // Trigger custom modal
+                        onClick={() => setShowModal(true)}
                         type="button"
                         className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
                       >
