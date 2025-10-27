@@ -2,7 +2,7 @@
 
 import { createConfig, http } from 'wagmi';
 import { base } from 'wagmi/chains';
-import { coinbaseWallet } from 'wagmi/connectors'; // Tieni extra
+import { coinbaseWallet } from 'wagmi/connectors';
 import { createStorage } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
@@ -27,7 +27,7 @@ const customTheme = {
 };
 
 export function Providers({ children }) {
-  const { chains } = { chains: [base] }; // Dummy per getDefaultWallets
+  const { chains } = { chains: [base] };
   const projectId = '8e4f39df88b73f8ff1e701f88b4fea0c';
   const { connectors } = getDefaultWallets({
     appName: 'Vibe.Market',
@@ -59,8 +59,9 @@ export function Providers({ children }) {
         <RainbowKitProvider 
           chains={[base]} 
           theme={customTheme} 
-          modalSize="compact" // FIX: Compact per centrato e no overflow su desktop
-          showMore={false} // Nasconde "Show more" per lista pulita
+          modalSize="compact" // Compact per centrato
+          showMore={true} // FIX: Mostra tutte le icone fin da subito (no lazy/secondo click)
+          locale="it-IT" // FIX: Layout EU meno buggy su desktop
         >
           {children}
         </RainbowKitProvider>
