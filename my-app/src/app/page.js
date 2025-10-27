@@ -2,18 +2,69 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { useAccount, useSignTypedData } from 'wagmi';
+import { useAccount, useSignTypedData, useConnect, useWalletClient } from 'wagmi'; // useConnect per custom
 import { base } from 'wagmi/chains';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ConnectButton } from '@rainbow-me/rainbowkit'; // Per base logic, ma custom UI
+import { getDefaultWallets } from '@rainbow-me/rainbowkit'; // Per connectors
 
 export const dynamic = 'force-dynamic'; // No prerender
+
+// Connectors da providers (per custom connect)
+const projectId = '8e4f39df88b73f8ff1e701f88b4fea0c';
+const { connectors } = getDefaultWallets({
+  appName: 'Vibe.Market',
+  projectId,
+  chains: [base],
+});
+
+// Wallet options con icons reali e handler (ispirato RainbowKit demo)
+const walletOptions = [
+  {
+    id: 'phantom',
+    name: 'Phantom',
+    icon: 'https://phantom.app/favicon.ico',
+    connector: connectors.find(c => c.id.includes('phantom')),
+    link: 'https://phantom.app/download',
+  },
+  {
+    id: 'rainbow',
+    name: 'Rainbow',
+    icon: 'https://rainbow.me/favicon.ico',
+    connector: connectors.find(c => c.id.includes('rainbow')),
+    link: 'https://rainbow.me/download',
+  },
+  {
+    id: 'metamask',
+    name: 'MetaMask',
+    icon: 'https://metamask.io/favicon.ico',
+    connector: connectors.find(c => c.id.includes('metaMask')),
+    link: 'https://metamask.io/download/',
+  },
+  {
+    id: 'coinbase',
+    name: 'Coinbase Wallet',
+    icon: 'https://www.coinbase.com/favicon.ico',
+    connector: connectors.find(c => c.id.includes('coinbaseWallet')),
+    link: 'https://www.coinbase.com/wallet',
+  },
+  {
+    id: 'walletconnect',
+    name: 'WalletConnect',
+    icon: 'https://walletconnect.com/favicon.ico',
+    connector: connectors.find(c => c.id.includes('walletConnect')),
+    qr: true, // Apri QR via WalletConnect
+  },
+  // Aggiungi altri come 'argent' se vuoi
+];
 
 export default function Home() {
   const router = useRouter();
   const { address, isConnected, isConnecting } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
+  const { connectAsync } = useConnect();
   const [error, setError] = useState(null);
   const [hasSigned, setHasSigned] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (isConnected && address && !hasSigned) {
@@ -68,6 +119,24 @@ export default function Home() {
     }
   };
 
+  // Handler click wallet (RainbowKit-style: connect o QR/link)
+  const handleWalletClick = async (wallet) => {
+    try {
+      if (wallet.connector) {
+        await connectAsync({ connector: wallet.connector, chainId: base.id });
+        setShowModal(false);
+      } else if (wallet.qr) {
+        // Apri QR WalletConnect (come in RainbowKit demo)
+        const uri = `wc:example?projectId=${projectId}`; // Usa WalletConnect URI reale se hai lib
+        window.open('https://walletconnect.com/', '_blank'); // Fallback a site per QR
+      } else if (wallet.link) {
+        window.open(wallet.link, '_blank'); // Download come in demo
+      }
+    } catch (err) {
+      setError('Errore connessione: ' + err.message);
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
       <h1 className="text-4xl font-bold mb-8">Home Page</h1>
@@ -110,7 +179,7 @@ export default function Home() {
                   return (
                     <div className="flex flex-col items-center space-y-2">
                       <button
-                        onClick={openConnectModal} // FIX: Torna al default RainbowKit modal
+                        onClick={() => setShowModal(true)} // Trigger custom modal RainbowKit-style
                         type="button"
                         className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
                       >
@@ -159,6 +228,49 @@ export default function Home() {
           );
         }}
       </ConnectButton.Custom>
+
+      {/* Custom Modal centrato, RainbowKit-inspired (griglia orizzontale, QR/download) */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Connect a Wallet</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">
+                &times;
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">Select a wallet to connect to Vibe.Market</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"> {/* Griglia 2/4 col, orizzontale */}
+              {walletOptions.map((wallet) => (
+                <button
+                  key={wallet.id}
+                  onClick={() => handleWalletClick(wallet)}
+                  className="flex flex-col items-center space-y-2 p-4 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all group"
+                >
+                  <img
+                    src={wallet.icon}
+                    alt={wallet.name}
+                    className="w-10 h-10 object-contain rounded-lg group-hover:scale-110 transition-transform"
+                  />
+                  <span className="text-sm font-medium text-gray-900">{wallet.name}</span>
+                  {!wallet.connector && <span className="text-xs text-gray-500">Get app</span>}
+                </button>
+              ))}
+            </div>
+            <div className="text-center">
+              <a
+                href="https://ethereum.org/en/wallets/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-emerald-600 hover:underline"
+              >
+                New to Ethereum wallets? Learn more
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && <p className="text-red-500 mt-4">{error}</p>}
       {isConnected && !hasSigned && <p className="text-green-500 mt-4">Signing session...</p>}
       {isConnected && hasSigned && <p className="text-green-500 mt-4">Connected: {address?.slice(0, 6)}...{address?.slice(-4)}</p>}
