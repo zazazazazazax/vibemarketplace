@@ -2,39 +2,31 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { useConnect, useAccount, useSignTypedData } from 'wagmi';
+import { useAccount, useSignTypedData } from 'wagmi';
 import { base } from 'wagmi/chains';
+import { ConnectButton } from '@rainbow-me/rainbowkit'; // Nuovo: Modal connessioni
+
+export const dynamic = 'force-dynamic'; // FIX: No prerender, evita SSR crash wagmi
 
 export default function Home() {
   const router = useRouter();
-  const { address, isConnected, isConnecting } = useAccount();
-  const { connect, connectors, error: connectError, isPending } = useConnect();
+  const { address, isConnected, isConnecting } = useAccount(); // FIX: Hooks unconditional
   const { signTypedDataAsync } = useSignTypedData();
   const [error, setError] = useState(null);
+  const [hasSigned, setHasSigned] = useState(false); // No loop su signature
 
-  const connectWallet = async () => {
-    setError(null);
-    if (isConnected) {
-      await handleSignatureAndRedirect();
-      return;
+  // Trigger signature & redirect su connessione
+  useEffect(() => {
+    if (isConnected && address && !hasSigned) {
+      handleSignatureAndRedirect();
     }
-
-    try {
-      const result = await connect({ chainId: base.id, connector: connectors[0] });
-      const { connector: connectedConnector } = result || {}; // FIX: Rinominato, optional
-      if (connectedConnector) {
-        // No error, connection success
-        await handleSignatureAndRedirect();
-      } // Else: Ignore, MetaMask might connect async
-    } catch (err) {
-      setError('Connection error: ' + err.message);
-    }
-  };
+  }, [isConnected, address, hasSigned]);
 
   const handleSignatureAndRedirect = async () => {
     if (!address) return;
 
     try {
+      setError(null);
       const domain = {
         name: 'Vibe.Marketplace',
         version: '1',
@@ -53,7 +45,6 @@ export default function Home() {
         nonce: nonce
       };
 
-      // FIX V2: Aggiungi primaryType: 'Message' per viem
       const signature = await signTypedDataAsync({ 
         domain, 
         types, 
@@ -66,26 +57,28 @@ export default function Home() {
       localStorage.setItem('walletNonce', nonce.toString());
       localStorage.setItem('walletTimestamp', Date.now().toString());
 
-      // Delay redirect per Wagmi storage save
+      setHasSigned(true);
+
+      // Delay redirect
       setTimeout(() => router.push('/inventory'), 500);
     } catch (err) {
-      setError('Error signing: ' + err.message);
+      // FIX: Check per MetaMask sbloccato
+      if (err.message.includes('User rejected') || err.message.includes('password')) {
+        setError('Sblocca MetaMask (inserisci password) prima di firmare.');
+      } else {
+        setError('Error signing: ' + err.message);
+      }
+      setHasSigned(true); // Blocca re-trigger
     }
   };
 
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
       <h1 className="text-4xl font-bold mb-8">Home Page</h1>
-      <button
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-        onClick={connectWallet}
-        disabled={isPending || isConnecting}
-      >
-        {isConnected ? 'Sign & Continue' : isPending ? 'Connecting...' : 'Connect Wallet'}
-      </button>
-      {connectError && <p className="text-red-500 mt-4">{connectError.message}</p>}
+      <ConnectButton /> {/* Nuovo: Gestisce connect, chain switch, address display */}
       {error && <p className="text-red-500 mt-4">{error}</p>}
-      {isConnected && <p className="text-green-500 mt-4">Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>}
+      {isConnected && !hasSigned && <p className="text-green-500 mt-4">Signing session...</p>}
+      {isConnected && hasSigned && <p className="text-green-500 mt-4">Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>}
     </main>
   );
 }
