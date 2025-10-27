@@ -8,8 +8,10 @@
     "start": "next start"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.0.0",
     "@rainbow-me/rainbowkit": "^2.1.0",
     "@tanstack/react-query": "^5.0.0",
+    "@walletconnect/modal": "^2.9.4",
     "ethers": "^6.15.0",
     "lodash": "^4.17.21",
     "next": "15.5.6",
