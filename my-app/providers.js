@@ -1,12 +1,12 @@
 'use client';
 
-import { http } from 'wagmi'; // Solo http qui
+import { http } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig } from 'wagmi'; // createConfig solo qui (no duplicato)
-import { publicProvider } from 'wagmi/providers/public';
+import { configureChains, createConfig } from 'wagmi';
+import { publicProvider } from 'wagmi/providers'; // FIX: Path corretto per v2
 import { injected, coinbaseWallet } from 'wagmi/connectors';
 import { createStorage } from 'wagmi';
 
@@ -17,7 +17,7 @@ const { chains, publicClient } = configureChains(
   [publicProvider()]
 );
 
-// Connectors manuali: Evita MetaMask SDK e WalletConnect warning
+// Connectors manuali: Evita warning SDK/WalletConnect
 const connectors = [
   injected(),
   coinbaseWallet({ appName: 'Vibe.Market' }),
