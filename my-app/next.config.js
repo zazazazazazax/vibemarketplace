@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // FIX: Evita lag/hydration issues con modals in dev (da GitHub #837)
+  reactStrictMode: false, // Evita lag hydration modals
   async headers() {
     return [
       {
@@ -8,14 +8,14 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' 'unsafe-eval';", // FIX: Permette stili inline RainbowKit su Vercel (da issue #1256)
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.walletconnect.org https://api.web3modal.org https://cca-lite.coinbase.com https://*.coinbase.com https://raw.githubusercontent.com https://*.githubusercontent.com; img-src * data:;", // FIX: Permette API WC/Coinbase, icone GitHub, img-src tutto
           },
         ],
       },
     ];
   },
   experimental: {
-    appDir: true, // Se non già, per app router
+    appDir: true,
   },
 };
 
