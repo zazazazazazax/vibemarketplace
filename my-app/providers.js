@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { configureChains, createConfig } from 'wagmi';
-import { publicProvider } from 'wagmi/providers'; // FIX: Path corretto per v2
+import { publicProvider } from 'wagmi/providers'; // FIX: Path esatto da docs wagmi v2
 import { injected, coinbaseWallet } from 'wagmi/connectors';
 import { createStorage } from 'wagmi';
 
