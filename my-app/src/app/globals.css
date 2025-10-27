@@ -20,61 +20,76 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* FIX RainbowKit: Modal centrato su desktop (popup invece di drawer) */
+/* FIX RainbowKit: Modal centrato su desktop (popup invece di drawer) – da docs */
 @media (min-width: 768px) {
-  .rk-modal {
-    transform: none !important;
+  .rainbowkit-modal-container { /* Selettore preciso per wrapper modal */
+    position: fixed !important;
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    max-height: 90vh;
-    overflow-y: auto;
-    max-width: 420px;
-    width: 100%;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    max-width: 420px !important;
+    width: 100% !important;
+    border-radius: 16px !important; /* Dal tuo theme */
   }
 }
 
-/* Uniform icon sizes (32 px) */
-.rk-wallet-icon {
+/* Uniform icon sizes (32 px) – da docs: .rainbowkit-wallet-icon */
+.rainbowkit-wallet-icon {
   width: 32px !important;
   height: 32px !important;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  border-radius: 8px !important;
 }
 
-/* Make every wallet option clickable, even if not installed */
-.rk-wallet-option {
+/* Make every wallet option clickable, even if not installed – forza per QR/download */
+.rainbowkit-wallet-option,
+.rainbowkit-wallet-item {
   cursor: pointer !important;
   pointer-events: auto !important;
   opacity: 1 !important;
   display: flex !important;
   align-items: center !important;
+  padding: 12px !important; /* Spazio extra per touch */
+  transition: background-color 0.2s !important;
 }
 
-/* Vertical layout for the wallet list */
-.rk-wallet-list {
+/* FIX: Vertical layout for the wallet list con gap – come nell'esempio centrato */
+.rainbowkit-wallet-list {
   flex-direction: column !important;
+  gap: 8px !important; /* Spazio tra opzioni */
+  padding: 16px !important;
 }
 
 /* Prevent any cut-off / overflow */
-.rk-modal,
-.rk-wallet-option,
-.rk-wallet-list {
+.rainbowkit-modal-container,
+.rainbowkit-wallet-option,
+.rainbowkit-wallet-list {
   overflow: visible !important;
 }
 
 /* Mobile responsiveness – keep drawer on small screens */
 @media (max-width: 767px) {
-  .rk-modal {
+  .rainbowkit-modal-container {
     top: auto !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     transform: none !important;
     border-radius: 12px 12px 0 0 !important;
+    max-height: 80vh !important;
   }
 }
 
-/* Hover for options */
-.rk-wallet-option:hover {
+/* Hover for options – polish */
+.rainbowkit-wallet-option:hover {
   background-color: #f5f5f5 !important;
+}
+
+/* QR/download links clickable */
+.rainbowkit-qr-code,
+.rainbowkit-download-link {
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
