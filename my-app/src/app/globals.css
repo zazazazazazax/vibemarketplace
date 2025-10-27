@@ -19,3 +19,21 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* FIX RainbowKit: Modal centrato + icone uniformi */
+.connectButton-custom {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+.rainbow-connect-button-modal {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 9999 !important;
+}
+.rainbow-wallet-icon {
+  width: 32px !important;
+  height: 32px !important;
+}
