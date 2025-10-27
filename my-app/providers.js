@@ -7,25 +7,17 @@ import { createStorage } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig } from 'wagmi';
-import { publicProvider } from 'wagmi/providers'; // FIX: Path corretto (assoluto, da wagmi package)
 
 const queryClient = new QueryClient();
 
-// Configura chains una volta (fixa multi-init WalletConnect in prerender)
-const { chains, publicClient } = configureChains(
-  [base],
-  [publicProvider()]
-);
-
 export function Providers({ children }) {
   const config = createConfig({
-    chains,
+    chains: [base],
     transports: {
       [base.id]: http('https://base.publicnode.com'),
     },
     connectors: [
-      injected(), // Generico: MetaMask, Phantom, etc.
+      injected(),
       coinbaseWallet({ appName: 'Vibe.Market' }),
       walletConnect({ projectId: '8e4f39df88b73f8ff1e701f88b4fea0c' }),
     ],
@@ -39,7 +31,7 @@ export function Providers({ children }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider chains={chains}>
+        <RainbowKitProvider chains={[base]}> {/* Temporaneo: Chains hardcode */}
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
