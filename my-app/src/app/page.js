@@ -6,14 +6,14 @@ import { useAccount, useSignTypedData, useConnect } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { getDefaultWallets } from '@rainbow-me/rainbowkit';
-import { WalletConnectModal } from '@walletconnect/modal'; // Per QR WC popup
-import { CoinbaseWalletSDK } from '@coinbase/wallet-sdk'; // Per QR Coinbase popup
+import { WalletConnectModal } from '@walletconnect/modal';
+import { CoinbaseWalletSDK } from '@coinbase/wallet-sdk';
 
 export const dynamic = 'force-dynamic'; // No prerender
 
 export default function Home() {
   const router = useRouter();
-  const { address, isConnected, isConnecting } from 'useAccount';
+  const { address, isConnected, isConnecting } = useAccount(); // FIX: Aggiunto () per hook call
   const { signTypedDataAsync } = useSignTypedData();
   const { connectAsync } = useConnect();
   const [error, setError] = useState(null);
