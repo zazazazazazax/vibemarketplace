@@ -20,58 +20,91 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* FIX RainbowKit: Modal centrato su desktop (popup invece di drawer) – da docs */
+/* -------------------------------------------------
+   RainbowKit ConnectModal – overrides (late 2025)
+   ------------------------------------------------- */
+
+/* 1. Center the modal on desktop: fixed position + transform per centrare perfettamente */
 @media (min-width: 768px) {
-  .rainbowkit-modal-container { /* Selettore preciso per wrapper modal */
+  .rk-modal {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    max-height: 90vh !important;
-    overflow-y: auto !important;
     max-width: 420px !important;
-    width: 100% !important;
-    border-radius: 16px !important; /* Dal tuo theme */
+    width: 90% !important;
+    max-height: 90vh !important; /* Evita overflow verticale */
   }
 }
 
-/* Uniform icon sizes (32 px) – da docs: .rainbowkit-wallet-icon */
-.rainbowkit-wallet-icon {
-  width: 32px !important;
-  height: 32px !important;
-  flex-shrink: 0 !important;
-  border-radius: 8px !important;
+/* Overlay: sfondo semi-trasparente per focus */
+.rk-overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
 }
 
-/* Make every wallet option clickable, even if not installed – forza per QR/download */
-.rainbowkit-wallet-option,
-.rainbowkit-wallet-item {
+/* 2. Wallet list: layout verticale, no clipping, mostra tutto senza cutoff */
+.rk-wallet-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.75rem !important; /* Spazio uniforme tra opzioni */
+  max-height: none !important; /* Rimuove limiti di altezza – mostra tutte le wallet */
+  overflow-y: visible !important; /* Nessun scroll nascosto, tutto visibile */
+  padding: 1rem !important; /* Padding interno per respiro */
+}
+
+/* 3. Ogni wallet option: cliccabile, allineata, con padding extra */
+.rk-wallet-option,
+[data-rk-wallet] {
   cursor: pointer !important;
   pointer-events: auto !important;
   opacity: 1 !important;
   display: flex !important;
   align-items: center !important;
-  padding: 12px !important; /* Spazio extra per touch */
-  transition: background-color 0.2s !important;
+  padding: 12px !important; /* Più spazio per click e visual */
+  transition: background-color 0.2s ease !important; /* Smooth hover */
+  border-radius: 8px !important; /* Arrotonda per polish */
 }
 
-/* FIX: Vertical layout for the wallet list con gap – come nell'esempio centrato */
-.rainbowkit-wallet-list {
+/* 4. Icone uniformi: 32px base, 40px su desktop per visibilità */
+.rk-wallet-icon {
+  width: 32px !important;
+  height: 32px !important;
+  object-fit: contain !important; /* Mantiene proporzioni senza distorsione */
+  flex-shrink: 0 !important; /* Non si riduce */
+  border-radius: 8px !important;
+}
+
+@media (min-width: 1024px) {
+  .rk-wallet-icon {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+/* 5. Contenuto modal: colonna flex, no overflow nascosto */
+.rk-modal-content {
+  display: flex !important;
   flex-direction: column !important;
-  gap: 8px !important; /* Spazio tra opzioni */
-  padding: 16px !important;
+  align-items: stretch !important; /* Allunga a piena larghezza */
+  gap: 1rem !important; /* Spazio tra sezioni (title, list, buttons) */
+  overflow: visible !important; /* Mai nascondere contenuto */
 }
 
-/* Prevent any cut-off / overflow */
-.rainbowkit-modal-container,
-.rainbowkit-wallet-option,
-.rainbowkit-wallet-list {
-  overflow: visible !important;
+/* 6. Bottoni azione (Connect/Cancel): spingili in fondo */
+.rk-action-button {
+  margin-top: auto !important; /* Flex push al bottom */
 }
 
-/* Mobile responsiveness – keep drawer on small screens */
+/* 7. QR/download links: assicurati cliccabili */
+.rk-qr-code,
+.rk-download-link {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Mobile: mantieni drawer bottom (non rompere responsive) */
 @media (max-width: 767px) {
-  .rainbowkit-modal-container {
+  .rk-modal {
     top: auto !important;
     bottom: 0 !important;
     left: 0 !important;
@@ -79,17 +112,11 @@ body {
     transform: none !important;
     border-radius: 12px 12px 0 0 !important;
     max-height: 80vh !important;
+    width: 100% !important;
   }
 }
 
-/* Hover for options – polish */
-.rainbowkit-wallet-option:hover {
-  background-color: #f5f5f5 !important;
-}
-
-/* QR/download links clickable */
-.rainbowkit-qr-code,
-.rainbowkit-download-link {
-  pointer-events: auto !important;
-  cursor: pointer !important;
+/* Hover per opzioni: feedback visivo */
+.rk-wallet-option:hover {
+  background-color: #f5f5f5 !important; /* Bianco chiaro su light theme */
 }
