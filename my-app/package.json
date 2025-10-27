@@ -11,16 +11,16 @@
     "@rainbow-me/rainbowkit": "^2.1.0",
     "@tanstack/react-query": "^5.0.0",
     "ethers": "^6.15.0",
-    "next": "15.5.6",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "viem": "^2.0.0",
     "wagmi": "^2.0.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "eslint": "^8",
-    "eslint-config-next": "15.5.6",
+    "eslint-config-next": "14.2.15",
     "pino-pretty": "^10.3.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1"
