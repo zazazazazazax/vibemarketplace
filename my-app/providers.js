@@ -7,12 +7,13 @@ import { createStorage } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
-import merge from 'lodash.merge'; // Per theme merge
+import merge from 'lodash.merge';
 
 const queryClient = new QueryClient();
 
-// Custom theme: Modal rounded + shadow
+// Custom theme: Compact modal (verticale, centrato) + rounded/shadow
 const customTheme = merge(darkTheme(), {
+  modalSize: 'compact', // FIX: Layout verticale stretto come screenshot 2
   radii: {
     modal: '16px',
   },
@@ -24,7 +25,7 @@ const customTheme = merge(darkTheme(), {
     modalBorder: '#e0e0e0',
     accentColor: '#10b981',
   },
-}); // FIX: No "as any" – merge funziona in JS
+});
 
 export function Providers({ children }) {
   const config = createConfig({
