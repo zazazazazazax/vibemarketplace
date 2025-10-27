@@ -21,109 +21,156 @@ body {
 }
 
 /* -------------------------------------------------
-   RainbowKit: Fix visibility + 0x0 size + centering (aggressivo per Next.js/Tailwind 2025)
+   RainbowKit Connect Modal – overrides con selettori esatti (da docs 2025)
    ------------------------------------------------- */
 
-/* Overlay: visibile e z-high */
-.rk-overlay {
+/* Overlay: visibile, z-high, semi-trasparente */
+.modalBackdrop {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
   background: rgba(0, 0, 0, 0.6) !important;
-  z-index: 9998 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9998 !important; /* Sopra tutto */
 }
 
-/* Modal root: forza visible + height auto + centrato */
-.rk-modal,
-[data-rk="modal"] {
-  display: block !important; /* Da none a block */
+/* Modal principale: forza visible, height auto (fix 0x0), centrato su desktop */
+.modal,
+[data-theme] .modal { /* Copre light/dark theme */
+  display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
-  height: auto !important; /* Fix 0x0 */
-  min-height: 200px !important; /* Min per visibilità */
+  height: auto !important; /* Fix 0x0 size */
+  min-height: 300px !important; /* Espandi se collassato */
   width: auto !important;
   max-width: none !important;
-  clip-path: none !important; /* No clip che taglia */
+  clip-path: none !important; /* No tagli */
+  position: relative !important; /* Base per child */
   z-index: 9999 !important;
 }
 
-/* Centratura desktop: flex + translate */
+/* Centratura desktop: flex + translate per popup centrato (no shift sinistra) */
 @media (min-width: 768px) {
-  .rk-modal {
+  .modal {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    width: 420px !important;
-    max-width: 90vw !important;
-    height: auto !important;
+    transform: translate(-50%, -50%) !important; /* Centra perfettamente */
+    width: 420px !important; /* Larghezza fissa come esempio */
+    max-width: 90vw !important; /* Responsive no overflow */
     max-height: 90vh !important;
-    padding: 20px !important;
+    padding: 20px !important; /* Bordi per no tagli */
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  .modalBackground {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 16px !important; /* Dal tuo theme */
+    overflow: visible !important; /* No cutoff icone */
   }
 }
 
-/* Contenuto interno: espandi da 0x0 */
-.rk-modal > div,
-.rk-modal-container,
-.rk-modal-content {
+/* Contenuto interno: colonna flex, gap per layout pulito */
+.modalBackground,
+.modal > div { /* Copre background e child */
   display: flex !important;
   flex-direction: column !important;
-  visibility: visible !important;
-  opacity: 1 !important;
+  gap: 1rem !important; /* Spazio sezioni */
   height: auto !important;
-  min-height: 300px !important; /* Espandi se collassato */
-  width: 100% !important;
   overflow: visible !important;
-  gap: 1rem !important;
-}
-
-/* Lista wallet: visibile + espansa */
-.rk-wallet-list {
-  display: flex !important;
-  flex-direction: column !important;
-  visibility: visible !important;
-  height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-  gap: 12px !important;
   padding: 16px !important;
 }
 
-/* Opzioni: cliccabili + visibili */
-.rk-wallet,
-.rk-wallet-list-item {
+/* Lista wallet: verticale, no cutoff, tutte visibili fin da subito */
+.menuItemBackground { /* Da docs: per wallet options/list */
   display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important; /* Spazio tra icone */
+  max-height: none !important; /* Mostra tutto, no scroll nascosto */
+  height: auto !important;
+  overflow: visible !important;
+  padding: 0 !important; /* No padding extra che taglia */
+}
+
+/* Opzioni wallet: cliccabili, allineate orizzontalmente (icona + testo) */
+.connectButton,
+.actionButton,
+.selectedWallet { /* Da docs: per wallet items e buttons */
+  display: flex !important;
+  align-items: center !important;
   visibility: visible !important;
   opacity: 1 !important;
   height: auto !important;
   padding: 12px !important;
   cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: background-color 0.2s ease !important;
+  border-radius: 8px !important;
+  width: 100% !important; /* Piena larghezza no shift */
 }
 
-/* Icone: visibili + uniformi */
-.rk-wallet-icon {
-  display: block !important;
-  visibility: visible !important;
+/* Icone wallet: uniformi, visibili */
+.walletLogo {
   width: 32px !important;
   height: 32px !important;
+  object-fit: contain !important; /* Proporzioni no distorsione */
+  flex-shrink: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-right: 12px !important; /* Spazio testo */
+  border-radius: 8px !important;
+}
+
+@media (min-width: 1024px) {
+  .walletLogo {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+/* Testo modal: visibile */
+.modalText,
+.modalTextDim,
+.modalTextSecondary {
+  visibility: visible !important;
   opacity: 1 !important;
 }
 
-/* Mobile drawer: safe */
+/* Close button: cliccabile */
+.closeButton {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Mobile: drawer bottom (no rompe responsive) */
 @media (max-width: 767px) {
-  .rk-modal {
+  .modal {
     position: fixed !important;
     top: auto !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    width: 100% !important;
     height: auto !important;
     max-height: 80vh !important;
-    transform: none !important;
+    transform: none !important; /* No translate su mobile */
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    border-radius: 12px 12px 0 0 !important;
   }
 }
 
-/* Hover generale */
-.rk-wallet:hover {
-  background-color: #f5f5f5 !important;
+/* Hover: feedback su opzioni */
+.connectButton:hover,
+.actionButton:hover,
+.selectedWallet:hover {
+  background-color: #f5f5f5 !important; /* Chiaro su light theme */
 }
