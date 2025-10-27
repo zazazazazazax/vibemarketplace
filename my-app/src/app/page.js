@@ -1,40 +1,91 @@
 'use client';
 
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useConnect, useAccount, useSignTypedData } from 'wagmi';
+import { base } from 'wagmi/chains';
 
 export default function Home() {
   const router = useRouter();
-  const { isConnected } = useAccount();
-  const { connect } = useConnect();
-  const { disconnect } = useDisconnect();
+  const { address, isConnected, isConnecting } = useAccount();
+  const { connect, connectors, error: connectError, isPending } = useConnect();
+  const { signTypedDataAsync } = useSignTypedData();
+  const [error, setError] = useState(null);
 
-  // Redirect a inventory se già connesso
-  useEffect(() => {
+  const connectWallet = async () => {
+    setError(null);
     if (isConnected) {
-      router.push('/inventory');
+      await handleSignatureAndRedirect();
+      return;
     }
-  }, [isConnected, router]);
+
+    try {
+      const result = await connect({ chainId: base.id, connector: connectors[0] });
+      const { connector: connectedConnector } = result || {}; // FIX: Rinominato, optional
+      if (connectedConnector) {
+        // No error, connection success
+        await handleSignatureAndRedirect();
+      } // Else: Ignore, MetaMask might connect async
+    } catch (err) {
+      setError('Connection error: ' + err.message);
+    }
+  };
+
+  const handleSignatureAndRedirect = async () => {
+    if (!address) return;
+
+    try {
+      const domain = {
+        name: 'Vibe.Marketplace',
+        version: '1',
+        chainId: base.id,
+        verifyingContract: '0x0000000000000000000000000000000000000000'
+      };
+      const types = {
+        Message: [
+          { name: 'content', type: 'string' },
+          { name: 'nonce', type: 'uint256' }
+        ]
+      };
+      const nonce = Math.floor(Date.now() / 1000 / 3600);
+      const message = {
+        content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
+        nonce: nonce
+      };
+
+      // FIX V2: Aggiungi primaryType: 'Message' per viem
+      const signature = await signTypedDataAsync({ 
+        domain, 
+        types, 
+        message, 
+        primaryType: 'Message' 
+      });
+
+      localStorage.setItem('walletAddress', address);
+      localStorage.setItem('walletSignature', signature);
+      localStorage.setItem('walletNonce', nonce.toString());
+      localStorage.setItem('walletTimestamp', Date.now().toString());
+
+      // Delay redirect per Wagmi storage save
+      setTimeout(() => router.push('/inventory'), 500);
+    } catch (err) {
+      setError('Error signing: ' + err.message);
+    }
+  };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-8">Vibe.Market - NFT Marketplace</h1>
-      <p className="mb-8">Connect your wallet to get started.</p>
-      {!isConnected ? (
-        <ConnectButton />  // FIX: Modal RainbowKit con selezione wallet (Phantom, MetaMask, WC, etc.)
-      ) : (
-        <div>
-          <p>Already connected! Redirecting...</p>
-          <button
-            onClick={() => disconnect()}  // Opzionale: Disconnect manuale
-            className="bg-red-500 text-white px-4 py-2 rounded mt-4"
-          >
-            Disconnect
-          </button>
-        </div>
-      )}
+    <main className="flex min-h-screen flex-col items-center p-24">
+      <h1 className="text-4xl font-bold mb-8">Home Page</h1>
+      <button
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+        onClick={connectWallet}
+        disabled={isPending || isConnecting}
+      >
+        {isConnected ? 'Sign & Continue' : isPending ? 'Connecting...' : 'Connect Wallet'}
+      </button>
+      {connectError && <p className="text-red-500 mt-4">{connectError.message}</p>}
+      {error && <p className="text-red-500 mt-4">{error}</p>}
+      {isConnected && <p className="text-green-500 mt-4">Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>}
     </main>
   );
 }
