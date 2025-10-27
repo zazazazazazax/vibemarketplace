@@ -11,9 +11,8 @@ import merge from 'lodash.merge';
 
 const queryClient = new QueryClient();
 
-// Custom theme: Compact modal (verticale, centrato) + rounded/shadow
+// Custom theme: Rounded + shadow (no modalSize – usa CSS per layout)
 const customTheme = merge(darkTheme(), {
-  modalSize: 'compact', // FIX: Layout verticale stretto come screenshot 2
   radii: {
     modal: '16px',
   },
