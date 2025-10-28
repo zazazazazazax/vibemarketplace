@@ -15,13 +15,26 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [hasSigned, setHasSigned] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState(null);
+  const [showSyncButton, setShowSyncButton] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 2;
+  const connectStartTime = useState(Date.now())[0]; // Track quando inizia connecting
 
   // Detect mobile (touch-enabled device)
   useEffect(() => {
     const mobileCheck = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     setIsMobile(mobileCheck);
   }, []);
+
+  // Show sync button after 5s of connecting on mobile
+  useEffect(() => {
+    if (isMobile && isConnecting && Date.now() - connectStartTime > 5000) {
+      setShowSyncButton(true);
+    } else if (!isConnecting) {
+      setShowSyncButton(false);
+      connectStartTime = Date.now(); // Reset timer
+    }
+  }, [isConnecting, isMobile]);
 
   // Auto-trigger signature on connect (existing)
   useEffect(() => {
@@ -30,29 +43,7 @@ export default function Home() {
     }
   }, [isConnected, address, hasSigned]);
 
-  // Mobile-only poll for connection status after WC (to handle iOS return delay)
-  useEffect(() => {
-    if (!isMobile || isConnected || hasSigned) {
-      // Clear interval if connected/signed or not mobile
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        setPollingInterval(null);
-      }
-      return;
-    }
-
-    // Start poll every 2s if not connected (assumes WC initiated; start on page load or after connect modal close)
-    const interval = setInterval(() => {
-      // Force a re-render check (useAccount should react, but this ensures)
-      window.dispatchEvent(new Event('visibilitychange')); // Minor hack to trigger reactivity on iOS
-    }, 2000);
-
-    setPollingInterval(interval);
-
-    return () => clearInterval(interval);
-  }, [isMobile, isConnected, hasSigned, pollingInterval]);
-
-  const handleSignatureAndRedirect = async () => {
+  const handleSignatureAndRedirect = async (retry = false) => {
     if (!address) return;
 
     try {
@@ -88,14 +79,33 @@ export default function Home() {
       localStorage.setItem('walletTimestamp', Date.now().toString());
 
       setHasSigned(true);
+      setRetryCount(0); // Reset retries
       setTimeout(() => router.push('/inventory'), 500);
     } catch (err) {
+      if (retryCount < maxRetries && !err.message.includes('User rejected')) {
+        // Retry signature (for intermittent WC delays)
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => handleSignatureAndRedirect(true), 2000);
+        return;
+      }
       if (err.message.includes('User rejected') || err.message.includes('password')) {
         setError('Unlock MetaMask (enter password) before signing.');
       } else {
-        setError('Error signing: ' + err.message);
+        setError('Error signing: ' + err.message + (retryCount > 0 ? ' (Retry failed)' : ''));
       }
       setHasSigned(true);
+      setRetryCount(0);
+    }
+  };
+
+  const handleSyncClick = () => {
+    // Force re-poll: dispatch custom event to trigger wagmi reactivity
+    window.dispatchEvent(new CustomEvent('wallet-sync'));
+    // Reset connecting state indirectly by re-checking
+    setShowSyncButton(false);
+    // If connected now, trigger signature
+    if (isConnected && address && !hasSigned) {
+      handleSignatureAndRedirect();
     }
   };
 
@@ -124,16 +134,26 @@ export default function Home() {
               {(() => {
                 if (isConnecting) {
                   return (
-                    <button
-                      disabled
-                      className="bg-blue-500 text-white px-6 py-3 rounded-lg inline-flex items-center space-x-2"
-                    >
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Connecting...
-                    </button>
+                    <div className="flex flex-col items-center space-y-2">
+                      <button
+                        disabled
+                        className="bg-blue-500 text-white px-6 py-3 rounded-lg inline-flex items-center space-x-2"
+                      >
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Connecting...
+                      </button>
+                      {showSyncButton && (
+                        <button
+                          onClick={handleSyncClick}
+                          className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 text-sm"
+                        >
+                          Sync Connection (iOS Fix)
+                        </button>
+                      )}
+                    </div>
                   );
                 }
 
