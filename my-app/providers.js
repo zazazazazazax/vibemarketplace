@@ -3,12 +3,11 @@
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
-import { config } from '@/lib/wagmi.js'; // Path al config
-import '@rainbow-me/rainbowkit/styles.css'; // Stili default
+import { config } from './src/lib/wagmi'; // FIX: Da root a /src/lib/wagmi
+import '@rainbow-me/rainbowkit/styles.css';
 
 const queryClient = new QueryClient();
 
-// Theme custom (dal tuo precedente)
 const customTheme = {
   ...lightTheme(),
   radii: {
@@ -32,8 +31,8 @@ export function Providers({ children }) {
         <RainbowKitProvider 
           chains={[base]} 
           theme={customTheme} 
-          modalSize="compact" // Da docs: Compact per centrato su desktop
-          showMore={true} // Mostra tutte le icone fin da subito
+          modalSize="compact"
+          showMore={true}
         >
           {children}
         </RainbowKitProvider>
