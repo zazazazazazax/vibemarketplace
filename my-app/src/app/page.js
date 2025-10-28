@@ -131,11 +131,22 @@ export default function Home() {
     }
   };
 
-  // Handler click wallet (robust: popup estensione per installed, QR popup per non-installed)
+  // Handler click wallet (manual detection per popup estensione, QR popup per non-installed)
   const handleWalletClick = async (wallet) => {
     try {
+      // Manual detection for installed (apre popup estensione)
+      if (wallet.id === 'metamask' && window.ethereum) {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setShowModal(false);
+        return;
+      }
+      if (wallet.id === 'phantom' && window.solana) {
+        await window.solana.connect();
+        setShowModal(false);
+        return;
+      }
       if (wallet.connector) {
-        // Detection installed + connect Wagmi (apre popup estensione)
+        // Fallback Wagmi for other connectors
         const provider = await wallet.connector.getProvider();
         if (provider) {
           await connectAsync({ connector: wallet.connector, chainId: base.id });
@@ -143,20 +154,23 @@ export default function Home() {
           return;
         }
       }
-      // QR popup specifico per non-installed (come default RainbowKit)
+      // QR popup specifico per non-installed
       if (wallet.modal) {
         // WalletConnect QR popup
         const wcModal = new wallet.modal({ projectId: '8e4f39df88b73f8ff1e701f88b4fea0c' });
         await wcModal.openModal();
         wcModal.subscribeEvents();
         wcModal.on('modal_close', () => wcModal.closeModal());
+        setShowModal(false);
       } else if (wallet.sdk) {
         // Coinbase QR popup
         const coinbaseProvider = wallet.sdk.makeWeb3Provider('https://base-mainnet.public.blastapi.io', 1);
         await coinbaseProvider.enable(); // Apre QR popup Coinbase
+        setShowModal(false);
       } else if (wallet.link) {
         // Rainbow deep-link QR o fallback download
         window.open(wallet.link, '_blank');
+        setShowModal(false);
       }
     } catch (err) {
       console.error('Connection error:', err); // Log per debug
@@ -278,6 +292,7 @@ export default function Home() {
                   <img
                     src={wallet.icon}
                     alt={wallet.name}
+                    onError={(e) => { e.target.style.display = 'none'; }} // FIX: Placeholder se fallisce (nascondi, o aggiungi SVG inline)
                     className="w-10 h-10 object-contain rounded-lg group-hover:scale-110 transition-transform"
                   />
                   <span className="text-sm font-medium text-gray-900">{wallet.name}</span>
