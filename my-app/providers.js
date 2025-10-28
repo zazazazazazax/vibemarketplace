@@ -10,13 +10,14 @@ const queryClient = new QueryClient();
 
 const customTheme = {
   ...lightTheme(),
-  borderRadius: 'none',  // Rimuove bordi arrotondati su wallet options/cards (fixa contorno icone Popular a riposo)
   radii: {
     modal: '16px',
     modalMobile: '12px',
+    actionButton: '0px',  // Flatten border radius su wallet options/buttons (fixa contorno icone Popular)
   },
   shadows: {
     dialog: '0 4px 20px rgba(0, 0, 0, 0.15)',
+    selectedOption: 'none',  // Rimuove shadow su wallet options (elimina effetto "contorno" residuo)
     // FIX PER OUTLINE ICONS (MetaMask & Popular)
     walletLogo: 'none',  // Rimuove shadow/outline su icons SVG (fixa border visibile in default)
   },
@@ -27,7 +28,7 @@ const customTheme = {
   colors: {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
-    accentColor: '#00000000',  // Transparent: rimuove highlight colorato su selezione/hover (opzionale, ma aiuta a pulire)
+    accentColor: '#10b981',  // Ripristinato il verde originale (era transparent, ma non necessario qui)
     // Keys precedenti per testo (mantieni leggibili)
     modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
     modalTextDim: '#6b7280',  // Dimmed text
