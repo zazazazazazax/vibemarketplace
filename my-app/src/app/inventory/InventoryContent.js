@@ -26,6 +26,8 @@ export default function InventoryContent() {
   const [isEthPriceLoaded, setIsEthPriceLoaded] = useState(false);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [selectedCards, setSelectedCards] = useState([]);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [cardToList, setCardToList] = useState(null);
   const debounceRef = useRef(null);
 
   const cardsPerPage = 50;
@@ -204,6 +206,20 @@ export default function InventoryContent() {
     });
   }, []);
 
+  const handleCardClick = useCallback((card) => {
+    setCardToList(card);
+    setShowConfirmModal(true);
+  }, []);
+
+  const confirmListing = useCallback(() => {
+    if (cardToList) {
+      setSelectedCards([cardToList]);
+      handleGoToListing();
+    }
+    setShowConfirmModal(false);
+    setCardToList(null);
+  }, [cardToList, handleGoToListing]);
+
   const handleGoToListing = useCallback(() => {
     const safeSelected = Array.isArray(selectedCards) ? selectedCards : [];
     const tokenIds = safeSelected.map(c => c.tokenId).join(',');
@@ -238,7 +254,7 @@ export default function InventoryContent() {
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
-  // Render (stesso di prima, ma con fix per taglio e dettagli sotto)
+  // Render (stesso di prima, ma con fix per sfondo, overlay sopra, click popup)
   if (!showUI) {
     return (
       <main className="flex min-h-screen flex-col items-center p-24">
@@ -291,7 +307,7 @@ export default function InventoryContent() {
           )}
           {inventory.length > 0 ? (
             <>
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-6 w-full max-w-7xl">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-7xl">
                 {inventory.map((card, index) => {
                   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
                   const isSelected = selectedCards.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress);
@@ -299,63 +315,54 @@ export default function InventoryContent() {
                   return (
                     <div
                       key={index}
-                      className="group relative rounded-lg shadow-lg cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-all duration-300 flex flex-col"
+                      className="group relative rounded-lg shadow-lg cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-all duration-300"
                       onMouseEnter={() => handleMouseEnter(card)}
                       onMouseLeave={handleMouseLeave}
+                      onClick={() => handleCardClick(card)}
                     >
                       {/* Checkbox sovrapposta */}
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => toggleSelect(card)}
+                        onChange={(e) => {
+                          e.stopPropagation(); // Evita trigger click carta
+                          toggleSelect(card);
+                        }}
                         className="absolute top-2 left-2 z-10 w-5 h-5 opacity-80 group-hover:opacity-100 transition-opacity duration-300"
                       />
-                      {/* Immagine (no taglio) */}
-                      <div className="w-full h-64 bg-white flex items-center justify-center overflow-hidden rounded-t-lg">
+                      {/* Immagine (no sfondo bianco, ingrandita) */}
+                      <div className="w-full h-80 bg-transparent flex items-center justify-center overflow-hidden rounded-lg">
                         <img
                           src={card.metadata.imageUrl}
                           alt="Card"
                           className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105"
                         />
                       </div>
-                      {/* Dettagli sotto la carta, visibili su hover */}
-                      <div className="hidden group-hover:block bg-gray-100 p-3 rounded-b-lg border-t border-gray-300">
-                        <div className="space-y-1 text-xs md:text-sm leading-tight">
-                          <p className="font-semibold text-gray-800">
+                      {/* Overlay dettagli sopra la carta, su hover */}
+                      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-2 rounded-lg">
+                        <div className="text-center text-white text-xs leading-tight max-w-full">
+                          <p className="font-semibold mb-1">
                             <strong>Collection:</strong> {card.metadata.name.split(' #')[0] || 'Unknown'}
                           </p>
-                          <p className="text-gray-600 truncate">
+                          <p className="mb-1 truncate">
                             <strong>Contract:</strong> {card.contractAddress}
                           </p>
-                          <p className="text-gray-600">
+                          <p className="mb-1">
                             <strong>Token ID:</strong> {card.tokenId}
                           </p>
-                          <p className="text-gray-600">
+                          <p className="mb-1">
                             <strong>Token Addr:</strong> {card.contract?.tokenAddress || 'N/A'}
                           </p>
-                          <p className="text-gray-600">
+                          <p className="mb-1">
                             <strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}
                           </p>
-                          <p className="text-gray-600">
+                          <p className="mb-1">
                             <strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}
                           </p>
-                          <p className="font-bold text-blue-600 mt-1">
+                          <p className="font-bold text-blue-200">
                             <strong>Est. Price:</strong> {price}
                           </p>
                         </div>
-                        {/* Bottone List in basso */}
-                        {hoveredCardId === cacheKey && price !== 'N/A' && price !== 'Calculating...' && price !== 'Hover to calculate' && (
-                          <button
-                            className="bg-green-500 text-white px-3 py-1 rounded text-xs mt-2 w-full hover:bg-green-600 transition-colors duration-200"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Evita trigger hover
-                              setSelectedCards([card]);
-                              handleGoToListing();
-                            }}
-                          >
-                            List for {price}
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
@@ -383,6 +390,32 @@ export default function InventoryContent() {
             <p>No opened cards found.</p>
           )}
         </>
+      )}
+      {/* Modal conferma listing */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Confirm Listing</h3>
+            <p className="mb-6">Are you sure you want to sell this card?</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setCardToList(null);
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
+              >
+                No
+              </button>
+              <button
+                onClick={confirmListing}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
