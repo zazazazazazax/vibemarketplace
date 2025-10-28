@@ -138,14 +138,14 @@ export default function InventoryContent() {
     connect({ connector });
   }, [connect]);
 
-const disconnectWallet = useCallback(() => {
-  disconnect();
-  localStorage.clear();
-  setAllInventory([]);
-  setPrices({});
-  setSelectedCards([]);
-  router.push('/'); // FIX: Redirect alla home per reconnect facile
-}, [disconnect, router]);
+  const disconnectWallet = useCallback(() => {
+    disconnect();
+    localStorage.clear();
+    setAllInventory([]);
+    setPrices({});
+    setSelectedCards([]);
+    router.push('/'); // FIX: Redirect alla home per reconnect facile
+  }, [disconnect, router]);
 
   const calculateCardPrice = useCallback(async (card) => {
     const cacheKey = `${card.tokenId}-${card.contractAddress}`;
@@ -238,7 +238,7 @@ const disconnectWallet = useCallback(() => {
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
-  // Render (stesso di prima)
+  // Render (stesso di prima, ma con griglia e hover)
   if (!showUI) {
     return (
       <main className="flex min-h-screen flex-col items-center p-24">
@@ -291,54 +291,85 @@ const disconnectWallet = useCallback(() => {
           )}
           {inventory.length > 0 ? (
             <>
-              <ul className="space-y-4">
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-6 w-full max-w-7xl">
                 {inventory.map((card, index) => {
                   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
                   const isSelected = selectedCards.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress);
+                  const price = prices[cacheKey] || (hoveredCardId === cacheKey ? 'Calculating...' : 'Hover to calculate');
                   return (
-                    <li key={index} className="border p-4 rounded flex" onMouseEnter={() => handleMouseEnter(card)} onMouseLeave={handleMouseLeave}>
+                    <div
+                      key={index}
+                      className="group relative overflow-hidden rounded-lg shadow-lg cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-colors duration-300"
+                      onMouseEnter={() => handleMouseEnter(card)}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      {/* Checkbox sovrapposta */}
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(card)}
-                        className="mr-2 mt-1"
+                        className="absolute top-2 left-2 z-10 w-5 h-5 opacity-80 group-hover:opacity-100 transition-opacity duration-300"
                       />
-                      <img src={card.metadata.imageUrl} alt="Card" className="w-32 h-48 object-cover mr-4" />
-                      <div className="flex-1">
-                        <p><strong>Collection Name:</strong> {card.metadata.name.split(' #')[0] || 'Unknown Collection'}</p>
-                        <p><strong>Contract Address:</strong> {card.contractAddress}</p>
-                        <p><strong>Token Address:</strong> {card.contract?.tokenAddress || 'N/A'}</p>
-                        <p><strong>Token ID:</strong> {card.tokenId}</p>
-                        <p><strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}</p>
-                        <p><strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</p>
-                        <p><strong>Estimated Price:</strong> {hoveredCardId === cacheKey ? prices[cacheKey] || 'Calculating...' : 'Hover to calculate'}</p>
-                        {hoveredCardId === cacheKey && prices[cacheKey] && prices[cacheKey] !== 'N/A' && (
+                      {/* Immagine */}
+                      <img
+                        src={card.metadata.imageUrl}
+                        alt="Card"
+                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      {/* Overlay dettagli su hover */}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-all duration-300 opacity-0 group-hover:opacity-100 flex flex-col justify-between p-3">
+                        <div className="flex-1 overflow-y-auto">
+                          <p className="text-xs md:text-sm font-semibold text-white mb-1 leading-tight">
+                            <strong>Collection:</strong> {card.metadata.name.split(' #')[0] || 'Unknown'}
+                          </p>
+                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight truncate">
+                            <strong>Contract:</strong> {card.contractAddress}
+                          </p>
+                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                            <strong>Token ID:</strong> {card.tokenId}
+                          </p>
+                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                            <strong>Token Addr:</strong> {card.contract?.tokenAddress || 'N/A'}
+                          </p>
+                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                            <strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}
+                          </p>
+                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                            <strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}
+                          </p>
+                          <p className="text-xs md:text-sm font-bold text-white mt-1 leading-tight">
+                            <strong>Est. Price:</strong> {price}
+                          </p>
+                        </div>
+                        {/* Bottone List in basso */}
+                        {hoveredCardId === cacheKey && price !== 'N/A' && price !== 'Calculating...' && price !== 'Hover to calculate' && (
                           <button
-                            className="bg-green-500 text-white px-3 py-1 rounded mt-2"
-                            onClick={() => {
+                            className="bg-green-500 text-white px-2 py-1 rounded text-xs mt-2 self-end hover:bg-green-600 transition-colors duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation(); // Evita trigger hover
                               setSelectedCards([card]);
                               handleGoToListing();
                             }}
                           >
-                            List for {prices[cacheKey]}
+                            List for {price}
                           </button>
                         )}
                       </div>
-                    </li>
+                    </div>
                   );
                 })}
-              </ul>
-              <div className="mt-4">
+              </div>
+              <div className="mt-4 flex justify-center items-center space-x-4">
                 <button
-                  className="bg-blue-500 text-white px-2 py-1 rounded mr-2 disabled:bg-gray-400"
+                  className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
                 >
                   Previous
                 </button>
-                <span>Page {currentPage} of {totalPages} (Total cards: {allInventory.length})</span>
+                <span className="text-lg">Page {currentPage} of {totalPages} (Total cards: {allInventory.length})</span>
                 <button
-                  className="bg-blue-500 text-white px-2 py-1 rounded ml-2 disabled:bg-gray-400"
+                  className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
                 >
