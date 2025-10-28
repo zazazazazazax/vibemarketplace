@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAccount, useSignTypedData } from 'wagmi';
-import { base } from 'wagmi/chains'; // FIX: Import base per signature
+import { base } from 'wagmi/chains'; // FIX: Import base per chainId
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 export const dynamic = 'force-dynamic'; // No prerender
@@ -29,7 +29,7 @@ export default function Home() {
       const domain = {
         name: 'Vibe.Marketplace',
         version: '1',
-        chainId: base.id,
+        chainId: base.id, // Ora base è definito
         verifyingContract: '0x0000000000000000000000000000000000000000'
       };
       const types = {
@@ -110,7 +110,7 @@ export default function Home() {
                   return (
                     <div className="flex flex-col items-center space-y-2">
                       <button
-                        onClick={openConnectModal} // Da docs: Trigger default modal
+                        onClick={openConnectModal} // Trigger default modal
                         type="button"
                         className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
                       >
@@ -166,4 +166,3 @@ export default function Home() {
     </main>
   );
 }
-       
