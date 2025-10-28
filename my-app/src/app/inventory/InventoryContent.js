@@ -238,7 +238,7 @@ export default function InventoryContent() {
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
-  // Render (stesso di prima, ma con griglia e hover)
+  // Render (stesso di prima, ma con fix per taglio e dettagli sotto)
   if (!showUI) {
     return (
       <main className="flex min-h-screen flex-col items-center p-24">
@@ -299,7 +299,7 @@ export default function InventoryContent() {
                   return (
                     <div
                       key={index}
-                      className="group relative overflow-hidden rounded-lg shadow-lg cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-colors duration-300"
+                      className="group relative rounded-lg shadow-lg cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-all duration-300 flex flex-col"
                       onMouseEnter={() => handleMouseEnter(card)}
                       onMouseLeave={handleMouseLeave}
                     >
@@ -310,41 +310,43 @@ export default function InventoryContent() {
                         onChange={() => toggleSelect(card)}
                         className="absolute top-2 left-2 z-10 w-5 h-5 opacity-80 group-hover:opacity-100 transition-opacity duration-300"
                       />
-                      {/* Immagine */}
-                      <img
-                        src={card.metadata.imageUrl}
-                        alt="Card"
-                        className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      {/* Overlay dettagli su hover */}
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-all duration-300 opacity-0 group-hover:opacity-100 flex flex-col justify-between p-3">
-                        <div className="flex-1 overflow-y-auto">
-                          <p className="text-xs md:text-sm font-semibold text-white mb-1 leading-tight">
+                      {/* Immagine (no taglio) */}
+                      <div className="w-full h-64 bg-white flex items-center justify-center overflow-hidden rounded-t-lg">
+                        <img
+                          src={card.metadata.imageUrl}
+                          alt="Card"
+                          className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      {/* Dettagli sotto la carta, visibili su hover */}
+                      <div className="hidden group-hover:block bg-gray-100 p-3 rounded-b-lg border-t border-gray-300">
+                        <div className="space-y-1 text-xs md:text-sm leading-tight">
+                          <p className="font-semibold text-gray-800">
                             <strong>Collection:</strong> {card.metadata.name.split(' #')[0] || 'Unknown'}
                           </p>
-                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight truncate">
+                          <p className="text-gray-600 truncate">
                             <strong>Contract:</strong> {card.contractAddress}
                           </p>
-                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                          <p className="text-gray-600">
                             <strong>Token ID:</strong> {card.tokenId}
                           </p>
-                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                          <p className="text-gray-600">
                             <strong>Token Addr:</strong> {card.contract?.tokenAddress || 'N/A'}
                           </p>
-                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                          <p className="text-gray-600">
                             <strong>Wear:</strong> {getWearCondition(card.metadata.wear) || 'N/A'}
                           </p>
-                          <p className="text-xs md:text-sm text-gray-300 mb-1 leading-tight">
+                          <p className="text-gray-600">
                             <strong>Foil:</strong> {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}
                           </p>
-                          <p className="text-xs md:text-sm font-bold text-white mt-1 leading-tight">
+                          <p className="font-bold text-blue-600 mt-1">
                             <strong>Est. Price:</strong> {price}
                           </p>
                         </div>
                         {/* Bottone List in basso */}
                         {hoveredCardId === cacheKey && price !== 'N/A' && price !== 'Calculating...' && price !== 'Hover to calculate' && (
                           <button
-                            className="bg-green-500 text-white px-2 py-1 rounded text-xs mt-2 self-end hover:bg-green-600 transition-colors duration-200"
+                            className="bg-green-500 text-white px-3 py-1 rounded text-xs mt-2 w-full hover:bg-green-600 transition-colors duration-200"
                             onClick={(e) => {
                               e.stopPropagation(); // Evita trigger hover
                               setSelectedCards([card]);
