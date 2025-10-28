@@ -33,7 +33,7 @@ export default function Home() {
     // Inizializza SDK per QR popup
     const coinbaseSDK = new CoinbaseWalletSDK({
       appName: 'Vibe.Market',
-      appLogoUrl: 'https://your-logo.com/logo.png', // Opzionale
+      appLogoUrl: '/icons/logo.png', // Locale se hai favicon
       darkMode: false,
     });
 
@@ -41,36 +41,36 @@ export default function Home() {
       {
         id: 'phantom',
         name: 'Phantom',
-        icon: 'https://raw.githubusercontent.com/solana-labs/phantom-wallet-assets/main/assets/images/phantom-logo-icon.png',
+        icon: '/icons/phantom.png', // Locale, no CSP
         connector: connectors.find(c => c.id === 'phantom'),
         link: 'https://phantom.app/download',
       },
       {
         id: 'rainbow',
         name: 'Rainbow',
-        icon: 'https://raw.githubusercontent.com/rainbow-me/rainbowkit/master/packages/assets/src/logos/rainbow.png',
+        icon: '/icons/rainbow.png', // Locale
         connector: connectors.find(c => c.id === 'rainbow'),
-        link: 'rainbow://connect?uri=wc%3A...', // Deep-link QR Rainbow
+        link: 'https://rainbow.me/download', // FIX: Fallback download (deep-link non funziona su web)
       },
       {
         id: 'metamask',
         name: 'MetaMask',
-        icon: 'https://raw.githubusercontent.com/MetaMask/metamask-extension/master/images/icon-128x128.png',
+        icon: '/icons/metamask.png', // Locale
         connector: connectors.find(c => c.id === 'io.metamask'),
         link: 'https://metamask.io/download/',
       },
       {
         id: 'coinbase',
         name: 'Coinbase Wallet',
-        icon: 'https://seeklogo.com/images/C/coinbase-wallet-logo-F0B7A2A20E-seeklogo.com.png',
-        sdk: coinbaseSDK, // SDK per QR popup Coinbase
+        icon: '/icons/coinbase.png', // Locale
+        sdk: coinbaseSDK,
         link: 'https://www.coinbase.com/wallet',
       },
       {
         id: 'walletconnect',
         name: 'WalletConnect',
-        icon: 'https://walletconnect.com/_next/static/media/walletconnect-logo.8f9f2e4f.svg',
-        modal: WalletConnectModal, // Modal per QR WC popup
+        icon: '/icons/walletconnect.svg', // Locale
+        modal: WalletConnectModal,
         link: 'https://walletconnect.com/',
       },
     ];
@@ -131,17 +131,18 @@ export default function Home() {
     }
   };
 
-  // Handler click wallet (manual detection per popup estensione, QR popup per non-installed)
+  // Handler click wallet (specific detection per solo MetaMask/Phantom popup, QR popup per non-installed)
   const handleWalletClick = async (wallet) => {
     try {
-      // Manual detection for installed (apre popup estensione)
-      if (wallet.id === 'metamask' && window.ethereum) {
+      // Manual detection for installed (solo popup specifico, no scelta multipla)
+      if (wallet.id === 'metamask' && window.ethereum && window.ethereum.isMetaMask) {
         await window.ethereum.request({ method: 'eth_requestAccounts' });
         setShowModal(false);
         return;
       }
-      if (wallet.id === 'phantom' && window.solana) {
-        await window.solana.connect();
+      if (wallet.id === 'phantom' && window.solana && window.solana.isPhantom) {
+        // EVM mode for Base network
+        await window.solana.connect({ onlyIfTrusted: false });
         setShowModal(false);
         return;
       }
@@ -168,14 +169,14 @@ export default function Home() {
         await coinbaseProvider.enable(); // Apre QR popup Coinbase
         setShowModal(false);
       } else if (wallet.link) {
-        // Rainbow deep-link QR o fallback download
+        // Fallback download
         window.open(wallet.link, '_blank');
         setShowModal(false);
       }
     } catch (err) {
-      console.error('Connection error:', err); // Log per debug
+      console.error('Connection error:', err);
       setError('Connection error: ' + err.message);
-      if (wallet.link) window.open(wallet.link, '_blank'); // Fallback redirect
+      if (wallet.link) window.open(wallet.link, '_blank');
     }
   };
 
@@ -292,7 +293,9 @@ export default function Home() {
                   <img
                     src={wallet.icon}
                     alt={wallet.name}
-                    onError={(e) => { e.target.style.display = 'none'; }} // FIX: Placeholder se fallisce (nascondi, o aggiungi SVG inline)
+                    onError={(e) => {
+                      e.target.src = '/icons/placeholder.png'; // Fallback locale se fallisce (crea /public/icons/placeholder.png con SVG semplice)
+                    }}
                     className="w-10 h-10 object-contain rounded-lg group-hover:scale-110 transition-transform"
                   />
                   <span className="text-sm font-medium text-gray-900">{wallet.name}</span>
