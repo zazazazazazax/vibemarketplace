@@ -13,31 +13,32 @@ const customTheme = {
   radii: {
     modal: '16px',
     modalMobile: '12px',
-    // RIMUOVI: menuItemRadius (non supportato, errore prerender)
+    // FIX PER Tondeggiante hover (se supportato in v2.1; altrimenti CSS dopo)
+    menuRadius: '12px',  // Arrotonda menu items (riquadri wallet, incluso hover)
   },
   shadows: {
     dialog: '0 4px 20px rgba(0, 0, 0, 0.15)',
+    // FIX PER OUTLINE ICONS (MetaMask & Popular)
+    walletLogo: 'none',  // Rimuove shadow/outline su icons SVG (fixa border visibile)
   },
   colors: {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
     accentColor: '#10b981',
-    // Keys precedenti per testo (mantieni perfetti)
+    // Keys precedenti per testo (mantieni leggibili)
     modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
     modalTextDim: '#6b7280',  // Dimmed text
-    modalText: '#374151',  // Primary text (nomi wallet) – copre anche 'X' close
+    modalText: '#374151',  // Primary text (nomi wallet)
     connectButtonText: '#374151',  // Testo connect button
-    // FIX PER OUTLINE ICONS (mantieni transparent)
-    generalBorder: 'transparent',  // Base per icons
-    // FIX PER HOVER PRE-SELEZIONE (gray-200 come ok)
-    menuItemBackground: '#e5e7eb',  // Gray-200: scurisce il riquadro su hover
+    // FIX PER HOVER PRE-SELEZIONE (gray-200)
+    menuItemBackground: '#e5e7eb',  // Gray-200: scurisce riquadro su hover
     selectedOptionBorder: '#9ca3af',  // Gray-400: border hover definito
-    // RIMUOVI: closeButtonText (non supportato, usa modalText per 'X')
+    // FIX PER 'X' CLOSE BUTTON (grigio scuro, visibile)
+    closeButton: '#374151',  // Rende 'X' netta (key valida per header close)
   },
 };
 
 export function Providers({ children }) {
-  // Estrai chains dal config per consistenza e SSR-safety
   const { chains } = config;
 
   return (
