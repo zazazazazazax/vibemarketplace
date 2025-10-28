@@ -14,12 +14,43 @@ export default function Home() {
   const { signTypedDataAsync } = useSignTypedData();
   const [error, setError] = useState(null);
   const [hasSigned, setHasSigned] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState(null);
 
+  // Detect mobile (touch-enabled device)
+  useEffect(() => {
+    const mobileCheck = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    setIsMobile(mobileCheck);
+  }, []);
+
+  // Auto-trigger signature on connect (existing)
   useEffect(() => {
     if (isConnected && address && !hasSigned) {
       handleSignatureAndRedirect();
     }
   }, [isConnected, address, hasSigned]);
+
+  // Mobile-only poll for connection status after WC (to handle iOS return delay)
+  useEffect(() => {
+    if (!isMobile || isConnected || hasSigned) {
+      // Clear interval if connected/signed or not mobile
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
+      return;
+    }
+
+    // Start poll every 2s if not connected (assumes WC initiated; start on page load or after connect modal close)
+    const interval = setInterval(() => {
+      // Force a re-render check (useAccount should react, but this ensures)
+      window.dispatchEvent(new Event('visibilitychange')); // Minor hack to trigger reactivity on iOS
+    }, 2000);
+
+    setPollingInterval(interval);
+
+    return () => clearInterval(interval);
+  }, [isMobile, isConnected, hasSigned, pollingInterval]);
 
   const handleSignatureAndRedirect = async () => {
     if (!address) return;
