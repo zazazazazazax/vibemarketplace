@@ -21,9 +21,12 @@ const customTheme = {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
     accentColor: '#10b981',
-    // FIX: Usa keys valide per testo wallet (grigio scuro per contrasto)
-    modalTextSecondary: '#6b7280',  // Testi secondari nel modal (descrizioni wallet)
-    modalTextDim: '#6b7280',  // Testi "dim" (nomi wallet, categorie come "Installed")
+    // Keys precedenti (mantieni per "Popular" ecc.)
+    modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
+    modalTextDim: '#6b7280',  // Dimmed text
+    // FIX NUOVO: Per nomi wallet e primary text nel modal
+    modalText: '#374151',  // Primary text (alto contrasto)
+    connectButtonText: '#374151',  // Specifico per testo wallet names nei button/lista
   },
 };
 
