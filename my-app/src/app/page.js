@@ -2,10 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { useAccount, useSignTypedData, useConnect } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { useAccount, useSignTypedData } from 'wagmi';
+import { base } from 'wagmi/chains'; // FIX: Import base per signature
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { getDefaultWallets } from '@rainbow-me/rainbowkit';
 
 export const dynamic = 'force-dynamic'; // No prerender
 
@@ -13,59 +12,8 @@ export default function Home() {
   const router = useRouter();
   const { address, isConnected, isConnecting } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
-  const { connectAsync } = useConnect();
   const [error, setError] = useState(null);
   const [hasSigned, setHasSigned] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [walletOptions, setWalletOptions] = useState([]);
-
-  // FIX: getDefaultWallets e walletOptions solo client-side (in useEffect, evita SSR/build error)
-  useEffect(() => {
-    const projectId = '8e4f39df88b73f8ff1e701f88b4fea0c';
-    const { connectors } = getDefaultWallets({
-      appName: 'Vibe.Market',
-      projectId,
-      chains: [base],
-    });
-    const options = [
-      {
-        id: 'phantom',
-        name: 'Phantom',
-        icon: 'https://phantom.app/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('phantom')),
-        link: 'https://phantom.app/download',
-      },
-      {
-        id: 'rainbow',
-        name: 'Rainbow',
-        icon: 'https://rainbow.me/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('rainbow')),
-        link: 'https://rainbow.me/download',
-      },
-      {
-        id: 'metamask',
-        name: 'MetaMask',
-        icon: 'https://metamask.io/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('metaMask')),
-        link: 'https://metamask.io/download/',
-      },
-      {
-        id: 'coinbase',
-        name: 'Coinbase Wallet',
-        icon: 'https://www.coinbase.com/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('coinbaseWallet')),
-        link: 'https://www.coinbase.com/wallet',
-      },
-      {
-        id: 'walletconnect',
-        name: 'WalletConnect',
-        icon: 'https://walletconnect.com/favicon.ico',
-        connector: connectors.find(c => c?.id?.includes('walletConnect')),
-        qr: true,
-      },
-    ];
-    setWalletOptions(options);
-  }, []);
 
   useEffect(() => {
     if (isConnected && address && !hasSigned) {
@@ -120,47 +68,6 @@ export default function Home() {
     }
   };
 
-  // Handler click wallet (detection manuale per popup specifico, fallback link per QR)
-  const handleWalletClick = async (wallet) => {
-    console.log('Connecting with', wallet.name); // Debug
-    try {
-      // Manual detection for installed (solo popup specifico, no scelta multipla)
-      if (wallet.id === 'metamask' && window.ethereum && window.ethereum.isMetaMask) {
-        console.log('Opening MetaMask popup');
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setShowModal(false);
-        return;
-      }
-      if (wallet.id === 'phantom' && window.solana && window.solana.isPhantom) {
-        console.log('Opening Phantom EVM popup');
-        await window.solana.connect({ onlyIfTrusted: false }); // EVM mode for Base
-        setShowModal(false);
-        return;
-      }
-      if (wallet.connector) {
-        // Fallback Wagmi
-        const provider = await wallet.connector.getProvider();
-        if (provider) {
-          console.log('Connecting via Wagmi', wallet.name);
-          await connectAsync({ connector: wallet.connector, chainId: base.id });
-          setShowModal(false);
-          return;
-        }
-      }
-      // QR/download link (come prima, ma con projectId per WC QR)
-      if (wallet.qr) {
-        window.open(`https://walletconnect.com/?projectId=${'8e4f39df88b73f8ff1e701f88b4fea0c'}`, '_blank'); // QR page con projectId
-      } else if (wallet.link) {
-        window.open(wallet.link, '_blank');
-      }
-      setShowModal(false);
-    } catch (err) {
-      console.error('Connection error:', err);
-      setError('Connection error: ' + err.message);
-      if (wallet.link) window.open(wallet.link, '_blank'); // Fallback
-    }
-  };
-
   return (
     <main className="flex min-h-screen flex-col items-center p-24">
       <h1 className="text-4xl font-bold mb-8">Home Page</h1>
@@ -203,7 +110,7 @@ export default function Home() {
                   return (
                     <div className="flex flex-col items-center space-y-2">
                       <button
-                        onClick={() => setShowModal(true)} // Trigger custom modal RainbowKit-style
+                        onClick={openConnectModal} // Da docs: Trigger default modal
                         type="button"
                         className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
                       >
@@ -253,56 +160,10 @@ export default function Home() {
         }}
       </ConnectButton.Custom>
 
-      {/* Custom Modal centrato, RainbowKit-inspired (griglia orizzontale, QR/download) */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-gray-200">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Connect a Wallet</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">
-                &times;
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 mb-6">Select a wallet to connect to Vibe.Market</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"> {/* Griglia 2/4 col, orizzontale */}
-              {walletOptions.map((wallet) => (
-                <button
-                  key={wallet.id}
-                  onClick={() => handleWalletClick(wallet)}
-                  className="flex flex-col items-center space-y-2 p-4 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all group"
-                >
-                  <img
-                    src={wallet.icon}
-                    alt={wallet.name}
-                    onError={(e) => {
-                      e.target.src = '/icons/placeholder.png'; // Fallback se CSP blocca
-                    }}
-                    className="w-10 h-10 object-contain rounded-lg group-hover:scale-110 transition-transform"
-                  />
-                  <span className="text-sm font-medium text-gray-900">{wallet.name}</span>
-                  {!wallet.connector && <span className="text-xs text-gray-500">Get app</span>}
-                </button>
-              ))}
-            </div>
-            <div className="text-center">
-              <a
-                href="https://ethereum.org/en/wallets/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-emerald-600 hover:underline"
-              >
-                New to Ethereum wallets? Learn more
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
       {error && <p className="text-red-500 mt-4">{error}</p>}
       {isConnected && !hasSigned && <p className="text-green-500 mt-4">Signing session...</p>}
       {isConnected && hasSigned && <p className="text-green-500 mt-4">Connected: {address?.slice(0, 6)}...{address?.slice(-4)}</p>}
     </main>
   );
 }
-
        
