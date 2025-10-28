@@ -34,7 +34,9 @@ const customTheme = {
     connectButtonText: '#374151',  // Testo connect button
     // FIX PER HOVER PRE-SELEZIONE (gray-200)
     menuItemBackground: '#e5e7eb',  // Gray-200: scurisce riquadro su hover
-    selectedOptionBorder: '#9ca3af',  // Gray-400: border hover definito
+    // FIX PER RIMUOVERE BORDI DEFAULT SU ICONE/OPTIONS (inclusi Popular/Recommended)
+    generalBorder: 'transparent',  // Rimuove bordi generali (default era visible su options)
+    selectedOptionBorder: 'transparent',  // Rimuove border su selezione/hover (era '#9ca3af')
     // FIX PER OVERLAY OPACIZZA + 'X' CLOSE
     modalBackdrop: 'rgba(0, 0, 0, 0.5)',  // Opacità semi-trasparente su home
     closeButton: '#374151',  // 'X' grigio scuro, visibile
