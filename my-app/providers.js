@@ -13,12 +13,15 @@ const customTheme = {
   radii: {
     modal: '16px',
     modalMobile: '12px',
-    // RIMUOVI: menuRadius (non supportato, errore prerender)
   },
   shadows: {
     dialog: '0 4px 20px rgba(0, 0, 0, 0.15)',
     // FIX PER OUTLINE ICONS (MetaMask & Popular)
-    walletLogo: 'none',  // Rimuove shadow/outline su icons SVG (fixa border visibile)
+    walletLogo: 'none',  // Rimuove shadow/outline su icons SVG (fixa border visibile in default)
+  },
+  blurs: {
+    // FIX PER BLUR/OPACIZZA DIETRO MODAL (riporta effetto originale)
+    modalOverlay: '8px',  // Blur soft su home dietro modal
   },
   colors: {
     modalBackground: '#ffffff',
@@ -27,12 +30,14 @@ const customTheme = {
     // Keys precedenti per testo (mantieni leggibili)
     modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
     modalTextDim: '#6b7280',  // Dimmed text
-    modalText: '#374151',  // Primary text (nomi wallet) – copre anche 'X' close
+    modalText: '#374151',  // Primary text (nomi wallet)
     connectButtonText: '#374151',  // Testo connect button
     // FIX PER HOVER PRE-SELEZIONE (gray-200)
     menuItemBackground: '#e5e7eb',  // Gray-200: scurisce riquadro su hover
     selectedOptionBorder: '#9ca3af',  // Gray-400: border hover definito
-    // RIMUOVI: closeButton (non supportato, usa modalText per 'X')
+    // FIX PER OVERLAY OPACIZZA + 'X' CLOSE
+    modalBackdrop: 'rgba(0, 0, 0, 0.5)',  // Opacità semi-trasparente su home
+    closeButton: '#374151',  // 'X' grigio scuro, visibile
   },
 };
 
