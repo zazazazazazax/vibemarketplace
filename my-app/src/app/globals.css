@@ -2,30 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* RIPRISTINO SFONDO HOME PAGE (grigio scuro originale) */
+body {
+  background: #1f2937;  /* Slate-800: adatta se il tuo era diverso (es. #111827 per gray-900) */
+}
+
 /* FIX CUSTOM PER RAINBOWKIT MODAL (outline icons, 'X' close, hover tondeggiante) */
-[data-rk] .rainbowkit-wallet-option .rainbowkit-icon svg path,
-[data-rk] .rainbowkit-wallet-option .rainbowkit-icon svg circle,
-[data-rk] .rainbowkit-wallet-option .rainbowkit-icon svg,
-[data-rk] .rainbowkit-wallet-option img,
-[data-rk] .rainbowkit-wallet-list-item svg {
+[data-rk] .rainbowkit-modal-overlay {
+  background: rgba(0, 0, 0, 0.5) !important;  /* RIPRISTINO: Opacizza home dietro modal */
+  opacity: 1 !important;
+  backdrop-filter: blur(4px) !important;  /* Mantiene blur se c'era */
+}
+
+/* FIX PER OUTLINE ICONS (rafforzato per MetaMask & "Popular" – rimuove stroke/fill issues) */
+[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon svg path,
+[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon svg circle,
+[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon svg,
+[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon img {
   border: none !important;
   border-width: 0 !important;
   border-color: transparent !important;
   outline: none !important;
   box-shadow: none !important;
-  stroke: none !important;  /* Rimuove stroke su paths/circles SVG (MetaMask/Rainbow icons) */
+  stroke: none !important;  /* Rimuove stroke SVG */
   stroke-width: 0 !important;
+  fill: currentColor !important;  /* NUOVO: Forza fill per icons trasparenti come MetaMask */
 }
 
-/* FIX PER 'X' CLOSE BUTTON (grigio scuro, visibile) */
+/* FIX PER 'X' CLOSE BUTTON (mantieni scuro) */
 [data-rk] .rainbowkit-close-button,
 [data-rk] .rainbowkit-modal-header button {
-  color: #374151 !important;  /* Stesso di modalText, alto contrasto */
+  color: #374151 !important;
 }
 
-/* FIX PER HOVER PRE-SELEZIONE (gray-200 + bordi tondeggianti smooth) */
+/* FIX PER HOVER PRE-SELEZIONE (gray-200 + bordi più tondeggianti evidenti) */
 [data-rk] .rainbowkit-wallet-option:hover,
 [data-rk] .rainbowkit-wallet-option:focus {
-  background: #e5e7eb !important;  /* Gray-200, come ok */
-  border-radius: 8px !important;  /* Tondeggiante: smooth corners sul riquadro */
+  background: #e5e7eb !important;  /* Gray-200 */
+  border-radius: 12px !important;  /* Più rounded: smooth e visibile su hover */
 }
