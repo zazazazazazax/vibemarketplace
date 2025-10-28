@@ -26,11 +26,11 @@ const customTheme = {
     modalTextDim: '#6b7280',  // Dimmed text
     modalText: '#374151',  // Primary text (nomi wallet)
     connectButtonText: '#374151',  // Testo connect button
-    // FIX PER OUTLINE ICONS (MetaMask)
-    generalBorder: '#f9fafb',  // Ultra-light gray: minimizza outline su icons bianchi
-    // FIX PER HOVER PRE-SELEZIONE
-    menuItemBackground: '#f3f4f6',  // Light gray: "scurisce" il riquadro wallet su hover (come esempio)
-    selectedOptionBorder: '#d1d5db',  // Gray-300: border più definito su hover/focus
+    // FIX PER OUTLINE ICONS (MetaMask & Popular)
+    generalBorder: 'transparent',  // Rende outline invisibile su tutte le icons (incluso white bg)
+    // FIX PER HOVER PRE-SELEZIONE (più scuro)
+    menuItemBackground: '#d1d5db',  // Gray-300: scurisce di più il riquadro su hover (effetto highlight marcato)
+    selectedOptionBorder: '#9ca3af',  // Gray-400: border hover definito
   },
 };
 
