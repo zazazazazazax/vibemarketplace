@@ -3,7 +3,7 @@
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
-import { config } from './src/lib/wagmi';  // Path ok se providers è in root e src/lib è sibling
+import { config } from './src/lib/wagmi';  // Path ok
 import '@rainbow-me/rainbowkit/styles.css';
 
 const queryClient = new QueryClient();
@@ -21,6 +21,9 @@ const customTheme = {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
     accentColor: '#10b981',
+    // FIX: Aggiungi questi per testo wallet più leggibile (grigio scuro invece di pallido)
+    walletDetailsDescription: '#6b7280',  // Gray-500 Tailwind, contrasto buono su white
+    secondary: '#6b7280',  // Per altri testi secondari nel modal
   },
 };
 
@@ -32,10 +35,10 @@ export function Providers({ children }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider 
-          chains={chains}  // FIX: Usa config.chains invece di [base] hardcodato
+          chains={chains}  // Già fixato prima
           theme={customTheme} 
-          modalSize="compact"  // Buono per fixare il modal "tagliato" (compact è default per mobile/desktop)
-          showMore={true}  // Mostra più wallet se >6
+          modalSize="compact"  // Mantiene il modal compatto
+          showMore={true}  // Mostra più wallet
         >
           {children}
         </RainbowKitProvider>
