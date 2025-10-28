@@ -21,9 +21,9 @@ const customTheme = {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
     accentColor: '#10b981',
-    // FIX: Aggiungi questi per testo wallet più leggibile (grigio scuro invece di pallido)
-    walletDetailsDescription: '#6b7280',  // Gray-500 Tailwind, contrasto buono su white
-    secondary: '#6b7280',  // Per altri testi secondari nel modal
+    // FIX: Usa keys valide per testo wallet (grigio scuro per contrasto)
+    modalTextSecondary: '#6b7280',  // Testi secondari nel modal (descrizioni wallet)
+    modalTextDim: '#6b7280',  // Testi "dim" (nomi wallet, categorie come "Installed")
   },
 };
 
@@ -35,10 +35,10 @@ export function Providers({ children }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider 
-          chains={chains}  // Già fixato prima
+          chains={chains}
           theme={customTheme} 
-          modalSize="compact"  // Mantiene il modal compatto
-          showMore={true}  // Mostra più wallet
+          modalSize="compact"
+          showMore={true}
         >
           {children}
         </RainbowKitProvider>
