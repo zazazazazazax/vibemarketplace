@@ -19,3 +19,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* RainbowKit: Remove borders/outlines on wallet icons/options in Connect modal (Popular section) */
+[data-rk] button[data-rk*="wallet"] {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important; /* In caso sia un shadow che simula il bordo */
+}
+
+[data-rk] button[data-rk*="wallet"]:hover,
+[data-rk] button[data-rk*="wallet"]:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Extra per icone SVG specifiche (es. MetaMask) */
+[data-rk] svg {
+  border: none !important;
+  outline: none !important;
+  filter: none !important; /* Se c'è un effetto che crea outline */
+}
