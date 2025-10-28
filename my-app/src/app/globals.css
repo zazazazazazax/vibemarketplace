@@ -2,54 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* RIPRISTINO SFONDO HOME PAGE (nero originale) + TESTO BIANCO (visibilità h1) */
+/* RIPRISTINO SFONDO HOME PAGE (nero originale) + TESTO HOME BIANCO (solo h1, non modal) */
 body {
-  background: #111827 !important;  /* Gray-900: nero scuro originale */
-  color: white !important;  /* Testo generale bianco per contrasto */
+  background: #111827 !important;  /* Nero scuro originale */
 }
 
 h1, .text-4xl {
-  color: white !important;  /* Specifico per "Home Page" (Tailwind class) */
+  color: white !important;  /* Solo "Home Page" bianca, alto contrasto */
 }
 
-/* FIX PER OVERLAY OPACIZZA (home si "spegne" dietro modal) */
+/* FIX PER OVERLAY OPACIZZA (home si scurisce/sfoca dietro modal) */
 [data-rk] .rainbowkit-modal-overlay {
-  background: rgba(0, 0, 0, 0.4) !important;  /* Opacità media */
+  background: rgba(0, 0, 0, 0.6) !important;  /* Opacità più forte per "opacizza" visibile */
   opacity: 1 !important;
-  backdrop-filter: blur(8px) !important;  /* Blur per "opacizza" soft */
-  z-index: 9999 !important;  /* Forza sopra home */
+  backdrop-filter: blur(10px) !important;  /* Blur evidente su home testo/bg */
+  z-index: 9999 !important;  /* Forza sopra tutto */
 }
 
-[data-rk] .rainbowkit-modal-container {
-  backdrop-filter: blur(0px) !important;  /* Modal netto, overlay blurato */
-}
-
-/* FIX PER OUTLINE ICONS (ultra-specifico per MetaMask & "Popular" – tutti figli SVG) */
-[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon svg *,
-[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon svg path,
-[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon svg circle,
-[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon svg rect,
-[data-rk] .rainbowkit-wallet-option .rainbowkit-wallet-icon img,
-[data-rk] .rainbowkit-wallet-list-item svg * {
-  border: none !important;
-  border-width: 0 !important;
-  border-color: transparent !important;
-  outline: none !important;
+/* Supporto per OUTLINE ICONS (solo se persiste dopo theme) */
+[data-rk] .rainbowkit-wallet-icon svg * {
+  stroke-width: 0 !important;  /* Rimuove stroke residuo su SVG figli */
   box-shadow: none !important;
-  stroke: none !important;  /* Rimuove stroke su tutti elementi SVG figli */
-  stroke-width: 0 !important;
-  fill: currentColor !important;  /* Forza fill per icons trasparenti */
-}
-
-/* FIX PER 'X' CLOSE BUTTON (mantieni scuro) */
-[data-rk] .rainbowkit-close-button,
-[data-rk] .rainbowkit-modal-header button {
-  color: #374151 !important;
 }
 
 /* FIX PER HOVER PRE-SELEZIONE (gray-200 + bordi tondeggianti evidenti) */
-[data-rk] .rainbowkit-wallet-option__option:hover,
-[data-rk] .rainbowkit-wallet-option__option:focus {
+[data-rk] .rainbowkit-wallet-option:hover,
+[data-rk] .rainbowkit-wallet-option:focus {
   background: #e5e7eb !important;  /* Gray-200 */
-  border-radius: 16px !important;  /* Più rounded: evidente e smooth su hover */
+  border-radius: 12px !important;  /* Tondeggiante soft ma visibile su hover */
 }
