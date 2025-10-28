@@ -2,20 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* FIX CUSTOM PER RAINBOWKIT MODAL (outline icons, 'X' close, hover tondeggiante) */
+[data-rk] .rainbowkit-wallet-option .rainbowkit-icon svg path,
+[data-rk] .rainbowkit-wallet-option .rainbowkit-icon svg circle,
+[data-rk] .rainbowkit-wallet-option .rainbowkit-icon svg,
+[data-rk] .rainbowkit-wallet-option img,
+[data-rk] .rainbowkit-wallet-list-item svg {
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  stroke: none !important;  /* Rimuove stroke su paths/circles SVG (MetaMask/Rainbow icons) */
+  stroke-width: 0 !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* FIX PER 'X' CLOSE BUTTON (grigio scuro, visibile) */
+[data-rk] .rainbowkit-close-button,
+[data-rk] .rainbowkit-modal-header button {
+  color: #374151 !important;  /* Stesso di modalText, alto contrasto */
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* FIX PER HOVER PRE-SELEZIONE (gray-200 + bordi tondeggianti smooth) */
+[data-rk] .rainbowkit-wallet-option:hover,
+[data-rk] .rainbowkit-wallet-option:focus {
+  background: #e5e7eb !important;  /* Gray-200, come ok */
+  border-radius: 8px !important;  /* Tondeggiante: smooth corners sul riquadro */
 }
