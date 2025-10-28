@@ -3,7 +3,7 @@
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
-import { config } from './src/lib/wagmi'; // FIX: Da root a /src/lib/wagmi
+import { config } from './src/lib/wagmi';  // Path ok se providers è in root e src/lib è sibling
 import '@rainbow-me/rainbowkit/styles.css';
 
 const queryClient = new QueryClient();
@@ -25,14 +25,17 @@ const customTheme = {
 };
 
 export function Providers({ children }) {
+  // Estrai chains dal config per consistenza e SSR-safety
+  const { chains } = config;
+
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider 
-          chains={[base]} 
+          chains={chains}  // FIX: Usa config.chains invece di [base] hardcodato
           theme={customTheme} 
-          modalSize="compact"
-          showMore={true}
+          modalSize="compact"  // Buono per fixare il modal "tagliato" (compact è default per mobile/desktop)
+          showMore={true}  // Mostra più wallet se >6
         >
           {children}
         </RainbowKitProvider>
