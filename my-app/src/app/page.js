@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAccount, useSignTypedData } from 'wagmi';
-import { base } from 'wagmi/chains'; // FIX: Import base per chainId in signature
+import { base } from 'wagmi/chains'; // FIX: Import base per chainId
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 export const dynamic = 'force-dynamic'; // No prerender
