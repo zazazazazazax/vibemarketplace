@@ -21,12 +21,14 @@ const customTheme = {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
     accentColor: '#10b981',
-    // Keys precedenti (mantieni per "Popular" ecc.)
+    // Keys precedenti per testo (mantieni, funzionano alla grande)
     modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
     modalTextDim: '#6b7280',  // Dimmed text
-    // FIX NUOVO: Per nomi wallet e primary text nel modal
-    modalText: '#374151',  // Primary text (alto contrasto)
-    connectButtonText: '#374151',  // Specifico per testo wallet names nei button/lista
+    modalText: '#374151',  // Primary text (nomi wallet)
+    connectButtonText: '#374151',  // Testo connect button
+    // FIX NUOVO: Per outline icons e hover "scurire"
+    generalBorder: '#f9fafb',  // Super light gray (quasi invisibile su white icons come MetaMask)
+    selectedOptionBorder: '#9ca3af',  // Gray-400: Su hover, border più scuro/enfatizzato (simula "scurire" riquadro)
   },
 };
 
