@@ -6,8 +6,6 @@ import { useAccount, useSignTypedData, useConnect } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { getDefaultWallets } from '@rainbow-me/rainbowkit';
-import { WalletConnectModal } from '@walletconnect/modal';
-import { CoinbaseWalletSDK } from '@coinbase/wallet-sdk';
 
 export const dynamic = 'force-dynamic'; // No prerender
 
@@ -30,48 +28,41 @@ export default function Home() {
       chains: [base],
     });
 
-    // Inizializza SDK per QR popup
-    const coinbaseSDK = new CoinbaseWalletSDK({
-      appName: 'Vibe.Market',
-      appLogoUrl: '/icons/logo.png', // Locale se hai favicon
-      darkMode: false,
-    });
-
     const options = [
       {
         id: 'phantom',
         name: 'Phantom',
-        icon: '/icons/phantom.png', // Locale, no CSP
+        icon: 'https://seeklogo.com/images/P/phantom-logo-1C9D3D0E0E-seeklogo.com.png', // URL funzionante
         connector: connectors.find(c => c.id === 'phantom'),
         link: 'https://phantom.app/download',
       },
       {
         id: 'rainbow',
         name: 'Rainbow',
-        icon: '/icons/rainbow.png', // Locale
+        icon: 'https://seeklogo.com/images/R/rainbow-wallet-logo-8E8A8A8A8E-seeklogo.com.png', // URL funzionante
         connector: connectors.find(c => c.id === 'rainbow'),
-        link: 'https://rainbow.me/download', // FIX: Fallback download (deep-link non funziona su web)
+        link: 'https://rainbow.me/download', // Fallback download/QR
       },
       {
         id: 'metamask',
         name: 'MetaMask',
-        icon: '/icons/metamask.png', // Locale
+        icon: 'https://seeklogo.com/images/M/metamask-logo-1C9D3D0E0E-seeklogo.com.png', // URL funzionante
         connector: connectors.find(c => c.id === 'io.metamask'),
         link: 'https://metamask.io/download/',
       },
       {
         id: 'coinbase',
         name: 'Coinbase Wallet',
-        icon: '/icons/coinbase.png', // Locale
-        sdk: coinbaseSDK,
-        link: 'https://www.coinbase.com/wallet',
+        icon: 'https://seeklogo.com/images/C/coinbase-wallet-logo-F0B7A2A20E-seeklogo.com.png', // URL funzionante
+        connector: connectors.find(c => c.id === 'coinbaseWallet'),
+        link: 'https://www.coinbase.com/wallet', // Fallback QR page
       },
       {
         id: 'walletconnect',
         name: 'WalletConnect',
-        icon: '/icons/walletconnect.svg', // Locale
-        modal: WalletConnectModal,
-        link: 'https://walletconnect.com/',
+        icon: 'https://seeklogo.com/images/W/walletconnect-logo-1C9D3D0E0E-seeklogo.com.png', // URL funzionante
+        connector: connectors.find(c => c.id === 'walletConnect'),
+        link: `https://walletconnect.com/?projectId=${projectId}`, // Fallback QR page con projectId
       },
     ];
 
@@ -131,23 +122,23 @@ export default function Home() {
     }
   };
 
-  // Handler click wallet (specific detection per solo MetaMask/Phantom popup, QR popup per non-installed)
+  // Handler click wallet (detection manuale per popup estensione, fallback link per QR)
   const handleWalletClick = async (wallet) => {
     try {
-      // Manual detection for installed (solo popup specifico, no scelta multipla)
+      // Manual detection for installed (solo popup specifico)
       if (wallet.id === 'metamask' && window.ethereum && window.ethereum.isMetaMask) {
         await window.ethereum.request({ method: 'eth_requestAccounts' });
         setShowModal(false);
         return;
       }
       if (wallet.id === 'phantom' && window.solana && window.solana.isPhantom) {
-        // EVM mode for Base network
+        // EVM mode for Base
         await window.solana.connect({ onlyIfTrusted: false });
         setShowModal(false);
         return;
       }
       if (wallet.connector) {
-        // Fallback Wagmi for other connectors
+        // Fallback Wagmi
         const provider = await wallet.connector.getProvider();
         if (provider) {
           await connectAsync({ connector: wallet.connector, chainId: base.id });
@@ -155,28 +146,13 @@ export default function Home() {
           return;
         }
       }
-      // QR popup specifico per non-installed
-      if (wallet.modal) {
-        // WalletConnect QR popup
-        const wcModal = new wallet.modal({ projectId: '8e4f39df88b73f8ff1e701f88b4fea0c' });
-        await wcModal.openModal();
-        wcModal.subscribeEvents();
-        wcModal.on('modal_close', () => wcModal.closeModal());
-        setShowModal(false);
-      } else if (wallet.sdk) {
-        // Coinbase QR popup
-        const coinbaseProvider = wallet.sdk.makeWeb3Provider('https://base-mainnet.public.blastapi.io', 1);
-        await coinbaseProvider.enable(); // Apre QR popup Coinbase
-        setShowModal(false);
-      } else if (wallet.link) {
-        // Fallback download
-        window.open(wallet.link, '_blank');
-        setShowModal(false);
-      }
+      // Fallback link for QR/download (no SDK per semplicità, evita CSP)
+      window.open(wallet.link, '_blank');
+      setShowModal(false);
     } catch (err) {
       console.error('Connection error:', err);
       setError('Connection error: ' + err.message);
-      if (wallet.link) window.open(wallet.link, '_blank');
+      window.open(wallet.link, '_blank'); // Fallback
     }
   };
 
@@ -294,7 +270,7 @@ export default function Home() {
                     src={wallet.icon}
                     alt={wallet.name}
                     onError={(e) => {
-                      e.target.src = '/icons/placeholder.png'; // Fallback locale se fallisce (crea /public/icons/placeholder.png con SVG semplice)
+                      e.target.src = '/icons/placeholder.png'; // Fallback locale
                     }}
                     className="w-10 h-10 object-contain rounded-lg group-hover:scale-110 transition-transform"
                   />
