@@ -10,6 +10,7 @@ const queryClient = new QueryClient();
 
 const customTheme = {
   ...lightTheme(),
+  borderRadius: 'none',  // Rimuove bordi arrotondati su wallet options/cards (fixa contorno icone Popular a riposo)
   radii: {
     modal: '16px',
     modalMobile: '12px',
@@ -26,7 +27,7 @@ const customTheme = {
   colors: {
     modalBackground: '#ffffff',
     modalBorder: '#e0e0e0',
-    accentColor: '#10b981',
+    accentColor: '#00000000',  // Transparent: rimuove highlight colorato su selezione/hover (opzionale, ma aiuta a pulire)
     // Keys precedenti per testo (mantieni leggibili)
     modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
     modalTextDim: '#6b7280',  // Dimmed text
