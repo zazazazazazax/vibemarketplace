@@ -28,6 +28,7 @@ export default function InventoryContent() {
   const [selectedCards, setSelectedCards] = useState([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [cardToList, setCardToList] = useState(null);
+  const [isBatchListing, setIsBatchListing] = useState(false);
   const debounceRef = useRef(null);
 
   const cardsPerPage = 50;
@@ -36,7 +37,7 @@ export default function InventoryContent() {
   const { data: ethPriceData } = useQuery({
     queryKey: ['ethPrice'],
     queryFn: async () => {
-      const response = await fetch('/api/inventory?endpoint=eth-price'); // FIX: Path corretto
+      const response = await fetch('/api/inventory?endpoint=eth-price');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -81,7 +82,7 @@ export default function InventoryContent() {
       setPrices({});
       setSelectedCards([]);
     }
-  }, [walletAddress, chainId, isConnected]); // Solo deps Wagmi, no funzioni
+  }, [walletAddress, chainId, isConnected]);
 
   // useEffect per cleanup debounce
   useEffect(() => {
@@ -95,7 +96,7 @@ export default function InventoryContent() {
     if (Array.isArray(allInventory) && allInventory.length > 0) {
       updateCurrentPage(allInventory, currentPage);
     }
-  }, [currentPage, allInventory]); // updateCurrentPage è stabile, no deps extra
+  }, [currentPage, allInventory]);
 
   // Funzioni (dopo hooks, deps pulite)
   const fetchAllInventory = useCallback(async (address) => {
@@ -103,7 +104,7 @@ export default function InventoryContent() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/inventory?address=${address}`); // FIX: Path corretto
+      const response = await fetch(`/api/inventory?address=${address}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -112,29 +113,15 @@ export default function InventoryContent() {
       setAllInventory(data.cards || []);
       updateCurrentPage(data.cards || [], 1);
 
-      // Opzionale: Pre-calcola prezzi solo dopo load ETH (no deps ciclo)
-      if ((data.cards?.length || 0) > 0 && isEthPriceLoaded) {
-        const cards = data.cards || [];
-        for (let i = 0; i < cards.length; i++) {
-          const card = cards[i];
-          if (card.contract?.tokenAddress && !prices[`${card.tokenId}-${card.contractAddress}`]) {
-            try {
-              const price = await calculateCardPrice(card);
-              setPrices(prev => ({ ...prev, [`${card.tokenId}-${card.contractAddress}`]: price }));
-            } catch (err) {
-              console.error('Pre-calc error for card', card.tokenId, err);
-            }
-            if (i < cards.length - 1) await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-      }
+      // TODO: Pre-calc prezzi disabilitato per evitare potenziali loop/setState durante fetch
+      // if ((data.cards?.length || 0) > 0 && isEthPriceLoaded) { ... } // Commentato per debug
     } catch (err) {
       console.error('Fetch inventory error:', err);
       setError('Error loading: ' + err.message);
     } finally {
       setLoading(false);
     }
-  }, [isEthPriceLoaded, prices]); // Solo stati, no funzioni ricorsive
+  }, [isEthPriceLoaded]); // Rimosso 'prices' dalle deps per evitare ri-creazioni inutili
 
   const connectWallet = useCallback((connector) => {
     connect({ connector });
@@ -146,7 +133,7 @@ export default function InventoryContent() {
     setAllInventory([]);
     setPrices({});
     setSelectedCards([]);
-    router.push('/'); // FIX: Redirect alla home per reconnect facile
+    router.push('/');
   }, [disconnect, router]);
 
   const calculateCardPrice = useCallback(async (card) => {
@@ -167,7 +154,7 @@ export default function InventoryContent() {
         contractAddress: card.contractAddress,
         cardData: cardData
       });
-      const response = await fetch(`/api/inventory?${params}`); // FIX: Path corretto
+      const response = await fetch(`/api/inventory?${params}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -178,7 +165,7 @@ export default function InventoryContent() {
       console.error('Error calculating price for card', card.tokenId, err);
       return 'N/A';
     }
-  }, [prices]); // Solo prices, stabile
+  }, [prices]);
 
   const handleMouseEnter = useCallback((card) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -190,7 +177,7 @@ export default function InventoryContent() {
       }
       setHoveredCardId(cacheKey);
     }, 0);
-  }, [prices, isEthPriceLoaded, calculateCardPrice]); // Deps esplicite
+  }, [prices, isEthPriceLoaded, calculateCardPrice]);
 
   const handleMouseLeave = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -208,25 +195,33 @@ export default function InventoryContent() {
 
   const handleCardClick = useCallback((card) => {
     setCardToList(card);
+    setIsBatchListing(false);
     setShowConfirmModal(true);
   }, []);
 
+  const handleBatchClick = useCallback(() => {
+    if (selectedCards.length > 0) {
+      setIsBatchListing(true);
+      setShowConfirmModal(true);
+    }
+  }, [selectedCards.length]);
+
   const confirmListing = useCallback(() => {
-    if (cardToList) {
-      setSelectedCards([cardToList]);
-      handleGoToListing();
+    const cardsToList = isBatchListing ? selectedCards : (cardToList ? [cardToList] : []);
+    if (cardsToList.length > 0) {
+      const safeCards = Array.isArray(cardsToList) ? cardsToList : [];
+      const tokenIds = safeCards.map(c => c.tokenId).join(',');
+      const collection = safeCards[0]?.contractAddress || '';
+      const boosterToken = safeCards[0]?.contract?.tokenAddress || '';
+      router.push(`/listing?tokenIds=${tokenIds}&collection=${collection}&boosterToken=${boosterToken}&action=create`);
+      if (isBatchListing) {
+        setSelectedCards([]); // Clear selection after batch listing
+      }
     }
     setShowConfirmModal(false);
     setCardToList(null);
-  }, [cardToList, handleGoToListing]);
-
-  const handleGoToListing = useCallback(() => {
-    const safeSelected = Array.isArray(selectedCards) ? selectedCards : [];
-    const tokenIds = safeSelected.map(c => c.tokenId).join(',');
-    const collection = safeSelected[0]?.contractAddress || '';
-    const boosterToken = safeSelected[0]?.contract?.tokenAddress || '';
-    router.push(`/listing?tokenIds=${tokenIds}&collection=${collection}&boosterToken=${boosterToken}&action=create`);
-  }, [selectedCards, router]);
+    setIsBatchListing(false);
+  }, [isBatchListing, cardToList, selectedCards, router]);
 
   const updateCurrentPage = useCallback((cards, page) => {
     const safeCards = Array.isArray(cards) ? cards : [];
@@ -235,7 +230,7 @@ export default function InventoryContent() {
     const currentCards = safeCards.slice(startIndex, endIndex);
     setInventory(currentCards);
     setCurrentPage(page);
-  }, []); // cardsPerPage è const, no deps
+  }, []);
 
   const getWearCondition = (wearValue) => {
     const wear = parseFloat(wearValue);
@@ -254,7 +249,7 @@ export default function InventoryContent() {
     }
   }, [allInventory, totalPages, updateCurrentPage]);
 
-  // Render (stesso di prima, ma con fix per sfondo, overlay sopra, click popup)
+  // Render
   if (!showUI) {
     return (
       <main className="flex min-h-screen flex-col items-center p-24">
@@ -299,7 +294,7 @@ export default function InventoryContent() {
           {!isEthPriceLoaded && <p className="text-yellow-500 mb-4">Loading ETH/USD price...</p>}
           {selectedCards.length > 0 && (
             <button
-              onClick={handleGoToListing}
+              onClick={handleBatchClick}
               className="bg-green-500 text-white px-4 py-2 rounded mb-4"
             >
               Batch List {selectedCards.length} Cards
@@ -325,7 +320,7 @@ export default function InventoryContent() {
                         type="checkbox"
                         checked={isSelected}
                         onChange={(e) => {
-                          e.stopPropagation(); // Evita trigger click carta
+                          e.stopPropagation();
                           toggleSelect(card);
                         }}
                         className="absolute top-2 left-2 z-10 w-5 h-5 opacity-80 group-hover:opacity-100 transition-opacity duration-300"
@@ -396,12 +391,15 @@ export default function InventoryContent() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-bold mb-4">Confirm Listing</h3>
-            <p className="mb-6">Are you sure you want to sell this card?</p>
+            <p className="mb-6">
+              Are you sure you want to sell {isBatchListing ? `these ${selectedCards.length} cards?` : 'this card?'}
+            </p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowConfirmModal(false);
                   setCardToList(null);
+                  setIsBatchListing(false);
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
               >
