@@ -13,8 +13,7 @@ const customTheme = {
   radii: {
     modal: '16px',
     modalMobile: '12px',
-    // FIX NUOVO: Per bordi tondeggianti su pre-selezione (hover riquadro)
-    menuItemRadius: '8px',  // Arrotonda il bg hover del wallet option (smooth effect)
+    // RIMUOVI: menuItemRadius (non supportato, errore prerender)
   },
   shadows: {
     dialog: '0 4px 20px rgba(0, 0, 0, 0.15)',
@@ -26,15 +25,14 @@ const customTheme = {
     // Keys precedenti per testo (mantieni perfetti)
     modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
     modalTextDim: '#6b7280',  // Dimmed text
-    modalText: '#374151',  // Primary text (nomi wallet)
+    modalText: '#374151',  // Primary text (nomi wallet) – copre anche 'X' close
     connectButtonText: '#374151',  // Testo connect button
     // FIX PER OUTLINE ICONS (mantieni transparent)
     generalBorder: 'transparent',  // Base per icons
     // FIX PER HOVER PRE-SELEZIONE (gray-200 come ok)
     menuItemBackground: '#e5e7eb',  // Gray-200: scurisce il riquadro su hover
     selectedOptionBorder: '#9ca3af',  // Gray-400: border hover definito
-    // FIX PER 'X' CLOSE BUTTON (grigio scuro, visibile)
-    closeButtonText: '#374151',  // Rende la 'X' netta come primary text
+    // RIMUOVI: closeButtonText (non supportato, usa modalText per 'X')
   },
 };
 
