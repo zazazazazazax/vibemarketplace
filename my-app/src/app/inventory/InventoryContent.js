@@ -318,12 +318,6 @@ export default function InventoryContent() {
           background-repeat: no-repeat;
           background-position: center;
         }
-        .card-case {
-          background-image: url('/card-case.png'); /* Mettitelo in /public se lo mandi */
-          background-size: contain;
-          background-repeat: no-repeat;
-          background-position: center;
-        }
       `}</style>
       <main className="flex min-h-screen flex-col items-center p-24">
         <h1 className="text-4xl font-bold mb-8">My Binder</h1>
@@ -384,18 +378,20 @@ export default function InventoryContent() {
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto h-[32rem] ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // h-[32rem] fissa per uniformità
+                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto h-[32rem] ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`}
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
                         onClick={() => handleCardClick(card)}
                       >
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
-                        {/* Case border (bianco su hover, più grande per includere etichetta) */}
-                        <div className="absolute inset-0 border-8 border-transparent group-hover:border-white rounded-lg pointer-events-none z-0 -m-2"></div> {/* -m-2 per estendere oltre */}
-                        {/* Header "tetto" su hover (non taglia immagine) */}
-                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-red-700 w-full h-32 flex-shrink-0"> {/* h-32 fissa per header */}
-                          <div className="text-white text-xs leading-tight h-full flex flex-col justify-center">
+                        {/* Case PNG su hover */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0">
+                          <img src="/card-case.png" alt="Card Case" className="w-full h-full object-contain" />
+                        </div>
+                        {/* Header "tetto" su hover (sfondo bianco, non taglia immagine) */}
+                        <div className="bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-gray-300 w-full h-32 flex-shrink-0">
+                          <div className="text-black text-xs leading-tight h-full flex flex-col justify-center">
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
                               <span className="text-right min-w-0">#{card.tokenId}</span>
@@ -417,7 +413,7 @@ export default function InventoryContent() {
                           </div>
                         </div>
                         {/* Immagine con effetti (sempre visibile, sotto header, completa, ingrandita, con padding per spazio case) */}
-                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''} relative z-5`}> {/* flex-1 per riempire resto */}
+                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''} relative z-5`}>
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
@@ -477,8 +473,8 @@ export default function InventoryContent() {
                 {fixedPriceMode && !isBatchListing ? 'No' : 'Cancel'}
               </button>
               <button
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
                 onClick={confirmListing}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
               >
                 {fixedPriceMode && !isBatchListing ? 'Yes' : 'List'}
               </button>
