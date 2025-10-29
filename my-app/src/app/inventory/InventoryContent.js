@@ -383,7 +383,7 @@ export default function InventoryContent() {
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-72 mx-auto border-4 ${isSelected ? 'border-green-500 bg-green-50/30' : 'border-transparent group-hover:border-gray-400'}`} // Rimosso opacity-0, aggiunto hover:border
+                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-72 mx-auto border-4 border-transparent group-hover:border-gray-400 ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // Case border su hover
                         style={{ height: 'fit-content' }} // Auto height
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
@@ -398,21 +398,24 @@ export default function InventoryContent() {
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
                               <span className="text-right min-w-0">Token ID: {card.tokenId}</span>
                             </div>
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="truncate flex-1 pr-2">Drop: {dropAddress}</span>
-                              <span className="font-mono text-right min-w-0">{price} ETH {usdPrice}</span>
+                            <div className="flex justify-center items-center mb-1">
+                              <span className="font-mono text-center w-full">{price} ETH {usdPrice}</span>
                             </div>
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="truncate flex-1 pr-2">Token: {tokenAddress}</span>
-                              <span className="text-right min-w-0">Rarity: {rarityName}</span>
+                            <div className="flex justify-center items-center mb-1 text-center">
+                              <span className="truncate w-full block">Drop: {dropAddress}</span>
                             </div>
-                            <div className="flex justify-center text-center min-w-0">
-                              <span>Wear: {wearCondition} | Foil: {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</span>
+                            <div className="flex justify-center items-center mb-1 text-center">
+                              <span className="truncate w-full block">Token: {tokenAddress}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-center min-w-0">
+                              <span className="flex-1">Rarity: {rarityName}</span>
+                              <span className="flex-1">Wear: {wearCondition}</span>
+                              <span className="flex-1">Foil: {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</span>
                             </div>
                           </div>
                         </div>
-                        {/* Immagine con effetti (sempre visibile, sotto header, completa, ingrandita) */}
-                        <div className={`flex-1 relative overflow-hidden h-96 ${isFoil ? 'foil-shimmer' : ''}`}> {/* h-96 per più altezza */}
+                        {/* Immagine con effetti (sempre visibile, sotto header, completa, ingrandita, con padding per spazio case) */}
+                        <div className={`flex-1 relative overflow-hidden h-96 p-4 ${isFoil ? 'foil-shimmer' : ''}`}> {/* Padding per spazio interno */}
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
