@@ -269,8 +269,8 @@ export default function InventoryContent() {
     }
   };
 
-  const getRarityName = (rarityNum) => {
-    const num = parseInt(rarityNum);
+  const getRarityName = (rarityName) => {
+    const num = parseInt(rarityName);
     switch (num) {
       case 1: return 'Common';
       case 2: return 'Rare';
@@ -378,7 +378,7 @@ export default function InventoryContent() {
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto h-[32rem] ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`}
+                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto h-[30.375rem] ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // h-[30.375rem] for 486px
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
                         onClick={() => handleCardClick(card)}
@@ -386,10 +386,10 @@ export default function InventoryContent() {
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
                         {/* Case PNG su hover */}
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" style={{ backgroundImage: 'url(/casetemp.png)', backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}></div> {/* background-size: 100% 100% for exact fit */}
-                        {/* Header "teto" su hover (sfondo bianco, non taglia immagine) */}
-                        <div className="bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-gray-300 w-[95%] mx-auto h-32 flex-shrink-0"> {/* w-[95%] for narrower label */}
-                          <div className="text-black text-[0.65rem] leading-tight h-full flex flex-col justify-center"> {/* Smaller text for full readability */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" style={{ backgroundImage: 'url(/casetemp.png)', backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}></div>
+                        {/* Header "teto" su hover (sfondo trasparente, non taglia immagine) */}
+                        <div className="bg-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-transparent w-[90%] mx-auto h-32 flex-shrink-0"> {/* Transparent, narrower */}
+                          <div className="text-black text-[0.6rem] leading-tight h-full flex flex-col justify-center"> {/* Even smaller text */}
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
                               <span className="text-right min-w-0">#{card.tokenId}</span>
@@ -410,14 +410,14 @@ export default function InventoryContent() {
                             </div>
                           </div>
                         </div>
-                        {/* Immagine con effetti (sempre visibile, sotto header, completa, scalata per fit case, con padding per spazio case) */}
-                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''} relative z-5 p-2`}> {/* Padding per centrare nella case */}
+                        {/* Immagine con effetti (sempre visibile, sotto etichetta, completa, scalata per fit case, con padding per spazio case) */}
+                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''} relative z-5 p-2`}> {/* Padding per centrare */}
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
                             src={card.metadata.imageUrl}
                             alt="Card"
-                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 relative z-0 scale-90" // Scale-90 per fit inside case
+                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-95 relative z-0" // Scale-95 for better fit
                           />
                         </div>
                       </div>
@@ -427,7 +427,7 @@ export default function InventoryContent() {
                 <div className="mt-4 flex justify-center items-center space-x-4">
                   <button className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>Previous</button>
                   <span className="text-lg">Page {currentPage} of {totalPages} (Total cards: {allInventory.length})</span>
-                  <button className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>Next</button>
+                  <button className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>Yes</button>
                 </div>
               </>
             ) : (
