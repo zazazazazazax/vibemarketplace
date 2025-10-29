@@ -32,7 +32,7 @@ export default function InventoryContent() {
   const [listingPrice, setListingPrice] = useState('');
   const [minPrice, setMinPrice] = useState(0);
   const [multiMode, setMultiMode] = useState(false);
-  const [fixedPriceMode, setFixedPriceMode] = useState(true); // Nuovo: default on
+  const [fixedPriceMode, setFixedPriceMode] = useState(true);
   const debounceRef = useRef(null);
 
   const cardsPerPage = 50;
@@ -188,19 +188,11 @@ export default function InventoryContent() {
       setCardToList(card);
       setIsBatchListing(false);
       const autoPrice = prices[`${card.tokenId}-${card.contractAddress}`];
-      if (fixedPriceMode) {
-        // Modal semplice per fixed price
-        setListingPrice(autoPrice || '0.001');
-        setMinPrice(parseFloat(autoPrice) || 0.001);
-        setShowConfirmModal(true);
-      } else {
-        // Modal con input
-        setListingPrice(autoPrice || '');
-        setMinPrice(parseFloat(autoPrice) || 0.001);
-        setShowConfirmModal(true);
-      }
+      setListingPrice(autoPrice || '');
+      setMinPrice(parseFloat(autoPrice) || 0.001);
+      setShowConfirmModal(true);
     }
-  }, [multiMode, fixedPriceMode, prices, toggleSelect]);
+  }, [multiMode, prices, toggleSelect]);
 
   const handleBatchClick = useCallback(() => {
     if (selectedCards.length > 0 && multiMode) {
@@ -230,15 +222,10 @@ export default function InventoryContent() {
   }, []);
 
   const confirmListing = useCallback(() => {
-    let inputVal;
-    if (fixedPriceMode && !isBatchListing) {
-      inputVal = minPrice; // Usa auto per fixed
-    } else {
-      inputVal = parseFloat(listingPrice);
-      if (inputVal < minPrice) {
-        alert(`Price must be at least ${minPrice} ETH (auto estimated)`);
-        return;
-      }
+    const inputVal = fixedPriceMode && !isBatchListing ? minPrice : parseFloat(listingPrice);
+    if (!fixedPriceMode && !isBatchListing && inputVal < minPrice) {
+      alert(`Price must be at least ${minPrice} ETH (estimated)`);
+      return;
     }
     const cardsToList = isBatchListing ? selectedCards : (cardToList ? [cardToList] : []);
     if (cardsToList.length > 0) {
@@ -326,8 +313,14 @@ export default function InventoryContent() {
           z-index: 1;
         }
         .wear-overlay {
-          background-image: url('/wear-overlay.png'); /* Assumi PNG in /public; uploadalo se non presente */
+          background-image: url('/wear-overlay.png');
           background-size: cover;
+          background-repeat: no-repeat;
+          background-position: center;
+        }
+        .card-case {
+          background-image: url('/card-case.png'); /* Mettitelo in /public se lo mandi */
+          background-size: contain;
           background-repeat: no-repeat;
           background-position: center;
         }
@@ -384,7 +377,7 @@ export default function InventoryContent() {
                     const wearCondition = getWearCondition(card.metadata.wear);
                     const wearOpacity = getWearOpacity(wearCondition);
                     const rarityName = getRarityName(card.rarity);
-                    const usdPrice = price !== 'N/A' && ethUsdPrice ? `(\$${(parseFloat(price || 0) * ethUsdPrice).toFixed(2)} USD)` : '';
+                    const usdPrice = price !== 'N/A' && ethUsdPrice ? `($${(parseFloat(price || 0) * ethUsdPrice).toFixed(2)} USD)` : '';
                     const isFoil = card.metadata.foil !== 'Normal';
                     const dropAddress = card.contractAddress || 'N/A';
                     const tokenAddress = card.contract?.tokenAddress || 'N/A';
@@ -405,7 +398,7 @@ export default function InventoryContent() {
                           <div className="text-white text-xs leading-tight h-full flex flex-col justify-center">
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
-                              <span className="text-right min-w-0">Token ID: {card.tokenId}</span>
+                              <span className="text-right min-w-0">#{card.tokenId}</span>
                             </div>
                             <div className="flex justify-center items-center mb-1">
                               <span className="font-mono text-center w-full">{price} ETH {usdPrice}</span>
@@ -484,8 +477,8 @@ export default function InventoryContent() {
                 {fixedPriceMode && !isBatchListing ? 'No' : 'Cancel'}
               </button>
               <button
-                onClick={confirmListing}
                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                onClick={confirmListing}
               >
                 {fixedPriceMode && !isBatchListing ? 'Yes' : 'List'}
               </button>
