@@ -344,13 +344,13 @@ export default function InventoryContent() {
                 onClick={toggleMultiMode}
                 className={`px-4 py-2 rounded text-sm ${multiMode ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-800'}`}
               >
-                {multiMode ? 'Multilisting On' : 'Multilisting Off'}
+                {multiMode ? 'Multilisting on' : 'Multilisting off'}
               </button>
               <button
                 onClick={toggleFixedPriceMode}
                 className={`px-4 py-2 rounded text-sm ${fixedPriceMode ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-800'}`}
               >
-                {fixedPriceMode ? 'Fixed Price On' : 'Fixed Price Off'}
+                {fixedPriceMode ? 'Fixed price on' : 'Fixed price off'}
               </button>
             </div>
             {error && <p className="text-red-500">{error}</p>}
@@ -386,10 +386,10 @@ export default function InventoryContent() {
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
                         {/* Case PNG su hover */}
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20" style={{ backgroundImage: 'url(/casetemp.png)', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}></div>
-                        {/* Header "tetto" su hover (sfondo bianco, non taglia immagine) */}
-                        <div className="bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-gray-300 w-full h-32 flex-shrink-0">
-                          <div className="text-black text-xs leading-tight h-full flex flex-col justify-center">
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0" style={{ backgroundImage: 'url(/casetemp.png)', backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}></div> {/* background-size: 100% 100% for exact fit */}
+                        {/* Header "teto" su hover (sfondo bianco, non taglia immagine) */}
+                        <div className="bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-gray-300 w-[95%] mx-auto h-32 flex-shrink-0"> {/* w-[95%] for narrower label */}
+                          <div className="text-black text-[0.65rem] leading-tight h-full flex flex-col justify-center"> {/* Smaller text for full readability */}
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
                               <span className="text-right min-w-0">#{card.tokenId}</span>
@@ -410,14 +410,14 @@ export default function InventoryContent() {
                             </div>
                           </div>
                         </div>
-                        {/* Immagine con effetti (sempre visibile, sotto header, completa, ingrandita, con padding per spazio case) */}
-                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''} relative z-5`}>
+                        {/* Immagine con effetti (sempre visibile, sotto header, completa, scalata per fit case, con padding per spazio case) */}
+                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''} relative z-5 p-2`}> {/* Padding per centrare nella case */}
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
                             src={card.metadata.imageUrl}
                             alt="Card"
-                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 relative z-0"
+                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 relative z-0 scale-90" // Scale-90 per fit inside case
                           />
                         </div>
                       </div>
