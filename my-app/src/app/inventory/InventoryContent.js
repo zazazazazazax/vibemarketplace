@@ -391,19 +391,18 @@ export default function InventoryContent() {
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // Ingrandito w-80
-                        style={{ height: 'fit-content' }} // Auto height
+                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto h-[32rem] ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // h-[32rem] fissa per uniformità
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
                         onClick={() => handleCardClick(card)}
                       >
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
-                        {/* Case border (bianco su hover, visibile attorno a tutto) */}
-                        <div className="absolute inset-0 border-4 border-transparent group-hover:border-white rounded-lg pointer-events-none z-0"></div>
+                        {/* Case border (bianco su hover, più grande per includere etichetta) */}
+                        <div className="absolute inset-0 border-8 border-transparent group-hover:border-white rounded-lg pointer-events-none z-0 -m-2"></div> {/* -m-2 per estendere oltre */}
                         {/* Header "tetto" su hover (non taglia immagine) */}
-                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-red-700 w-full"> {/* relative z-10 per sopra border */}
-                          <div className="text-white text-xs leading-tight">
+                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-red-700 w-full h-32 flex-shrink-0"> {/* h-32 fissa per header */}
+                          <div className="text-white text-xs leading-tight h-full flex flex-col justify-center">
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
                               <span className="text-right min-w-0">Token ID: {card.tokenId}</span>
@@ -412,10 +411,10 @@ export default function InventoryContent() {
                               <span className="font-mono text-center w-full">{price} ETH {usdPrice}</span>
                             </div>
                             <div className="flex justify-center items-center mb-1 text-left">
-                              <span className="w-full block cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); copyToClipboard(dropAddress); }}>Drop: {dropAddress}</span>
+                              <span className="w-full block cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); copyToClipboard(dropAddress); }}>D: {dropAddress}</span>
                             </div>
                             <div className="flex justify-center items-center mb-1 text-left">
-                              <span className="w-full block cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); copyToClipboard(tokenAddress); }}>Token: {tokenAddress}</span>
+                              <span className="w-full block cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); copyToClipboard(tokenAddress); }}>T: {tokenAddress}</span>
                             </div>
                             <div className="flex justify-between items-center text-center min-w-0">
                               <span className="flex-1">Rarity: {rarityName}</span>
@@ -425,7 +424,7 @@ export default function InventoryContent() {
                           </div>
                         </div>
                         {/* Immagine con effetti (sempre visibile, sotto header, completa, ingrandita, con padding per spazio case) */}
-                        <div className={`flex-1 relative overflow-hidden h-96 p-4 ${isFoil ? 'foil-shimmer' : ''} relative z-5`}> {/* z-5 per sopra border ma sotto header */}
+                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''} relative z-5`}> {/* flex-1 per riempire resto */}
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
