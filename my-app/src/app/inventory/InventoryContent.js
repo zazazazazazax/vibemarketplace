@@ -383,7 +383,7 @@ export default function InventoryContent() {
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 overflow-hidden flex flex-col w-72 mx-auto border-4`} // Ingrandito w-72, opacity-0 hover:100 per case
+                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-72 mx-auto border-4 ${isSelected ? 'border-green-500 bg-green-50/30' : 'border-transparent group-hover:border-gray-400'}`} // Rimosso opacity-0, aggiunto hover:border
                         style={{ height: 'fit-content' }} // Auto height
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
@@ -411,7 +411,7 @@ export default function InventoryContent() {
                             </div>
                           </div>
                         </div>
-                        {/* Immagine con effetti (sotto header, completa, ingrandita) */}
+                        {/* Immagine con effetti (sempre visibile, sotto header, completa, ingrandita) */}
                         <div className={`flex-1 relative overflow-hidden h-96 ${isFoil ? 'foil-shimmer' : ''}`}> {/* h-96 per più altezza */}
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
