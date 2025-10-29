@@ -391,7 +391,7 @@ export default function InventoryContent() {
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto border-4 border-transparent group-hover:border-gray-400 ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // Ingrandito w-80, case border su hover
+                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // Ingrandito w-80
                         style={{ height: 'fit-content' }} // Auto height
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
@@ -399,8 +399,10 @@ export default function InventoryContent() {
                       >
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
+                        {/* Case border (bianco su hover, visibile attorno a tutto) */}
+                        <div className="absolute inset-0 border-4 border-transparent group-hover:border-white rounded-lg pointer-events-none z-0"></div>
                         {/* Header "tetto" su hover (non taglia immagine) */}
-                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 z-10 border-b-4 border-red-700 w-full"> {/* Ingrandito p-2 per più spazio */}
+                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-red-700 w-full"> {/* relative z-10 per sopra border */}
                           <div className="text-white text-xs leading-tight">
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
@@ -423,7 +425,7 @@ export default function InventoryContent() {
                           </div>
                         </div>
                         {/* Immagine con effetti (sempre visibile, sotto header, completa, ingrandita, con padding per spazio case) */}
-                        <div className={`flex-1 relative overflow-hidden h-96 p-4 ${isFoil ? 'foil-shimmer' : ''}`}> {/* Padding per spazio interno */}
+                        <div className={`flex-1 relative overflow-hidden h-96 p-4 ${isFoil ? 'foil-shimmer' : ''} relative z-5`}> {/* z-5 per sopra border ma sotto header */}
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
