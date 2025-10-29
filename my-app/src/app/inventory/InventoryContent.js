@@ -386,9 +386,7 @@ export default function InventoryContent() {
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
                         {/* Case PNG su hover */}
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0">
-                          <img src="/card-case.png" alt="Card Case" className="w-full h-full object-contain" />
-                        </div>
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20" style={{ backgroundImage: 'url(/casetemp.png)', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}></div>
                         {/* Header "tetto" su hover (sfondo bianco, non taglia immagine) */}
                         <div className="bg-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 relative z-10 border-b-4 border-gray-300 w-full h-32 flex-shrink-0">
                           <div className="text-black text-xs leading-tight h-full flex flex-col justify-center">
