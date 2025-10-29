@@ -221,6 +221,14 @@ export default function InventoryContent() {
     setFixedPriceMode(prev => !prev);
   }, []);
 
+  const copyToClipboard = useCallback((text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Copied to clipboard!');
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
+  }, []);
+
   const confirmListing = useCallback(() => {
     let inputVal;
     if (fixedPriceMode && !isBatchListing) {
@@ -376,14 +384,14 @@ export default function InventoryContent() {
                     const wearCondition = getWearCondition(card.metadata.wear);
                     const wearOpacity = getWearOpacity(wearCondition);
                     const rarityName = getRarityName(card.rarity);
-                    const usdPrice = price !== 'N/A' && ethUsdPrice ? `(${parseFloat(price || 0) * ethUsdPrice.toFixed(2)} USD)` : '';
+                    const usdPrice = price !== 'N/A' && ethUsdPrice ? `(\$${(parseFloat(price || 0) * ethUsdPrice).toFixed(2)} USD)` : '';
                     const isFoil = card.metadata.foil !== 'Normal';
                     const dropAddress = card.contractAddress || 'N/A';
                     const tokenAddress = card.contract?.tokenAddress || 'N/A';
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-72 mx-auto border-4 border-transparent group-hover:border-gray-400 ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // Case border su hover
+                        className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden flex flex-col w-80 mx-auto border-4 border-transparent group-hover:border-gray-400 ${isSelected ? 'border-green-500 bg-green-50/30' : ''}`} // Ingrandito w-80, case border su hover
                         style={{ height: 'fit-content' }} // Auto height
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
@@ -401,11 +409,11 @@ export default function InventoryContent() {
                             <div className="flex justify-center items-center mb-1">
                               <span className="font-mono text-center w-full">{price} ETH {usdPrice}</span>
                             </div>
-                            <div className="flex justify-center items-center mb-1 text-center">
-                              <span className="truncate w-full block">Drop: {dropAddress}</span>
+                            <div className="flex justify-center items-center mb-1 text-left">
+                              <span className="w-full block cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); copyToClipboard(dropAddress); }}>Drop: {dropAddress}</span>
                             </div>
-                            <div className="flex justify-center items-center mb-1 text-center">
-                              <span className="truncate w-full block">Token: {tokenAddress}</span>
+                            <div className="flex justify-center items-center mb-1 text-left">
+                              <span className="w-full block cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); copyToClipboard(tokenAddress); }}>Token: {tokenAddress}</span>
                             </div>
                             <div className="flex justify-between items-center text-center min-w-0">
                               <span className="flex-1">Rarity: {rarityName}</span>
