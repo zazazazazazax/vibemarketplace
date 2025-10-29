@@ -31,7 +31,8 @@ export default function InventoryContent() {
   const [isBatchListing, setIsBatchListing] = useState(false);
   const [listingPrice, setListingPrice] = useState('');
   const [minPrice, setMinPrice] = useState(0);
-  const [multiMode, setMultiMode] = useState(false); // Nuovo: toggle multilisting
+  const [multiMode, setMultiMode] = useState(false);
+  const [fixedPriceMode, setFixedPriceMode] = useState(true); // Nuovo: default on
   const debounceRef = useRef(null);
 
   const cardsPerPage = 50;
@@ -187,11 +188,19 @@ export default function InventoryContent() {
       setCardToList(card);
       setIsBatchListing(false);
       const autoPrice = prices[`${card.tokenId}-${card.contractAddress}`];
-      setListingPrice(autoPrice || '');
-      setMinPrice(parseFloat(autoPrice) || 0.001);
-      setShowConfirmModal(true);
+      if (fixedPriceMode) {
+        // Modal semplice per fixed price
+        setListingPrice(autoPrice || '0.001');
+        setMinPrice(parseFloat(autoPrice) || 0.001);
+        setShowConfirmModal(true);
+      } else {
+        // Modal con input
+        setListingPrice(autoPrice || '');
+        setMinPrice(parseFloat(autoPrice) || 0.001);
+        setShowConfirmModal(true);
+      }
     }
-  }, [multiMode, prices, toggleSelect]);
+  }, [multiMode, fixedPriceMode, prices, toggleSelect]);
 
   const handleBatchClick = useCallback(() => {
     if (selectedCards.length > 0 && multiMode) {
@@ -205,14 +214,23 @@ export default function InventoryContent() {
 
   const toggleMultiMode = useCallback(() => {
     setMultiMode(prev => !prev);
-    if (selectedCards.length > 0) setSelectedCards([]); // Clear on toggle
+    if (selectedCards.length > 0) setSelectedCards([]);
   }, [selectedCards.length]);
 
+  const toggleFixedPriceMode = useCallback(() => {
+    setFixedPriceMode(prev => !prev);
+  }, []);
+
   const confirmListing = useCallback(() => {
-    const inputVal = parseFloat(listingPrice);
-    if (inputVal < minPrice) {
-      alert(`Price must be at least ${minPrice} ETH (auto estimated)`);
-      return;
+    let inputVal;
+    if (fixedPriceMode && !isBatchListing) {
+      inputVal = minPrice; // Usa auto per fixed
+    } else {
+      inputVal = parseFloat(listingPrice);
+      if (inputVal < minPrice) {
+        alert(`Price must be at least ${minPrice} ETH (auto estimated)`);
+        return;
+      }
     }
     const cardsToList = isBatchListing ? selectedCards : (cardToList ? [cardToList] : []);
     if (cardsToList.length > 0) {
@@ -226,7 +244,7 @@ export default function InventoryContent() {
     setCardToList(null);
     setIsBatchListing(false);
     setListingPrice('');
-  }, [isBatchListing, cardToList, selectedCards, listingPrice, minPrice, router]);
+  }, [fixedPriceMode, isBatchListing, cardToList, selectedCards, listingPrice, minPrice, router]);
 
   const updateCurrentPage = useCallback((cards, page) => {
     const safeCards = Array.isArray(cards) ? cards : [];
@@ -326,17 +344,25 @@ export default function InventoryContent() {
               Connected: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}{' '}
               <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">Disconnect</button>
             </p>
-            <button
-              onClick={toggleMultiMode}
-              className={`px-4 py-2 rounded text-sm ml-4 ${multiMode ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-800'}`}
-            >
-              {multiMode ? 'Multilisting On' : 'Multilisting Off'}
-            </button>
+            <div className="flex space-x-2 mb-4">
+              <button
+                onClick={toggleMultiMode}
+                className={`px-4 py-2 rounded text-sm ${multiMode ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-800'}`}
+              >
+                {multiMode ? 'Multilisting On' : 'Multilisting Off'}
+              </button>
+              <button
+                onClick={toggleFixedPriceMode}
+                className={`px-4 py-2 rounded text-sm ${fixedPriceMode ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-800'}`}
+              >
+                {fixedPriceMode ? 'Fixed Price On' : 'Fixed Price Off'}
+              </button>
+            </div>
             {error && <p className="text-red-500">{error}</p>}
             {loading && <p>Loading all pages...</p>}
             {!isEthPriceLoaded && <p className="text-yellow-500 mb-4">Loading ETH/USD price...</p>}
             {multiMode && selectedCards.length > 0 && (
-              <button onClick={handleBatchClick} className="bg-green-500 text-white px-4 py-2 rounded mb-4 ml-4">
+              <button onClick={handleBatchClick} className="bg-green-500 text-white px-4 py-2 rounded mb-4">
                 Batch List {selectedCards.length} Cards
               </button>
             )}
@@ -357,7 +383,8 @@ export default function InventoryContent() {
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer border-4 ${isSelected ? 'border-green-500 bg-green-50/30' : 'border-gray-400 hover:border-blue-500'} transition-all duration-300 overflow-hidden flex flex-col w-48 mx-auto`} // Stringito w-48, flex-col
+                        className={`group relative rounded-lg shadow-lg cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-300 overflow-hidden flex flex-col w-72 mx-auto border-4`} // Ingrandito w-72, opacity-0 hover:100 per case
+                        style={{ height: 'fit-content' }} // Auto height
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
                         onClick={() => handleCardClick(card)}
@@ -365,27 +392,27 @@ export default function InventoryContent() {
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
                         {/* Header "tetto" su hover (non taglia immagine) */}
-                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-1 z-10 border-b-4 border-red-700"> {/* Bordo sotto header */}
+                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 z-10 border-b-4 border-red-700 w-full"> {/* Ingrandito p-2 per più spazio */}
                           <div className="text-white text-xs leading-tight">
                             <div className="flex justify-between items-center mb-1">
                               <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
-                              <span className="text-right">Token ID: {card.tokenId}</span>
+                              <span className="text-right min-w-0">Token ID: {card.tokenId}</span>
                             </div>
                             <div className="flex justify-between items-center mb-1">
                               <span className="truncate flex-1 pr-2">Drop: {dropAddress}</span>
-                              <span className="font-mono">{price} ETH {usdPrice}</span>
+                              <span className="font-mono text-right min-w-0">{price} ETH {usdPrice}</span>
                             </div>
                             <div className="flex justify-between items-center mb-1">
                               <span className="truncate flex-1 pr-2">Token: {tokenAddress}</span>
-                              <span className="text-right">Rarity: {rarityName}</span>
+                              <span className="text-right min-w-0">Rarity: {rarityName}</span>
                             </div>
-                            <div className="flex justify-center">
+                            <div className="flex justify-center text-center min-w-0">
                               <span>Wear: {wearCondition} | Foil: {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</span>
                             </div>
                           </div>
                         </div>
-                        {/* Immagine con effetti (sotto header, completa) */}
-                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''}`}>
+                        {/* Immagine con effetti (sotto header, completa, ingrandita) */}
+                        <div className={`flex-1 relative overflow-hidden h-96 ${isFoil ? 'foil-shimmer' : ''}`}> {/* h-96 per più altezza */}
                           {/* Wear overlay */}
                           <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
@@ -410,22 +437,28 @@ export default function InventoryContent() {
           </>
         )}
       </main>
-      {/* Modal Set Listing Price */}
+      {/* Modal Set Listing Price o Confirm */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-4">Set Listing Price</h3>
-            <p className="mb-4 text-sm text-gray-600">{isBatchListing ? `Price for ${selectedCards.length} cards` : 'Price for this card'}</p>
-            <label className="block mb-2 text-sm font-medium">Price (ETH, min {minPrice.toFixed(6)}):</label>
-            <input
-              type="number"
-              step="0.000001"
-              min={minPrice}
-              value={listingPrice}
-              onChange={(e) => setListingPrice(e.target.value)}
-              placeholder={prices[`${cardToList?.tokenId || selectedCards[0]?.tokenId}-${cardToList?.contractAddress || selectedCards[0]?.contractAddress}`] || '0.001'}
-              className="w-full p-2 border rounded mb-4 text-sm"
-            />
+            <h3 className="text-lg font-bold mb-4">{fixedPriceMode && !isBatchListing ? 'Confirm Listing' : 'Set Listing Price'}</h3>
+            {fixedPriceMode && !isBatchListing ? (
+              <p className="mb-6">List at estimated price: {listingPrice} ETH?</p>
+            ) : (
+              <>
+                <p className="mb-4 text-sm text-gray-600">{isBatchListing ? `Price for ${selectedCards.length} cards` : 'Price for this card'}</p>
+                <label className="block mb-2 text-sm font-medium">Price (ETH, min {minPrice.toFixed(6)}):</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  min={minPrice}
+                  value={listingPrice}
+                  onChange={(e) => setListingPrice(e.target.value)}
+                  placeholder={prices[`${cardToList?.tokenId || selectedCards[0]?.tokenId}-${cardToList?.contractAddress || selectedCards[0]?.contractAddress}`] || '0.001'}
+                  className="w-full p-2 border rounded mb-4 text-sm"
+                />
+              </>
+            )}
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
@@ -436,13 +469,13 @@ export default function InventoryContent() {
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition-colors"
               >
-                Cancel
+                {fixedPriceMode && !isBatchListing ? 'No' : 'Cancel'}
               </button>
               <button
                 onClick={confirmListing}
                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
               >
-                List
+                {fixedPriceMode && !isBatchListing ? 'Yes' : 'List'}
               </button>
             </div>
           </div>
