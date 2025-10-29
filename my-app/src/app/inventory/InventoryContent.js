@@ -29,8 +29,9 @@ export default function InventoryContent() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [cardToList, setCardToList] = useState(null);
   const [isBatchListing, setIsBatchListing] = useState(false);
-  const [listingPrice, setListingPrice] = useState(''); // Nuovo: prezzo input
-  const [minPrice, setMinPrice] = useState(0); // Min based on auto
+  const [listingPrice, setListingPrice] = useState('');
+  const [minPrice, setMinPrice] = useState(0);
+  const [multiMode, setMultiMode] = useState(false); // Nuovo: toggle multilisting
   const debounceRef = useRef(null);
 
   const cardsPerPage = 50;
@@ -180,8 +181,7 @@ export default function InventoryContent() {
   }, []);
 
   const handleCardClick = useCallback((card) => {
-    if (selectedCards.length > 1) return; // Priorità select per multi, ma per single apri modal se click su non-selected
-    if (!selectedCards.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress)) {
+    if (multiMode) {
       toggleSelect(card);
     } else {
       setCardToList(card);
@@ -191,17 +191,22 @@ export default function InventoryContent() {
       setMinPrice(parseFloat(autoPrice) || 0.001);
       setShowConfirmModal(true);
     }
-  }, [selectedCards, prices, toggleSelect]);
+  }, [multiMode, prices, toggleSelect]);
 
   const handleBatchClick = useCallback(() => {
-    if (selectedCards.length > 0) {
+    if (selectedCards.length > 0 && multiMode) {
       setIsBatchListing(true);
-      const autoPrice = prices[`${selectedCards[0].tokenId}-${selectedCards[0].contractAddress}`]; // Usa primo come ref
+      const autoPrice = prices[`${selectedCards[0].tokenId}-${selectedCards[0].contractAddress}`];
       setListingPrice(autoPrice || '');
       setMinPrice(parseFloat(autoPrice) || 0.001);
       setShowConfirmModal(true);
     }
-  }, [selectedCards, prices]);
+  }, [selectedCards, multiMode, prices]);
+
+  const toggleMultiMode = useCallback(() => {
+    setMultiMode(prev => !prev);
+    if (selectedCards.length > 0) setSelectedCards([]); // Clear on toggle
+  }, [selectedCards.length]);
 
   const confirmListing = useCallback(() => {
     const inputVal = parseFloat(listingPrice);
@@ -240,14 +245,26 @@ export default function InventoryContent() {
     return 'Heavily Played';
   };
 
-  const getWearClass = (wearCondition) => {
+  const getWearOpacity = (wearCondition) => {
     switch (wearCondition) {
-      case 'Pristine': return 'brightness-100 saturate-100';
-      case 'Mint': return 'brightness-95 saturate-95';
-      case 'Lightly Played': return 'brightness-90 saturate-90';
-      case 'Moderately Played': return 'brightness-80 sepia-10';
-      case 'Heavily Played': return 'brightness-70 sepia-20 filter-worn'; // Custom per texture
-      default: return '';
+      case 'Pristine': return 'opacity-0';
+      case 'Mint': return 'opacity-5';
+      case 'Lightly Played': return 'opacity-10';
+      case 'Moderately Played': return 'opacity-20';
+      case 'Heavily Played': return 'opacity-30';
+      default: return 'opacity-0';
+    }
+  };
+
+  const getRarityName = (rarityNum) => {
+    const num = parseInt(rarityNum);
+    switch (num) {
+      case 1: return 'Common';
+      case 2: return 'Rare';
+      case 3: return 'Epic';
+      case 4: return 'Legendary';
+      case 5: return 'Mythic';
+      default: return 'Unknown';
     }
   };
 
@@ -282,13 +299,11 @@ export default function InventoryContent() {
           pointer-events: none;
           z-index: 1;
         }
-        .filter-worn::after {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
-          pointer-events: none;
-          z-index: 1;
+        .wear-overlay {
+          background-image: url('/wear-overlay.png'); /* Assumi PNG in /public; uploadalo se non presente */
+          background-size: cover;
+          background-repeat: no-repeat;
+          background-position: center;
         }
       `}</style>
       <main className="flex min-h-screen flex-col items-center p-24">
@@ -311,11 +326,17 @@ export default function InventoryContent() {
               Connected: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}{' '}
               <button onClick={disconnectWallet} className="ml-2 bg-red-500 text-white px-2 py-1 rounded text-sm">Disconnect</button>
             </p>
+            <button
+              onClick={toggleMultiMode}
+              className={`px-4 py-2 rounded text-sm ml-4 ${multiMode ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-800'}`}
+            >
+              {multiMode ? 'Multilisting On' : 'Multilisting Off'}
+            </button>
             {error && <p className="text-red-500">{error}</p>}
             {loading && <p>Loading all pages...</p>}
             {!isEthPriceLoaded && <p className="text-yellow-500 mb-4">Loading ETH/USD price...</p>}
-            {selectedCards.length > 0 && (
-              <button onClick={handleBatchClick} className="bg-green-500 text-white px-4 py-2 rounded mb-4">
+            {multiMode && selectedCards.length > 0 && (
+              <button onClick={handleBatchClick} className="bg-green-500 text-white px-4 py-2 rounded mb-4 ml-4">
                 Batch List {selectedCards.length} Cards
               </button>
             )}
@@ -327,41 +348,51 @@ export default function InventoryContent() {
                     const isSelected = selectedCards.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress);
                     const price = prices[cacheKey] || (hoveredCardId === cacheKey ? 'Calculating...' : 'Hover to calculate');
                     const wearCondition = getWearCondition(card.metadata.wear);
-                    const wearClass = getWearClass(wearCondition);
-                    const contractShort = card.contractAddress ? `${card.contractAddress.slice(0, 6)}...${card.contractAddress.slice(-4)}` : 'N/A';
-                    const usdPrice = price !== 'N/A' && ethUsdPrice ? `(${parseFloat(price) * ethUsdPrice?.toFixed(2)} USD)` : '';
+                    const wearOpacity = getWearOpacity(wearCondition);
+                    const rarityName = getRarityName(card.rarity);
+                    const usdPrice = price !== 'N/A' && ethUsdPrice ? `(${parseFloat(price || 0) * ethUsdPrice.toFixed(2)} USD)` : '';
                     const isFoil = card.metadata.foil !== 'Normal';
+                    const dropAddress = card.contractAddress || 'N/A';
+                    const tokenAddress = card.contract?.tokenAddress || 'N/A';
                     return (
                       <div
                         key={index}
-                        className={`group relative rounded-lg shadow-lg cursor-pointer border-2 ${isSelected ? 'border-green-500 bg-green-50/50' : 'border-gray-300 hover:border-blue-500'} transition-all duration-300 overflow-hidden ${wearClass}`}
+                        className={`group relative rounded-lg shadow-lg cursor-pointer border-4 ${isSelected ? 'border-green-500 bg-green-50/30' : 'border-gray-400 hover:border-blue-500'} transition-all duration-300 overflow-hidden flex flex-col w-48 mx-auto`} // Stringito w-48, flex-col
                         onMouseEnter={() => handleMouseEnter(card)}
                         onMouseLeave={handleMouseLeave}
                         onClick={() => handleCardClick(card)}
                       >
                         {/* Checkbox nascosta */}
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(card)} className="hidden" />
-                        {/* Immagine con effetti */}
-                        <div className={`w-full h-80 bg-transparent flex items-center justify-center overflow-hidden rounded-lg relative ${isFoil ? 'foil-shimmer' : ''}`}>
+                        {/* Header "tetto" su hover (non taglia immagine) */}
+                        <div className="bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-1 z-10 border-b-4 border-red-700"> {/* Bordo sotto header */}
+                          <div className="text-white text-xs leading-tight">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-bold truncate flex-1 pr-2">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
+                              <span className="text-right">Token ID: {card.tokenId}</span>
+                            </div>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="truncate flex-1 pr-2">Drop: {dropAddress}</span>
+                              <span className="font-mono">{price} ETH {usdPrice}</span>
+                            </div>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="truncate flex-1 pr-2">Token: {tokenAddress}</span>
+                              <span className="text-right">Rarity: {rarityName}</span>
+                            </div>
+                            <div className="flex justify-center">
+                              <span>Wear: {wearCondition} | Foil: {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Immagine con effetti (sotto header, completa) */}
+                        <div className={`flex-1 relative overflow-hidden ${isFoil ? 'foil-shimmer' : ''}`}>
+                          {/* Wear overlay */}
+                          <div className={`absolute inset-0 wear-overlay ${wearOpacity} z-1 pointer-events-none`}></div>
                           <img
                             src={card.metadata.imageUrl}
                             alt="Card"
-                            className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105 relative z-0"
+                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 relative z-0"
                           />
-                        </div>
-                        {/* Header "tetto" su hover (template immagine: rosso, dettagli top) */}
-                        <div className="absolute top-0 left-0 right-0 bg-red-500/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-1 z-10">
-                          <div className="flex justify-between items-center text-white text-xs leading-tight">
-                            <span className="font-bold truncate">{card.metadata.name.split(' #')[0] || 'Unknown'}</span>
-                            <span className="text-right">Token ID: {card.tokenId}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-white text-xs leading-tight mt-1">
-                            <span className="truncate">{contractShort}</span>
-                            <span className="font-mono">{price} ETH {usdPrice}</span>
-                          </div>
-                          <div className="text-white text-xs leading-tight mt-1">
-                            <span>Rarity: {card.rarity || 'Unknown'} | Wear: {wearCondition} | Foil: {card.metadata.foil === 'Normal' ? 'None' : card.metadata.foil || 'N/A'}</span>
-                          </div>
                         </div>
                       </div>
                     );
