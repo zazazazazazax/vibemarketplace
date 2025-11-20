@@ -6,12 +6,6 @@ module.exports = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/globals.css', // Forza rebuild su save CSS
   ],
-  safelist: [
-    {
-      pattern: /rainbowkit-/,
-    },
-    // Aggiunge altre se serve (es. per theme)
-  ],
   theme: {
     extend: {},
   },

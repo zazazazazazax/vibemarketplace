@@ -22,14 +22,10 @@ const cardPriceCache = new LRUCache({ // Cache per prezzi cards
 });
 
 // Array di chiavi API (principale + fallback)
-const apiKeys = [
-  '5A8RM-7NVT3-Y4CL4-DOMFU-YAYO2', // Principale
-  'RR2C1-EZ7I3-7O792-94NRG-AR07M', // Riserva 1
-  'RTDVD-E68MA-2FA63-UGAGA-WJUAR' // Riserva 2
-];
+const apiKeys = process.env.VIBE_API_KEYS ? process.env.VIBE_API_KEYS.split(',') : [];
 
 // Provider RPC server-side (usa public per reads)
-const publicProvider = new ethers.JsonRpcProvider('https://base.publicnode.com');
+const publicProvider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_ALCHEMY_BASE_URL || 'https://base.publicnode.com');
 
 // Fetch ETH/USD con retry (nuovo)
 async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
@@ -56,12 +52,12 @@ async function fetchEthUsdWithRetry(retries = 3, delay = 1000) {
   }
 }
 
-// Calcola prezzo card (dal tuo snippet, server-side)
+// Calcola prezzo card (dal tuo snippet, server-side) - FIX: Aggiunto tokenValue corretto (baseTokens in tokens, non wei; surplus 1.42)
 async function calculateCardPrice(card) {
   const cacheKey = `${card.tokenId}-${card.contractAddress}`;
   if (cardPriceCache.has(cacheKey)) return cardPriceCache.get(cacheKey);
 
-  if (!card.contract?.tokenAddress) return 'N/A';
+  if (!card.contract?.tokenAddress) return { ethValue: 0, usdValue: 0, tokenValue: 0 };
 
   try {
     const collectionDrop = new ethers.Contract(
@@ -91,12 +87,12 @@ async function calculateCardPrice(card) {
     else if (rarity === 5) baseTokens = await collectionDrop.MYTHIC_OFFER();
     else throw new Error('Invalid rarity');
 
-    if (baseTokens === 0n) return 'N/A';
+    if (baseTokens === 0n) return { ethValue: 0, usdValue: 0, tokenValue: 0 };
 
+    // Calcola ETH value (logica originale)
     const ethBase = await boosterToken.getTokenSellQuote(baseTokens);
     const ethUsd = await fetchEthUsdWithRetry();
-
-    const foilType = card.metadata.foil;
+    const foilType = card.metadata.foil || 'Normal';
     let foilMult = 100n;
     if (foilType === 'Standard') foilMult = 200n;
     else if (foilType === 'Prize') foilMult = 400n;
@@ -108,16 +104,20 @@ async function calculateCardPrice(card) {
     else if (wear < 0.45) wearMult = 140n;
     else if (wear < 0.75) wearMult = 120n;
 
-    const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n);
-    const priceInEth = parseFloat(ethers.formatEther(listingPrice)).toFixed(6);
-    const priceInUsd = (parseFloat(priceInEth) * ethUsd).toFixed(2);
-    const price = `${priceInEth} ETH (${priceInUsd} USD)`;
+    const listingPrice = ((ethBase * foilMult * wearMult * 142n) / 1000000n); // Surplus 42% = *1.42
+    const ethValue = parseFloat(ethers.formatEther(listingPrice));
+    const usdValue = ethValue * ethUsd;
 
-    cardPriceCache.set(cacheKey, price);
-    return price;
+    // Calcola tokenValue (FIX: baseTokens in tokens, multipliers decimali, surplus 1.42)
+    const baseTokensFormatted = Number(ethers.formatUnits(baseTokens, 18)); // Dividi per 10^18 se in wei
+    const tokenValue = Math.round(baseTokensFormatted * (Number(wearMult) / 100) * (Number(foilMult) / 100) * 1.42);
+
+    const result = { ethValue, usdValue, tokenValue };
+    cardPriceCache.set(cacheKey, result);
+    return result;
   } catch (err) {
     console.error('Error calculating price:', err);
-    return 'N/A';
+    return { ethValue: 0, usdValue: 0, tokenValue: 0 };
   }
 }
 
@@ -169,7 +169,12 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const endpoint = searchParams.get('endpoint') || 'inventory'; // Default 'inventory'
 
-  console.log('API called with endpoint:', endpoint); // FIX: Debug log per Vercel Functions
+  // Check API keys qui, dentro la funzione
+  if (apiKeys.length === 0) {
+    return NextResponse.json({ error: 'No API keys configured' }, { status: 500 });
+  }
+
+  console.log('API called with endpoint:', endpoint); // Debug log
 
   if (endpoint === 'eth-price') {
     try {
@@ -192,15 +197,57 @@ export async function GET(request) {
       const card = JSON.parse(cardData);
       card.tokenId = tokenId;
       card.contractAddress = contractAddress;
-      const price = await calculateCardPrice(card);
-      return NextResponse.json({ price });
+      const result = await calculateCardPrice(card);
+      return NextResponse.json(result);
     } catch (err) {
       console.error('Card price error:', err);
       return NextResponse.json({ error: err.message }, { status: 500 });
     }
   }
 
-  // Default: inventory (dal tuo originale)
+  if (endpoint === 'card-metadata') {
+    const tokenId = searchParams.get('tokenId');
+    const contractAddress = searchParams.get('contractAddress');
+    if (!tokenId || !contractAddress) {
+      return NextResponse.json({ error: 'Missing params: tokenId, contractAddress' }, { status: 400 });
+    }
+
+    let success = false;
+    for (const key of apiKeys) {
+      try {
+        const url = `https://build.wield.xyz/vibe/boosterbox/?includeMetadata=true&tokenId=${tokenId}&contractAddress=${contractAddress}`;
+        const response = await fetchWithRetry(url, {
+          headers: { 'API-KEY': key }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message);
+        
+        // Prendi prima card (assumi single tokenId)
+        const card = data.boxes[0];
+        if (!card || card.rarity <= 0) throw new Error('Invalid card data');
+        
+        // Estrai imageUrl da metadata (adatta se path diverso)
+        const imageUrl = card.metadata?.imageUrl || card.metadata?.image || '';
+        
+        success = true;
+        return NextResponse.json({
+          imageUrl,
+          metadata: card.metadata,
+          rarity: card.rarity,
+          // Aggiungi altri campi se needed
+        });
+      } catch (err) {
+        console.error(`Metadata fetch error with key ${key}: ${err.message}`);
+        continue;
+      }
+    }
+    if (!success) {
+      return NextResponse.json({ error: 'Failed to fetch metadata from all APIs' }, { status: 500 });
+    }
+  }
+
+  // Default: inventory
   const address = searchParams.get('address');
   if (!address) return NextResponse.json({ error: 'Address required' }, { status: 400 });
 
@@ -229,7 +276,7 @@ export async function GET(request) {
       if (!success) throw new Error(`Failed to fetch for status ${status}`);
     }
 
-    // Remove duplicates (dal tuo originale)
+    // Remove duplicates - Usa tokenId
     const uniqueCards = allCards.filter((card, index, self) =>
       index === self.findIndex(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress)
     );

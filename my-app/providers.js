@@ -3,51 +3,54 @@
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
-import { config } from './src/lib/wagmi';  // Path ok
+import { config, chains } from './src/lib/wagmi';
 import '@rainbow-me/rainbowkit/styles.css';
 
-const queryClient = new QueryClient();
+// QueryClient ottimizzato per mobile
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const customTheme = {
-  ...lightTheme(),
+  ...lightTheme({ accentColor: '#10b981' }),  // Base light per struttura, ma override dark colors
   radii: {
     modal: '16px',
     modalMobile: '12px',
-    actionButton: '0px',  // Flatten border radius su wallet options/buttons (fixa contorno icone Popular)
+    actionButton: '0px',
   },
   shadows: {
-    dialog: '0 4px 20px rgba(0, 0, 0, 0.15)',
-    selectedOption: 'none',  // Rimuove shadow su wallet options (elimina effetto "contorno" residuo)
-    // FIX PER OUTLINE ICONS (MetaMask & Popular)
-    walletLogo: 'none',  // Rimuove shadow/outline su icons SVG (fixa border visibile in default)
+    dialog: '0 4px 20px rgba(255, 255, 255, 0.1)',  // Bianco tenue per dark
+    selectedOption: 'none',
+    walletLogo: 'none',
   },
   blurs: {
-    // FIX PER BLUR/OPACIZZA DIETRO MODAL (riporta effetto originale)
-    modalOverlay: '8px',  // Blur soft su home dietro modal
+    modalOverlay: '8px',
   },
   colors: {
-    modalBackground: '#ffffff',
-    modalBorder: '#e0e0e0',
-    accentColor: '#10b981',  // Ripristinato il verde originale (era transparent, ma non necessario qui)
-    // Keys precedenti per testo (mantieni leggibili)
-    modalTextSecondary: '#6b7280',  // Secondary labels (es. "Popular")
-    modalTextDim: '#6b7280',  // Dimmed text
-    modalText: '#374151',  // Primary text (nomi wallet)
-    connectButtonText: '#374151',  // Testo connect button
-    // FIX PER HOVER PRE-SELEZIONE (gray-200)
-    menuItemBackground: '#e5e7eb',  // Gray-200: scurisce riquadro su hover
-    // FIX PER RIMUOVERE BORDI DEFAULT SU ICONE/OPTIONS (inclusi Popular/Recommended)
-    generalBorder: 'transparent',  // Rimuove bordi generali (default era visible su options)
-    selectedOptionBorder: 'transparent',  // Rimuove border su selezione/hover (era '#9ca3af')
-    // FIX PER OVERLAY OPACIZZA + 'X' CLOSE
-    modalBackdrop: 'rgba(0, 0, 0, 0.5)',  // Opacità semi-trasparente su home
-    closeButton: '#374151',  // 'X' grigio scuro, visibile
+    modalBackground: '#000000',  // Nero per sfondo modal
+    modalBorder: '#333333',  // Grigio scuro per bordi (contrasto su nero)
+    accentColor: '#10b981',  // Verde invariato per "Learn more" e accenti
+    modalTextSecondary: '#ffffff',  // Bianco per testi secondari (es. "Installed")
+    modalTextDim: '#ffffff',  // Bianco per dim text (es. descrizioni wallet)
+    modalText: '#ffffff',  // Bianco per titoli (es. "Connect a Wallet", "Recommended")
+    connectButtonText: '#ffffff',  // Bianco per testo bottoni
+    menuItemBackground: '#1a1a1a',  // Nero/grigio scuro per hover/menu items
+    generalBorder: '#333333',  // Grigio scuro per bordi generali
+    selectedOptionBorder: '#10b981',  // Verde per selected (opzionale, match accent)
+    modalBackdrop: 'rgba(0, 0, 0, 0.8)',  // Nero più opaco per overlay
+    closeButton: '#ffffff',  // Bianco per X close
   },
 };
 
 export function Providers({ children }) {
-  const { chains } = config;
-
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
@@ -56,6 +59,10 @@ export function Providers({ children }) {
           theme={customTheme} 
           modalSize="compact"
           showMore={true}
+          showRecentTransactions={true}
+          showWalletConnectScanner={true}
+enableWalletConnectSessionStorage={true}
+enableTelemetry={false}
         >
           {children}
         </RainbowKitProvider>

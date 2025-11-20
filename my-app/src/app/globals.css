@@ -40,3 +40,20 @@ body {
   outline: none !important;
   filter: none !important; /* Se c'è un effetto che crea outline */
 }
+
+/* Override per rimuovere contorno bianco su icone wallet (desktop/mobile) */
+.rainbowkit-wallet-list-item .rainbowkit-wallet-logo {
+  border: none !important;
+  box-shadow: none !important;  /* Rimuove ombre colorate se presenti */
+  outline: none !important;  /* Rimuove outline focus */
+}
+
+.rainbowkit-wallet-list-item:hover .rainbowkit-wallet-logo {
+  border: none !important;  /* Conferma no hover border */
+}
+
+/* Se persiste (raro, per selected state) */
+.rainbowkit-wallet-list-item[data-selected="true"] .rainbowkit-wallet-logo {
+  border: none !important;
+  box-shadow: none !important;
+}
