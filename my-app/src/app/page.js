@@ -411,7 +411,6 @@ export default function Home() {
         } catch (fetchErr) {
           console.error('Next latest fetch error:', fetchErr);
         }
-        alert('Compra completata! Carta trasferita al tuo wallet. Prossima carta caricata.');
       }
 
     } catch (err) {
