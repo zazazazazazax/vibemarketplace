@@ -1155,7 +1155,7 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
     }
 }`}
 </pre>
-        <h3 className="text-black font-bold text-sm mt-8 mb-2">Wrapper (0xe08287F93fFC3d1d36334b12485467E2618eaf39 - mint and sell nfts for tokens in 1 tx)</h3>
+        <h3 className="text-black font-bold text-sm mt-8 mb-2">WrapperV2 (0xe08287F93fFC3d1d36334b12485467E2618eaf39 - mint and sell nfts for tokens in 1 tx)</h3>
         <pre className="text-black font-mono text-xs leading-relaxed">
           {`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
