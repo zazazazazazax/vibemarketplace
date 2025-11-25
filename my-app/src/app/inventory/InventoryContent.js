@@ -1987,7 +1987,7 @@ const getWearCondition = (wearValue) => {
 </button>
       </div>
       {/* Dropfinder sotto: immagine + input sovrapposto (testo bianco) + bottoni invisibili */}
-<div className="relative self-start w-full max-w-lg"> {/* Aumentato max-w-lg per più stretch orizzontale se necessario */}
+<div className="relative self-start w-full max-w-md sm:max-w-xl md:max-w-2xl min-w-0">  {/* Scala su sm+ senza rimpicciolire */}
   {/* object-fill: stretch esatto senza taglio, deforma se aspect non matcha */}
   <img 
     src="/dropfinder.png" 
