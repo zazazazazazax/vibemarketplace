@@ -1777,7 +1777,7 @@ const getWearCondition = (wearValue) => {
         }
       `}</style>
       {/* Band PNG in alto, dietro logo e header */}
-      <div className="fixed top-0 left-10 w-full h-10 sm:h-16 md:h-16 z-[5] bg-no-repeat bg-center bg-cover" style={{ backgroundImage: 'url(/band.png)' }} />
+      <div className="fixed top-0 left-10 w-full h-8 sm:h-16 md:h-16 z-[5] bg-no-repeat bg-center bg-cover" style={{ backgroundImage: 'url(/band.png)' }} />
       {/* Logo PDB fisso in alto a sinistra */}
       <Link href="/" className="fixed top-[-13px] left-[-14px] z-50">
         <img src="/pdb.png" alt="PDB Logo" className="w-40 h-28 sm:w-48 sm:h-32 md:w-60 md:h-40" />
