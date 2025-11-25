@@ -446,11 +446,11 @@ const handleBuyTrade = async () => {
         ) : (
           <div className="flex flex-col items-center space-y-4 w-full max-w-2xl">
 {/* Contract Input - Form with server action */}
-<form action={action} className="relative w-96 sm:w-112 md:w-144">
+<form action={action} className="left-14 relative w-96 sm:left-0 w-112 md:left-0 w-144">
   <img 
     src="/dropfinder.png" 
     alt="Drop Finder" 
-    className="w-full h-16 object-fill scale-x-125" // Keep wide for image
+    className="left-24 w-64 h-10 sm:w-80 sm:h-14 md:w-full md:h-14 object-fill scale-x-125" // Keep wide for image
   />
   <input
     type="text"
@@ -459,12 +459,12 @@ const handleBuyTrade = async () => {
     value={contractAddress}
     onChange={(e) => setContractAddress(e.target.value)}
     autoComplete="off"
-    className="absolute top-1 left-8 sm:left-12 md:left-16 w-48 sm:w-56 md:w-64 h-14 bg-transparent text-white border-none outline-none pl-4 pr-8 text-base placeholder-gray-300 cursor-text" // Increased width for more text visibility
+    className="absolute top-0 left-10 sm:left-12 md:left-16 w-40 sm:w-52 md:w-64 h-10 sm:h-14 md:h-14 bg-transparent text-white border-none outline-none pl-4 pr-8 text-base placeholder-gray-300 cursor-text" // Increased width for more text visibility
   />
   <button
     type="submit"
     disabled={isPending || !contractAddress.trim()}
-    className="absolute top-1 right-4 w-12 h-14 bg-transparent border-none cursor-pointer hover:opacity-80 flex items-center justify-center opacity-0" // Adjusted top-1 to match input
+    className="absolute top-1 right-32 w-10 h-8 sm:right-16 w-12 h-14 md:right-4 w-12 h-14 bg-transparent border-none cursor-pointer hover:opacity-80 flex items-center justify-center opacity-0" // Adjusted top-1 to match input
   >
     {/* Empty content to avoid any text */}
   </button>
