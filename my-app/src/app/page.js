@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { ethers } from 'ethers';
 import { readContract, writeContract, waitForTransaction } from 'wagmi/actions';
 import { useQuery } from '@tanstack/react-query';
+import { useFarcasterMiniApp } from './hooks/useFarcasterMiniApp';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,8 @@ const marketplaceABI = [
   {
     "inputs": [
       {"name": "_collection", "type": "address"},
-      {"name": "tokenId", "type": "uint256"}
+      {"name": "tokenId", "type": "uint256"},
+      {"name": "seller", "type": "address"}
     ],
     "name": "getListingDetails",
     "outputs": [
@@ -49,7 +51,8 @@ const marketplaceABI = [
   {
     "inputs": [
       {"name": "_collection", "type": "address"},
-      {"name": "tokenId", "type": "uint256"}
+      {"name": "tokenId", "type": "uint256"},
+      {"name": "seller", "type": "address"}
     ],
     "name": "buyListing",
     "outputs": [],
@@ -58,7 +61,7 @@ const marketplaceABI = [
   }
 ];
 
-const CONTRACT_ADDRESS = '0x37E6ca374bCF8622c0C7e3E0c51EfD1D37fE79d4';
+const CONTRACT_ADDRESS = '0x34682Df3fC35079EFe78fF37008856aB090e03e1';
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 const erc20ABI = [
   {
@@ -86,6 +89,16 @@ const erc20ABI = [
     "inputs": [{"name": "_owner", "type": "address"}],
     "name": "balanceOf",
     "outputs": [{"name": "balance", "type": "uint256"}],
+    "type": "function"
+  }
+];
+
+const erc721ABI = [
+  {
+    "inputs": [{"name": "tokenId", "type": "uint256"}],
+    "name": "ownerOf",
+    "outputs": [{"name": "", "type": "address"}],
+    "stateMutability": "view",
     "type": "function"
   }
 ];
@@ -137,9 +150,62 @@ export default function Home() {
   const { openConnectModal } = useConnectModal();
   const [error, setError] = useState(null);
   const [showHeader, setShowHeader] = useState(false);
+  const { authenticated, connectWallet, navigateTo } = useFarcasterMiniApp();
 
-  // Nuovo hook per latest listing
   const { latestListing, setLatestListing, loading: listingLoading, error: listingError } = useLatestListing(); 
+
+// NUOVO: Controllo owner vs seller per stale listings
+useEffect(() => {
+  async function checkOwnerValidity() {
+    if (!isConnected || !latestListing || listingLoading || !config) return;
+
+    try {
+      const collection = latestListing.collection.toLowerCase();
+      const tokenId = BigInt(latestListing.tokenId);
+      const currentOwner = await readContract(config, {
+        address: collection,
+        abi: erc721ABI,
+        functionName: 'ownerOf',
+        args: [tokenId],
+      });
+
+      if (currentOwner.toLowerCase() !== latestListing.seller.toLowerCase()) {
+        console.log('Stale listing detected: owner changed, removing...');
+        
+        // Rimuovi dal backend
+        const cacheKey = `${latestListing.tokenId}-${collection}-${latestListing.seller.toLowerCase()}`;
+        const removeRes = await fetch('/api/listings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'remove',
+            items: [{ key: cacheKey }],
+            walletAddress: walletAddress.toLowerCase()
+          })
+        });
+        if (!removeRes.ok) {
+          const removeErr = await removeRes.json();
+          console.error('Remove stale API failed:', removeErr);
+        } else {
+          console.log('Stale listing removed from backend');
+        }
+
+        // Aggiorna UI: resetta latest e fetcha next
+        setLatestListing(null);
+        const nextResponse = await fetch('/api/listings?endpoint=latest');
+        const nextData = await nextResponse.json();
+        if (!nextData.error) {
+          setLatestListing(nextData);
+        }
+      }
+    } catch (err) {
+      console.error('Owner check error:', err);
+      // Non fallire: ignora se errore (es. NFT non esistente)
+    }
+  }
+
+  checkOwnerValidity();
+}, [latestListing, isConnected, listingLoading, config, walletAddress]);  // Dipendenze: trigger su latestListing change
 
   // useQuery per ETH price (copia da InventoryContent)
   const { data: ethPriceData } = useQuery({
@@ -169,6 +235,12 @@ export default function Home() {
   const [showCase, setShowCase] = useState(true); // Default: in case
   const [viewMode, setViewMode] = useState('connect'); // 'connect', 'latest', 'faq', 'dev'
 
+// NUOVO: useEffect per auto-signature post-connect in Mini App (opzionale, integra con tuo hook)
+  useEffect(() => {
+    if (authenticated && isConnected && !hasSigned && !isSigning) {
+      handleSignature();  // Triggera signature solo se in Mini App e connesso
+    }
+  }, [authenticated, isConnected, hasSigned, isSigning, handleSignature]);
 
   // useEffect per default latest post-connect
   useEffect(() => {
@@ -264,7 +336,7 @@ export default function Home() {
     setIsBuying(true); // Disable button
     const collection = latestListing.collection.toLowerCase();
     const tokenId = BigInt(latestListing.tokenId);
-    const cacheKey = `${latestListing.tokenId}-${collection}`;
+    const cacheKey = `${latestListing.tokenId}-${collection.toLowerCase()}-${latestListing.seller.toLowerCase()}`;
 
     try {
       // Get details pre-buy
@@ -272,7 +344,7 @@ export default function Home() {
         address: CONTRACT_ADDRESS,
         abi: marketplaceABI,
         functionName: 'getListingDetails',
-        args: [collection, tokenId],
+        args: [collection, tokenId, latestListing.seller],
       });
 
       const priceWei = price;
@@ -332,7 +404,7 @@ export default function Home() {
         address: CONTRACT_ADDRESS,
         abi: marketplaceABI,
         functionName: 'buyListing',
-        args: [collection, tokenId],
+        args: [collection, tokenId, latestListing.seller],
         value: isEth ? priceWei : undefined,
       });
       const buyHash = buyResult?.hash || null; // Safe null se undefined
@@ -369,7 +441,7 @@ export default function Home() {
           address: CONTRACT_ADDRESS,
           abi: marketplaceABI,
           functionName: 'getListingDetails',
-          args: [collection, tokenId],
+          args: [collection, tokenId, latestListing.seller],
         });
         // Non revert = still listed (fail)
         console.warn('Verify failed post-delay – listing still active (TX reverted)');
@@ -1155,7 +1227,7 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
     }
 }`}
 </pre>
-        <h3 className="text-black font-bold text-sm mt-8 mb-2">WrapperV2 (0xe08287F93fFC3d1d36334b12485467E2618eaf39 - mint and sell nfts for tokens in 1 tx)</h3>
+        <h3 className="text-black font-bold text-sm mt-8 mb-2">Wrapper (0xB9CEFd1C1cdD3980f1bf815E2e1Ba7EfDBb9F1AB - mint and sell nfts for tokens in 1 tx)</h3>
         <pre className="text-black font-mono text-xs leading-relaxed">
           {`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
@@ -1177,7 +1249,7 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
         address target,
         uint256 amount,
         uint256 startingTokenId
-    ) external payable {
+    ) external payable onlyOwner {
         require(target != address(0), "Target address cannot be zero");
         require(amount > 0, "Amount must be greater than zero");
         require(startingTokenId > 0, "Starting token ID must be >0");
