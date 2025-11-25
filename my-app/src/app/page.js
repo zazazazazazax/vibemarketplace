@@ -673,7 +673,7 @@ useEffect(() => {
               });
 
               return (
-                <div className="group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-auto h-[30.375rem]" onClick={handleEjectClick}>
+                <div className="group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-4 sm:mx-auto h-[30.375rem]" onClick={handleEjectClick}>
                   {/* Immagine card + Wear + Foil: z-10 - Copia esatta da InventoryContent */}
                   <div 
                     className={`absolute top-[139px] left-1/2 transform -translate-x-1/2 overflow-hidden z-10 transition-transform duration-300 group-hover:scale-95 relative rounded-lg ${foilClass}`}
