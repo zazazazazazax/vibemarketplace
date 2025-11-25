@@ -1987,7 +1987,7 @@ const getWearCondition = (wearValue) => {
 </button>
       </div>
       {/* Dropfinder sotto: immagine + input sovrapposto (testo bianco) + bottoni invisibili */}
-<div className="relative self-end w-full max-w-lg"> {/* Spostato a destra per bilanciare shift card */}
+<div className="relative self-end w-full max-w-lg mr-12"> {/* Spostato a destra per bilanciare shift card */}
   {/* object-fill: stretch esatto senza taglio, deforma se aspect non matcha */}
   <img 
     src="/dropfinder.png" 
