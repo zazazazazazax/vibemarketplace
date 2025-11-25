@@ -10,7 +10,7 @@ const alchemyRpcUrl = process.env.NEXT_PUBLIC_ALCHEMY_BASE_URL || 'https://1rpc.
 console.log('Alchemy RPC URL loaded:', alchemyRpcUrl); // Stampa in server console (non browser)
 
 const config = getDefaultConfig({
-  appName: 'Vibe.Market',
+  appName: 'Poorly drawn binders',
   projectId,
   chains: [base],
   ssr: true,
