@@ -1935,16 +1935,16 @@ const getWearCondition = (wearValue) => {
   </button>
 </div>
 ) : (
-            <div className="w-full flex flex-col items-center">
-<div className="flex flex-col space-y-2 mb-4 -ml-12 sm:-ml-14 md:-ml-16 mt-28">
+<div className="w-full flex flex-col items-center">
+<div className="flex flex-col space-y-2 mb-4 mr-12 sm:mr-14 md:mr-16 sm:justify-center mt-28">
   {!showFilters ? (
     <button
       onClick={() => setShowFilters(true)}
-      className="p-2 rounded self-start"
+      className="p-2 rounded self-end"  // Cambiato da self-start a self-end per allineare a destra
     >
-      <img 
-        src="/filters.png" 
-        alt="Filters" 
+      <img
+        src="/filters.png"
+        alt="Filters"
         className="w-17 h-16 sm:w-22 sm:h-18 md:w-26 md:h-20 transition-all"
       />
     </button>
@@ -1960,7 +1960,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/single.png" 
             alt="Single Mode" 
-            className={`w-20 h-14 sm:w-20 sm:h-18 md:w-24 md:h-19 transition-all ${!multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
+            className={`w-22 h-14 sm:w-20 sm:h-18 md:w-24 md:h-19 transition-all ${!multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
           />
         </button>
         {/* Multi: toggle come prima */}
@@ -1971,7 +1971,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/multi.png" 
             alt="Multilisting" 
-            className={`w-24 h-21 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
+            className={`w-30 h-16 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
           />
         </button>
 {/* Listed: come prima, a fianco */}
@@ -1982,7 +1982,7 @@ const getWearCondition = (wearValue) => {
   <img 
     src="/listed.png" 
     alt="Listed Filter" 
-    className={`w-18 h-14 sm:w-22 sm:h-14 md:w-30 md:h-16 transition-all ${isListedFilter ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
+    className={`w-20 h-14 sm:w-22 sm:h-14 md:w-30 md:h-16 transition-all ${isListedFilter ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
   />
 </button>
       </div>
@@ -1992,7 +1992,7 @@ const getWearCondition = (wearValue) => {
   <img 
     src="/dropfinder.png" 
     alt="Drop Finder" 
-    className="w-66 h-12 sm:h-14 md:h-16 block object-fill"
+    className="w-66 h-8 sm:w-66 h-14 md:w-66 h-16 block object-fill"
   />
   <input 
     type="text"
@@ -2011,7 +2011,7 @@ const getWearCondition = (wearValue) => {
       setDropFilter('');
     }
   }}
-  className="absolute right-14 top-1/2 -translate-y-1/2 w-16 h-full opacity-0 cursor-pointer z-20"
+  className="absolute right-7 sm:absolute right-14 md:absolute right-14 top-1/2 -translate-y-1/2 w-16 h-full opacity-0 cursor-pointer z-20"
   title="Apply Drop Filter (Go)"
 />
 </div>
@@ -2097,7 +2097,7 @@ const isZoomed = zoomedLabels[cacheKey];
                       return (
                         <div
                           key={index}
-                          className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 ml-2 sm:mx-auto h-[30.375rem] ${multiMode && isSelected ? 'scale-105' : ''}`}
+                          className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-12 sm:mx-auto h-[30.375rem] ${multiMode && isSelected ? 'scale-105' : ''}`}
                           onMouseEnter={() => handleMouseEnter(card)}
                           onMouseLeave={handleMouseLeave}
                           onClick={() => handleCardClick(card)}
