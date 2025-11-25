@@ -96,3 +96,27 @@ body {
   }
 }
 
+/* Fix Grid Carte NFT per Mini App Farcaster (solo modal verticale, max 424px) */
+@media (max-width: 424px) {
+  body.farcaster-miniapp {
+    /* Grid carte NFT: Sposta sinistra, centra sul verde */
+    .miniapp-grid {
+      padding-left: 0 !important;  /* Rimuovi padding esterno, sposta sinistra */
+      margin-left: -0.5rem !important;  /* Margine negativo per centrare sul verde (aumenta a -0.75rem se troppo destra) */
+      width: 100% !important;
+      justify-items: center !important;  /* Centra items nella grid */
+    }
+
+    /* Colonne grid: 2 col per larghezza stretta */
+    .miniapp-grid {
+      grid-template-columns: repeat(2, 1fr) !important;  /* 2 col in modal */
+      gap: 0.5rem !important;
+    }
+
+    /* Carte NFT: Larghezza per centrare */
+    .miniapp-grid .relative.group.cursor-pointer {
+      width: 95% !important;  /* Larghezza per centrare */
+      margin: 0 auto !important;  /* Auto-margin centrante */
+    }
+  }
+}
