@@ -976,7 +976,7 @@ const [price, isEth, currency] = await readContract(config, {
   </div>
 )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full miniapp-grid">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
               {currentListings.length > 0 ? (
                 currentListings.map((listing) => {
                   const cacheKey = `${listing.tokenId}-${listing.collection}`;
