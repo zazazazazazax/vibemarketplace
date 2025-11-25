@@ -8,8 +8,9 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useQuery } from '@tanstack/react-query';
 import { readContract, writeContract, waitForTransaction } from 'wagmi/actions';
 import { useWalletSignature } from '../hooks/useWalletSignature';  // Adatta il path se necessario
+import { useFarcasterMiniApp } from '../hooks/useFarcasterMiniApp';
 
-const MARKETPLACE_ADDRESS = '0x37E6ca374bCF8622c0C7e3E0c51EfD1D37fE79d4' ;
+const MARKETPLACE_ADDRESS = '0x34682Df3fC35079EFe78fF37008856aB090e03e1' ;
 
 const erc721ABI = [
   {
@@ -51,7 +52,8 @@ const marketplaceABI = [
   {
     "inputs": [
       {"name": "_collection", "type": "address"},
-      {"name": "tokenId", "type": "uint256"}
+      {"name": "tokenId", "type": "uint256"},
+      {"name": "seller", "type": "address"}  // NUOVO: Aggiunto seller
     ],
     "name": "getListingDetails",
     "outputs": [
@@ -65,7 +67,8 @@ const marketplaceABI = [
   {
     "inputs": [
       {"name": "_collection", "type": "address"},
-      {"name": "tokenId", "type": "uint256"}
+      {"name": "tokenId", "type": "uint256"},
+      {"name": "seller", "type": "address"}  // NUOVO: Aggiunto seller
     ],
     "name": "delist",
     "outputs": [],
@@ -77,9 +80,10 @@ const marketplaceABI = [
       {
         "name": "items",
         "type": "tuple[]",
-        "components": [
+        "components": [  // AGGIORNATO: Aggiunto seller in BatchItem
           {"name": "collection", "type": "address"},
-          {"name": "tokenId", "type": "uint256"}
+          {"name": "tokenId", "type": "uint256"},
+          {"name": "seller", "type": "address"}  // NUOVO
         ]
       }
     ],
@@ -94,7 +98,7 @@ const marketplaceABI = [
       {
         "name": "items",
         "type": "tuple[]",
-        "components": [
+        "components": [  // Invariato: seller è msg.sender
           {"name": "collection", "type": "address"},
           {"name": "tokenId", "type": "uint256"},
           {"name": "price", "type": "uint256"},
@@ -121,6 +125,9 @@ export default function InventoryContent() {
 const config = useConfig();
 const { hasSigned, isSigning, error: signatureError, handleSignature, resetSignature } = useWalletSignature(walletAddress);
 const { openConnectModal } = useConnectModal();
+
+// NUOVO: Hook per Mini App (navigate, embedded wallet—non altera connect)
+  const { navigateTo } = useFarcasterMiniApp();
 
   // Stati (sempre al top)
   const [showUI, setShowUI] = useState(false);
@@ -150,7 +157,7 @@ const [showBatchListingOptions, setShowBatchListingOptions] = useState(false);
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 const hasListedSelected = useMemo(() => 
   selectedCards.length > 0 && selectedCards.every(card => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+    const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
     return listings[cacheKey];
   }), [selectedCards, listings]);
 const debounceRef = useRef(null);
@@ -233,13 +240,13 @@ useEffect(() => {
     // Applica poi i filtri listed/multi (listed ha priorità su multi)
     if (isListedFilter) {
       filteredInventory = filteredInventory.filter(card => {
-        const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+        const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
         return !!listings[cacheKey];
       });
     } else if (multiMode) {
       // Se multi attivo e non listedFilter, mostra solo non-listate
       filteredInventory = filteredInventory.filter(card => {
-        const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+        const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
         return !listings[cacheKey];
       });
     }
@@ -280,7 +287,7 @@ const fetchAllInventory = useCallback(async (address) => {
 
 // [FIX: calculateCardPrice spostato QUI, PRIMA di fetchListings]
 const calculateCardPrice = useCallback(async (card) => {
-  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+  const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
   if (prices[cacheKey]) return prices[cacheKey];
   if (!card.contract?.tokenAddress) return null;
   try {
@@ -301,7 +308,7 @@ const calculateCardPrice = useCallback(async (card) => {
 const fetchListings = useCallback(async (cards) => {
   if (!cards || cards.length === 0 || !walletAddress || !config) return;
   const listingPromises = cards.map(async (card) => {
-    const cacheKey = `${card.tokenId || 'invalid'}-${card.contractAddress || 'invalid'}`;
+    const cacheKey = `${card.tokenId || 'invalid'}-${card.contractAddress || 'invalid'}-${walletAddress || 'invalid'}`;
     const tokenIdNum = Number(card.tokenId);
     if (!card.tokenId || isNaN(tokenIdNum) || tokenIdNum <= 0) {
       console.debug('Skipping invalid tokenId for', cacheKey, ':', card.tokenId);
@@ -313,8 +320,8 @@ const fetchListings = useCallback(async (cards) => {
         address: MARKETPLACE_ADDRESS,
         abi: marketplaceABI,
         functionName: 'getListingDetails',
-        args: [card.contractAddress, BigInt(tokenIdNum)],
-        chainId,
+args: [card.contractAddress, BigInt(tokenIdNum), walletAddress], 
+chainId,
       });
       console.debug('Listing fetched for', cacheKey, ':', { listingPrice: listingPrice?.toString(), isEth, currency });
       let usdValue = 0;
@@ -410,7 +417,7 @@ const handleBatchEthListing = useCallback(async () => {
   }
   // Calcola prezzi se non caricati (parallelo)
   await Promise.all(selectedCards.map(async (card) => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+    const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
     if (!prices[cacheKey]) await calculateCardPrice(card);
   }));
   // Collezioni uniche per approvazioni (invariato – tutto il block approvals)
@@ -464,7 +471,7 @@ const handleBatchEthListing = useCallback(async () => {
     }
     // Prepara items (invariato)
     const items = selectedCards.map(card => {
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       const priceData = prices[cacheKey];
       const tokenIdStr = Number(card.tokenId).toString();
       const tokenId = BigInt(tokenIdStr);
@@ -489,7 +496,7 @@ const handleBatchEthListing = useCallback(async () => {
     // Update UI ottimistico IMMEDIATO per tutti
     const optimisticListings = {};
     selectedCards.forEach(card => {
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       const priceData = prices[cacheKey];
       const listedVal = (priceData?.ethValue || 0);
       const usdValue = listedVal * ethUsdPrice;
@@ -506,14 +513,14 @@ const handleBatchEthListing = useCallback(async () => {
     // Verifica on-chain dopo 8s (parallela per batch)
     setTimeout(async () => {
       const verifyPromises = selectedCards.map(async (card) => {
-        const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+        const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
         try {
           const collection = card.contractAddress.toLowerCase();
           const [verifiedPrice, verifiedIsEth, verifiedCurrency] = await readContract(config, {
             address: MARKETPLACE_ADDRESS,
             abi: marketplaceABI,
             functionName: 'getListingDetails',
-            args: [collection, BigInt(Number(card.tokenId))],
+            args: [collection, BigInt(Number(card.tokenId)), walletAddress],
             chainId,
           });
           return { cacheKey, success: true, verified: { price: verifiedPrice, isEth: verifiedIsEth, currency: verifiedCurrency } };
@@ -540,7 +547,7 @@ const handleBatchEthListing = useCallback(async () => {
       // Salva solo verified in JSON
       if (verifiedKeys.length > 0) {
         const addItems = verifyResults.filter(r => r.success).map(r => {
-          const card = selectedCards.find(c => `${c.tokenId}-${c.contractAddress}` === r.cacheKey);
+          const card = selectedCards.find(c => `${c.tokenId}-${c.contractAddress}-${walletAddress}` === r.cacheKey);
           const verified = r.verified;
           const listedVal = Number(verified.price) / 1e18;
           const verifiedUsdValue = listedVal * ethUsdPrice;
@@ -602,7 +609,7 @@ const handleBatchTokenListing = useCallback(async () => {
   }
   // Calcola prezzi se non caricati
   await Promise.all(selectedCards.map(async (card) => {
-    const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+    const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
     if (!prices[cacheKey]) await calculateCardPrice(card);
   }));
   // Collezioni uniche per approvazioni (invariato – tutto il block approvals)
@@ -656,7 +663,7 @@ const handleBatchTokenListing = useCallback(async () => {
     }
     // Prepara items with usd (invariato)
     const itemsWithUsd = selectedCards.map(card => {
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       const priceData = prices[cacheKey];
       const tokenIdStr = Number(card.tokenId).toString();
       const tokenId = BigInt(tokenIdStr);
@@ -693,7 +700,7 @@ const handleBatchTokenListing = useCallback(async () => {
     const optimisticListings = {};
     selectedCards.forEach((card, idx) => {
       const { tuple: [_, __, price], usdValue } = itemsWithUsd[idx];
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       const boosterToken = card.contract?.tokenAddress || zeroAddress;
       optimisticListings[cacheKey] = { price, isEth: false, currency: boosterToken, usdValue };
     });
@@ -706,14 +713,14 @@ const handleBatchTokenListing = useCallback(async () => {
     // Verifica on-chain dopo 8s (parallela)
     setTimeout(async () => {
       const verifyPromises = selectedCards.map(async (card, idx) => {
-        const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+        const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
         try {
           const collection = card.contractAddress.toLowerCase();
           const [verifiedPrice, verifiedIsEth, verifiedCurrency] = await readContract(config, {
             address: MARKETPLACE_ADDRESS,
             abi: marketplaceABI,
             functionName: 'getListingDetails',
-            args: [collection, BigInt(Number(card.tokenId))],
+            args: [collection, BigInt(Number(card.tokenId)), walletAddress],
             chainId,
           });
           // Ricalcola USD verified
@@ -757,7 +764,7 @@ const handleBatchTokenListing = useCallback(async () => {
       // Salva solo verified in JSON
       if (verifiedKeys.length > 0) {
         const addItems = verifyResults.filter(r => r.success).map(r => {
-          const card = selectedCards.find(c => `${c.tokenId}-${c.contractAddress}` === r.cacheKey);
+          const card = selectedCards.find(c => `${c.tokenId}-${c.contractAddress}-${walletAddress}` === r.cacheKey);
           const verified = r.verified;
           return {
             key: r.cacheKey.toLowerCase(),
@@ -818,7 +825,7 @@ const handleBatchDelist = useCallback(async () => {
   try {
     const items = selectedCards.map(card => {
       const tokenId = BigInt(Number(card.tokenId));
-      return [card.contractAddress.toLowerCase(), tokenId];
+      return [card.contractAddress.toLowerCase(), tokenId, walletAddress];
     });
     console.log('Batch delist items:', items);
     const result = await writeContract(config, {
@@ -833,7 +840,7 @@ const handleBatchDelist = useCallback(async () => {
     // Update UI ottimistico IMMEDIATO (rimuovi tutti)
     const updatedListings = { ...listings };
     selectedCards.forEach(card => {
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       delete updatedListings[cacheKey];
     });
     setListings(updatedListings);
@@ -844,14 +851,14 @@ const handleBatchDelist = useCallback(async () => {
     // Verifica on-chain dopo 8s (parallela)
     setTimeout(async () => {
       const verifyPromises = selectedCards.map(async (card) => {
-        const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+        const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
         try {
           const collection = card.contractAddress.toLowerCase();
           await readContract(config, {
             address: MARKETPLACE_ADDRESS,
             abi: marketplaceABI,
             functionName: 'getListingDetails',
-            args: [collection, BigInt(Number(card.tokenId))],
+            args: [collection, BigInt(Number(card.tokenId)), walletAddress],
             chainId,
           });
           // Success qui = ANCORA LISTED (TX fallita per questo item)
@@ -954,7 +961,7 @@ const handleBatchDelist = useCallback(async () => {
   const handleMouseEnter = useCallback((card) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       if (!prices[cacheKey] && card.contract?.tokenAddress && isEthPriceLoaded) {
         await calculateCardPrice(card);
       }
@@ -1012,7 +1019,7 @@ const handleDelist = useCallback(async (card) => {
     return;
   }
   const tokenId = BigInt(tokenIdNum);
-  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+  const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
   const listing = listings[cacheKey];
   if (!listing) {
     alert('Not listed');
@@ -1024,7 +1031,7 @@ const handleDelist = useCallback(async (card) => {
       address: MARKETPLACE_ADDRESS,
       abi: marketplaceABI,
       functionName: 'delist',
-      args: [collection, tokenId],
+      args: [collection, tokenId, walletAddress],
       chainId,
     });
     console.debug('Delist tx sent:', delistResult.hash);
@@ -1047,7 +1054,7 @@ const handleDelist = useCallback(async (card) => {
           address: MARKETPLACE_ADDRESS,
           abi: marketplaceABI,
           functionName: 'getListingDetails',
-          args: [collection, BigInt(tokenIdNum)],
+          args: [collection, BigInt(tokenIdNum), walletAddress],
           chainId,
         });
         // Success qui = ANCORA LISTED (TX fallita): Rollback UI e JSON
@@ -1110,7 +1117,7 @@ const handleDelist = useCallback(async (card) => {
 }, [walletAddress, config, chainId, listings, fetchListings, allInventory, fetchAllInventory, zeroAddress]);
 
 const handleEthListing = useCallback(async (card) => {
-  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+  const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
   const tokenIdNum = Number(card.tokenId);
   if (!card.tokenId || isNaN(tokenIdNum) || tokenIdNum <= 0 || !walletAddress) {
     alert('Invalid token or wallet');
@@ -1211,7 +1218,7 @@ const handleEthListing = useCallback(async (card) => {
           address: MARKETPLACE_ADDRESS,
           abi: marketplaceABI,
           functionName: 'getListingDetails',
-          args: [collection, BigInt(tokenIdNum)],
+          args: [collection, BigInt(tokenIdNum), walletAddress],
           chainId,
         });
         // Success: Conferma e salva JSON
@@ -1281,7 +1288,7 @@ const handleEthListing = useCallback(async (card) => {
 }, [walletAddress, prices, fetchAllInventory, chainId, calculateCardPrice, config, fetchListings, allInventory, ethUsdPrice, zeroAddress]);
 
 const handleTokenListing = useCallback(async (card) => {
-  const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+  const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
   const tokenIdNum = Number(card.tokenId);
   if (!card.tokenId || isNaN(tokenIdNum) || tokenIdNum <= 0 || !walletAddress) {
     alert('Invalid token or wallet');
@@ -1395,7 +1402,7 @@ const handleTokenListing = useCallback(async (card) => {
           address: MARKETPLACE_ADDRESS,
           abi: marketplaceABI,
           functionName: 'getListingDetails',
-          args: [collection, BigInt(tokenIdNum)],
+          args: [collection, BigInt(tokenIdNum), walletAddress],
           chainId,
         });
         // Success: Ricalcola usdValue verified e salva JSON
@@ -1516,13 +1523,13 @@ const totalPages = useMemo(() => {
   // Applica poi i filtri listed/multi (listed ha priorità su multi)
   if (isListedFilter) {
     filteredInventory = filteredInventory.filter(card => {
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       return !!listings[cacheKey];
     });
   } else if (multiMode) {
     // Se multi attivo e non listedFilter, mostra solo non-listate
     filteredInventory = filteredInventory.filter(card => {
-      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
       return !listings[cacheKey];
     });
   }
@@ -2037,7 +2044,7 @@ const getWearCondition = (wearValue) => {
                 <div className="w-full flex flex-col items-center">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full max-w-7xl mx-auto">
                     {inventory.map((card, index) => {
-                      const cacheKey = `${card.tokenId}-${card.contractAddress}`;
+                      const cacheKey = `${card.tokenId}-${card.contractAddress}-${walletAddress}`;
                       const priceData = prices[cacheKey];
                       const isSelected = selectedCards.some(c => c.tokenId === card.tokenId && c.contractAddress === card.contractAddress);
 const listing = listings[cacheKey];
