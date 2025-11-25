@@ -21,6 +21,23 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+<head>
+        {/* Nuovo: Meta per Farcaster Mini App (discovery e launch) */}
+        <meta name="fc:miniapp" content={JSON.stringify({
+          version: '1',
+          imageUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vibemarketplace.vercel.app'}/pdb.png`,  // Usa la tua immagine preview
+          button: {
+            title: 'Launch Vibe.Market',
+            action: {
+              type: 'launch_frame',
+              name: 'Poorly drawn binders',
+              url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vibemarketplace.vercel.app'}/`,  // Apri home nel modal
+              splashImageUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vibemarketplace.vercel.app'}/welcome.png`,
+              splashBackgroundColor: '#000000',  // Nero per dark theme
+            },
+          },
+        })} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <MetaMaskProvider>  {/* <-- Aggiunto: Wrap per SDK client-side */}
