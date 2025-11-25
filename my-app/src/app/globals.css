@@ -96,27 +96,23 @@ body {
   }
 }
 
-/* Fix Grid Carte NFT per Mini App Farcaster (solo modal verticale, max 424px) */
+/* Fix Carta Singola Home per Mini App Farcaster (solo modal verticale, max 424px) */
 @media (max-width: 424px) {
   body.farcaster-miniapp {
-    /* Grid carte NFT: Sposta sinistra, centra sul verde */
-    .miniapp-grid {
-      padding-left: 0 !important;  /* Rimuovi padding esterno, sposta sinistra */
-      margin-left: -0.5rem !important;  /* Margine negativo per centrare sul verde (aumenta a -0.75rem se troppo destra) */
+    /* Carta singola home (latest listing): Sposta sinistra, centra sul verde */
+    .latest-card-container, .flex.flex-col.items-center.relative {  /* Adatta al class del div carta (es. flex flex-col items-center relative dal tuo code) */
+      padding-left: 0 !important;  /* Rimuovi padding destro */
+      margin-left: -0.75rem !important;  /* Margine negativo per centrare sul verde (aumenta a -1rem se troppo destra) */
       width: 100% !important;
-      justify-items: center !important;  /* Centra items nella grid */
+      align-self: center !important;  /* Centra */
+      left: 0 !important;  /* Forza posizione sinistra */
     }
 
-    /* Colonne grid: 2 col per larghezza stretta */
-    .miniapp-grid {
-      grid-template-columns: repeat(2, 1fr) !important;  /* 2 col in modal */
-      gap: 0.5rem !important;
-    }
-
-    /* Carte NFT: Larghezza per centrare */
-    .miniapp-grid .relative.group.cursor-pointer {
+    /* Immagine carta: Larghezza per centrare */
+    .latest-card-container img[src*="/100.png"], .latest-card-container .card-img {  /* Adatta al class immagine carta */
       width: 95% !important;  /* Larghezza per centrare */
       margin: 0 auto !important;  /* Auto-margin centrante */
+      object-fit: contain !important;  /* Mantieni proporzioni */
     }
   }
 }
