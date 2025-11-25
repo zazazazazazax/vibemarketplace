@@ -1971,7 +1971,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/multi.png" 
             alt="Multilisting" 
-            className={`w-26 h-16 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
+            className={`w-28 h-16 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
           />
         </button>
 {/* Listed: come prima, a fianco */}
@@ -1992,7 +1992,7 @@ const getWearCondition = (wearValue) => {
   <img 
     src="/dropfinder.png" 
     alt="Drop Finder" 
-    className="w-44 h-10 sm:w-66 h-14 md:w-66 h-16 block object-fill"
+    className="w-66 h-8 sm:w-66 h-14 md:w-66 h-16 block object-fill"
   />
   <input 
     type="text"
