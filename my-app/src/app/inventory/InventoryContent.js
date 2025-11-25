@@ -1935,16 +1935,16 @@ const getWearCondition = (wearValue) => {
   </button>
 </div>
 ) : (
-            <div className="w-full flex flex-col items-center">
-<div className="flex flex-col space-y-2 mb-4 -ml-12 sm:-ml-14 md:-ml-16 mt-28">
+<div className="w-full flex flex-col items-center">
+<div className="flex flex-col space-y-2 mb-4 mr-12 sm:mr-14 md:mr-16 sm:justify-center mt-28">
   {!showFilters ? (
     <button
       onClick={() => setShowFilters(true)}
-      className="p-2 rounded self-start"
+      className="p-2 rounded self-end"  // Cambiato da self-start a self-end per allineare a destra
     >
-      <img 
-        src="/filters.png" 
-        alt="Filters" 
+      <img
+        src="/filters.png"
+        alt="Filters"
         className="w-17 h-16 sm:w-22 sm:h-18 md:w-26 md:h-20 transition-all"
       />
     </button>
