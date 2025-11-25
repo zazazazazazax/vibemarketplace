@@ -17,6 +17,7 @@ const nextConfig = {
     return config;
   },
 
+  // Headers per CSP e COOP (esistente)
   async headers() {
     return [
       {
@@ -35,6 +36,18 @@ const nextConfig = {
       },
     ];
   },
+
+  // Nuovo: Redirect temporaneo per Farcaster manifest (al top-level, separato da headers)
+//  async redirects() {
+//    return [
+//      {
+//        source: '/.well-known/farcaster.json',
+//        has: [],  // No conditions
+//        destination: '/.well-known/farcaster.json',
+//        permanent: false,  // 307 Temporary Redirect (non 308 permanente)
+//      },
+//    ];
+//  },
 };
 
 module.exports = nextConfig;
