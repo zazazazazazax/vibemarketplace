@@ -58,6 +58,19 @@ body {
   box-shadow: none !important;
 }
 
+/* Fix Colonna Carte per Mini App Farcaster (solo modal verticale, max 424px) */
+@media (max-width: 424px) {
+  body.farcaster-miniapp {
+    /* Colonna carte (banner PDP/win): Centra sul verde, riduci padding/margine */
+    .w-full.flex.flex-col.items-start.space-y-2.mt-48.pb-14.z-0.pl-4.self-start {
+      padding-left: 0 !important;  /* Rimuovi pl-4, sposta sinistra */
+      margin-left: -1rem !important;  /* Margine negativo per centrare sul verde */
+      margin-top: 2rem !important;  /* Riduci mt-48 a mt-8 per verticale */
+      width: 100% !important;
+      align-self: center !important;  /* Centra invece di self-start */
+      left: 0 !important;  /* Forza posizione sinistra se z-0 interferisce */
+}
+    
 /* Aggiungi alla fine di globals.css */
 @media (max-width: 424px) {  /* Modal Mini App size */
   body {
@@ -71,15 +84,4 @@ body {
   }
 }
 
-/* Fix Colonna Carte per Mini App Farcaster (solo modal verticale, max 424px) */
-@media (max-width: 424px) {
-  body.farcaster-miniapp {
-    /* Colonna carte (banner PDP/win): Centra sul verde, riduci padding/margine */
-    .w-full.flex.flex-col.items-start.space-y-2.mt-48.pb-14.z-0.pl-4.self-start {
-      padding-left: 0 !important;  /* Rimuovi pl-4, sposta sinistra */
-      margin-left: -1rem !important;  /* Margine negativo per centrare sul verde */
-      margin-top: 2rem !important;  /* Riduci mt-48 a mt-8 per verticale */
-      width: 100% !important;
-      align-self: center !important;  /* Centra invece di self-start */
-      left: 0 !important;  /* Forza posizione sinistra se z-0 interferisce */
-    }
+
