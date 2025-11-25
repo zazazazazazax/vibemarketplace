@@ -71,28 +71,28 @@ body {
   }
 }
 
-/* Fix Colonna Carte per Mini App Farcaster (solo modal verticale, max 424px) */
+/* Fix Colonna Carte NFT per Mini App Farcaster (solo modal verticale, max 424px) */
 @media (max-width: 424px) {
   body.farcaster-miniapp {
-    /* Colonna carte: Centra sul verde, riduci padding/margine */
+    /* Colonna carte NFT: Sposta sinistra, centra sul verde */
     .w-full.flex.flex-col.items-start.space-y-2.mt-48.pb-14.z-0.pl-4.self-start {
       padding-left: 0 !important;  /* Rimuovi pl-4, sposta sinistra */
-      margin-left: -0.75rem !important;  /* Margine negativo per centrare sul verde (adatta se troppo/s poco) */
-      margin-top: 2rem !important;  /* Riduci mt-48 a mt-8 per più spazio verticale */
+      margin-left: -0.75rem !important;  /* Margine negativo per centrare sul verde (aumenta a -1rem se troppo destra) */
+      margin-top: 2rem !important;  /* Riduci mt-48 per spazio verticale */
       width: 100% !important;
       align-self: center !important;  /* Centra invece di self-start */
-      left: 0 !important;  /* Forza posizione se z-0 interferisce */
+      left: 0 !important;  /* Forza posizione sinistra */
     }
 
-    /* Carte nella colonna: Riduci gap e larghezza per centrare */
-    .grid-cols-6 {  /* Adatta al tuo grid class (es. in binders/inventory) */
-      grid-template-columns: repeat(2, 1fr) !important;  /* 2 col in modal stretto */
+    /* Carte NFT nella colonna: 2 col per larghezza stretta, centra */
+    .grid-cols-6, .grid-cols-4, .grid-cols-3 {  /* Adatta ai tuoi grid in binders/inventory/home */
+      grid-template-columns: repeat(2, 1fr) !important;  /* 2 col in modal */
       gap: 0.5rem !important;
       justify-items: center !important;  /* Centra items nella grid */
     }
-    .card-item {  /* Adatta al class delle carte */
+    .card-item, .relative.group.cursor-pointer {  /* Adatta al class delle carte NFT */
       width: 95% !important;  /* Larghezza per centrare */
-      margin: 0 auto !important;  /* Auto-margin per centrare */
+      margin: 0 auto !important;  /* Auto-margin centrante */
     }
   }
 }
