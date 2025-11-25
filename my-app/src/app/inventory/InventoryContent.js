@@ -1971,7 +1971,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/multi.png" 
             alt="Multilisting" 
-            className={`w-22 h-14 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
+            className={`w-24 h-14 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
           />
         </button>
 {/* Listed: come prima, a fianco */}
@@ -1992,7 +1992,7 @@ const getWearCondition = (wearValue) => {
   <img 
     src="/dropfinder.png" 
     alt="Drop Finder" 
-    className="w-66 h-12 sm:h-14 md:h-16 block object-fill"
+    className="w-66 h-10 sm:w-66 h-14 md:w-66 h-16 block object-fill"
   />
   <input 
     type="text"
@@ -2011,7 +2011,7 @@ const getWearCondition = (wearValue) => {
       setDropFilter('');
     }
   }}
-  className="absolute right-14 top-1/2 -translate-y-1/2 w-16 h-full opacity-0 cursor-pointer z-20"
+  className="absolute right-7 sm:absolute right-14 md:absolute right-14 top-1/2 -translate-y-1/2 w-16 h-full opacity-0 cursor-pointer z-20"
   title="Apply Drop Filter (Go)"
 />
 </div>
