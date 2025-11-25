@@ -11,6 +11,7 @@ import { ethers } from 'ethers';
 import { http } from 'viem';
 import { readContract, writeContract, waitForTransaction } from 'wagmi/actions';
 import { useQuery } from '@tanstack/react-query';
+import { useFarcasterMiniApp } from '../hooks/useFarcasterMiniApp';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,8 @@ const marketplaceABI = [
   {
     "inputs": [
       {"name": "_collection", "type": "address"},
-      {"name": "tokenId", "type": "uint256"}
+      {"name": "tokenId", "type": "uint256"},
+      {"name": "seller", "type": "address"}  // NUOVO: Aggiunto seller
     ],
     "name": "getListingDetails",
     "outputs": [
@@ -49,7 +51,8 @@ const marketplaceABI = [
   {
     "inputs": [
       {"name": "_collection", "type": "address"},
-      {"name": "tokenId", "type": "uint256"}
+      {"name": "tokenId", "type": "uint256"},
+      {"name": "seller", "type": "address"}  // NUOVO: Aggiunto seller
     ],
     "name": "buyListing",
     "outputs": [],
@@ -61,9 +64,10 @@ const marketplaceABI = [
       {
         "name": "items",
         "type": "tuple[]",
-        "components": [
+        "components": [  // AGGIORNATO: Aggiunto seller in BatchItem
           {"name": "collection", "type": "address"},
-          {"name": "tokenId", "type": "uint256"}
+          {"name": "tokenId", "type": "uint256"},
+          {"name": "seller", "type": "address"}  // NUOVO
         ]
       }
     ],
@@ -74,7 +78,7 @@ const marketplaceABI = [
   }
 ];
 
-const CONTRACT_ADDRESS = '0x37E6ca374bCF8622c0C7e3E0c51EfD1D37fE79d4';
+const CONTRACT_ADDRESS = '0x34682Df3fC35079EFe78fF37008856aB090e03e1';
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 const erc20ABI = [
   {
@@ -106,11 +110,23 @@ const erc20ABI = [
   }
 ];
 
-//All listings
+const erc721ABI = [
+  {
+    "inputs": [{"name": "tokenId", "type": "uint256"}],
+    "name": "ownerOf",
+    "outputs": [{"name": "owner", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+//All listings – AGGIORNATO: Verifica owner/seller match on-chain post-fetch
 function useAllListings() {
   const [allListings, setAllListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { address: walletAddress } = useAccount();  // Per config, ma non essenziale qui
+  const config = useConfig();
 
   useEffect(() => {
     async function fetchAll() {
@@ -118,7 +134,7 @@ function useAllListings() {
       setError(null);
 
       try {
-        const response = await fetch('/api/listings?endpoint=all&limit=1000'); // Aumentato limit per paginazione client-side
+        const response = await fetch('/api/listings?endpoint=all&limit=1000');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
 
@@ -127,7 +143,53 @@ function useAllListings() {
           return;
         }
 
-        setAllListings(data.listings || []); // Dal route.js: { listings: [...] }
+        let fetchedListings = data.listings || [];
+
+        // NUOVO: Batch verifica owner/seller match (solo se config disponibile)
+        if (config && fetchedListings.length > 0) {
+          console.log('Verifying owner/seller for', fetchedListings.length, 'listings...');
+          const verifyPromises = fetchedListings.map(async (listing) => {
+            try {
+              const tokenIdNum = Number(listing.tokenId);
+              if (isNaN(tokenIdNum) || tokenIdNum <= 0) return listing;  // Skip invalid
+
+              // Read ownerOf dall'NFT collection
+              const owner = await readContract(config, {
+                address: listing.collection.toLowerCase(),
+                abi: erc721ABI,
+                functionName: 'ownerOf',
+                args: [BigInt(tokenIdNum)],
+                chainId: 8453,  // Forza Base
+              });
+
+              // Se seller != owner, segna per remove
+              if (owner.toLowerCase() !== listing.seller.toLowerCase()) {
+                console.warn(`Mismatch for ${listing.key}: seller ${listing.seller} != owner ${owner}`);
+                // Remove dal backend (usa helper, ma qui inline per semplicità)
+                await fetch('/api/listings', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'remove',
+                    items: [{ key: listing.key.toLowerCase() }],
+                    walletAddress: listing.seller.toLowerCase()  // Passa seller per completezza
+                  }),
+                }).catch(removeErr => console.error('Backend remove failed for mismatch:', removeErr));
+                return null;  // Filtra out
+              }
+              return listing;
+            } catch (verifyErr) {
+              console.error(`Owner verify failed for ${listing.key}:`, verifyErr);
+              return listing;  // Keep se errore (non bloccare)
+            }
+          });
+
+          const verifiedListings = (await Promise.all(verifyPromises)).filter(Boolean);
+          console.log(`Verified: ${verifiedListings.length}/${fetchedListings.length} listings valid`);
+          fetchedListings = verifiedListings;
+        }
+
+        setAllListings(fetchedListings);
       } catch (err) {
         console.error('Fetch all listings error:', err);
         setError('Error fetching listings. Please refresh.');
@@ -137,7 +199,7 @@ function useAllListings() {
     }
 
     fetchAll();
-  }, []);
+  }, [config]);  // Dipende da config per verifica
 
   return { allListings, setAllListings, loading, error };
 }
@@ -160,6 +222,9 @@ export default function Binders() {
   // Stati per paginazione
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+// NUOVO: Hook per Mini App (navigate, embedded wallet—non altera connect)
+  const { navigateTo } = useFarcasterMiniApp();
 
   // useQuery per ETH price (copia da InventoryContent)
   const { data: ethPriceData } = useQuery({
@@ -281,12 +346,12 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
 }, [readContract]);
 
   // Funzione helper per remove backend (per match backend POST)
-  const removeListingFromBackend = useCallback(async (collection, tokenId, walletAddress) => {
-    const key = `${tokenId}-${collection.toLowerCase()}`;
+  const removeListingFromBackend = useCallback(async (collection, tokenId, seller) => {
+    const key = `${tokenId}-${collection.toLowerCase()}-${seller.toLowerCase()}`;
     const body = {
       action: 'remove',
       items: [{ key }],
-      walletAddress // Opzionale, ma passa per completezza
+      walletAddress: seller.toLowerCase()
     };
 
     // Retry semplice (1x) per flakiness
@@ -421,12 +486,12 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
 
     try {
       // Get details pre-buy
-      const [price, isEth, currency] = await readContract(config, {
-        address: CONTRACT_ADDRESS,
-        abi: marketplaceABI,
-        functionName: 'getListingDetails',
-        args: [listing.collection.toLowerCase(), BigInt(listing.tokenId)],
-      });
+const [price, isEth, currency] = await readContract(config, {
+      address: CONTRACT_ADDRESS,
+      abi: marketplaceABI,
+      functionName: 'getListingDetails',
+      args: [listing.collection.toLowerCase(), BigInt(listing.tokenId), listing.seller.toLowerCase()], 
+    });
 
       const priceWei = price;
       console.debug('Buy details:', { price: priceWei.toString(), isEth, currency });
@@ -493,7 +558,7 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
         address: CONTRACT_ADDRESS,
         abi: marketplaceABI,
         functionName: 'buyListing',
-        args: [listing.collection.toLowerCase(), BigInt(listing.tokenId)],
+        args: [listing.collection.toLowerCase(), BigInt(listing.tokenId), listing.seller.toLowerCase()],
         value: isEth ? priceWei : undefined,
       });
       const buyHash = buyResult?.hash || null; // Safe null se undefined
@@ -530,7 +595,7 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
           address: CONTRACT_ADDRESS,
           abi: marketplaceABI,
           functionName: 'getListingDetails',
-          args: [listing.collection.toLowerCase(), BigInt(listing.tokenId)],
+          args: [listing.collection.toLowerCase(), BigInt(listing.tokenId), listing.seller.toLowerCase()],
         });
         if (postPrice === 0n) {
           console.log('Buy verified: Listing removed on-chain');
@@ -545,7 +610,7 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
 
       // Se verificato on-chain, rimuovi dal backend
       if (listingRemovedOnChain) {
-        await removeListingFromBackend(listing.collection, listing.tokenId, walletAddress);
+        await removeListingFromBackend(listing.collection, listing.tokenId, listing.seller);
       }
 
       // Rimuovi localmente (sempre, per UX immediata)
@@ -562,7 +627,7 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
         alert('Insufficient funds. Please top up your wallet.');
       } else if (errorStr.includes('not listed') || errorStr.includes('inactive')) {
         console.log('Listing removed during buy – refreshing');
-        await removeListingFromBackend(listing.collection, listing.tokenId, walletAddress);
+        await removeListingFromBackend(listing.collection, listing.tokenId, listing.seller);
         setAllListings(prev => prev.filter(l => l.key !== listing.key));
       } else if (errorStr.includes('internal json-rpc error') || errorStr.includes('allowance not updated')) {
         // Gestione specifica per questo errore
@@ -585,9 +650,10 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
     }
 
     const isEth = selectedCards[0].isEth; // Assume same for all
-    const items = selectedCards.map(({ collection, tokenId }) => ({
+    const items = selectedCards.map(({ collection, tokenId, seller }) => ({
       collection: collection.toLowerCase(),
-      tokenId: BigInt(tokenId)
+      tokenId: BigInt(tokenId),
+      seller: seller.toLowerCase()
     }));
     const totalPrice = selectedCards.reduce((sum, l) => sum + BigInt(l.price), 0n);
 
@@ -668,19 +734,19 @@ const checkAllowanceWithRetry = useCallback(async (config, currency, walletAddre
             address: CONTRACT_ADDRESS,
             abi: marketplaceABI,
             functionName: 'getListingDetails',
-            args: [sel.collection.toLowerCase(), BigInt(sel.tokenId)],
+            args: [sel.collection.toLowerCase(), BigInt(sel.tokenId), sel.seller.toLowerCase()],
           });
           if (postPrice === 0n) {
-            removedKeys.push({ collection: sel.collection, tokenId: sel.tokenId, key: sel.key });
+            removedKeys.push({ collection: sel.collection, tokenId: sel.tokenId, seller: sel.seller, key: sel.key });
           }
         } catch {
-          removedKeys.push({ collection: sel.collection, tokenId: sel.tokenId, key: sel.key });
+          removedKeys.push({ collection: sel.collection, tokenId: sel.tokenId, seller: sel.seller, key: sel.key });
         }
       }
 
       // Remove dal backend per quelli verificati
-      for (const { collection, tokenId } of removedKeys) {
-        await removeListingFromBackend(collection, tokenId, walletAddress);
+      for (const { collection, tokenId, seller } of removedKeys) {
+        await removeListingFromBackend(collection, tokenId, seller);
       }
 
       // Rimuovi localmente
