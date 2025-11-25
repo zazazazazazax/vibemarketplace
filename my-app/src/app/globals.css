@@ -57,3 +57,16 @@ body {
   border: none !important;
   box-shadow: none !important;
 }
+
+/* Aggiungi alla fine di globals.css */
+@media (max-width: 424px) {  /* Modal Mini App size */
+  body {
+    max-height: 100vh;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+  }
+  .rainbowkit-modal {  /* Per RainbowKit in modal */
+    max-height: 80vh;
+  }
+}
