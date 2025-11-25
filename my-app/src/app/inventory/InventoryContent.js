@@ -1960,7 +1960,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/single.png" 
             alt="Single Mode" 
-            className={`w-20 h-14 sm:w-20 sm:h-18 md:w-24 md:h-19 transition-all ${!multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
+            className={`w-22 h-14 sm:w-20 sm:h-18 md:w-24 md:h-19 transition-all ${!multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
           />
         </button>
         {/* Multi: toggle come prima */}
@@ -1971,7 +1971,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/multi.png" 
             alt="Multilisting" 
-            className={`w-24 h-21 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
+            className={`w-22 h-14 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
           />
         </button>
 {/* Listed: come prima, a fianco */}
