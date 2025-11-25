@@ -11,6 +11,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import Link from 'next/link';
 import { parseEther, formatEther, parseUnits, formatUnits } from 'viem';
 import { fetchCollectionDataServer, fetchEthPriceServer } from './actions';
+import { useFarcasterMiniApp } from '../hooks/useFarcasterMiniApp';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +141,9 @@ export default function Dex() {
   const { openConnectModal } = useConnectModal();
   const { data: ethBalance, refetch: refetchEthBalance } = useBalance({ address });
   const { hasSigned, isSigning, error: signatureError, handleSignature, resetSignature } = useWalletSignature(address);
+
+// NUOVO: Hook per Mini App (navigate, embedded wallet—non altera connect)
+  const { navigateTo } = useFarcasterMiniApp();
 
   // Transition hook for server actions
   const [isTransitionPending, startTransition] = useTransition();
