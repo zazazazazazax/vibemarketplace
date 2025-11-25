@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';  // Import singleton (disponibile solo in Farcaster clients)
+import { sdk } from '@farcaster/miniapp-sdk';  // Singleton (disponibile solo in Mini App)
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 
 export function useFarcasterMiniApp() {
   const [context, setContext] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
-  const [error, setError] = useState(null);  // Per handle errors
+  const [error, setError] = useState(null);
   const { isConnected, address } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
@@ -17,65 +17,63 @@ export function useFarcasterMiniApp() {
   useEffect(() => {
     const initSDK = async () => {
       if (typeof window !== 'undefined') {
-console.log('SDK check: typeof sdk =', typeof sdk);  // NUOVO: Debug
-      console.log('SDK actions available?', !!sdk?.actions);  // NUOVO: Debug
+        console.log('SDK check: typeof sdk =', typeof sdk);  // Debug
         try {
-          // Fix: Check se in Farcaster context (sdk disponibile solo lì; skip in browser normale)
-          if (typeof sdk === 'undefined' || !sdk.actions) {
-            console.log('Not in Farcaster Mini App context - skipping SDK init (normal for browser test)');
-            return;  // Skip in browser normale, no error/crash
+          if (typeof sdk === 'undefined') {
+            console.log('SDK undefined - skipping (normal for browser)');
+            return;
           }
 
-          const ctx = await sdk.context.get();  // Get context
-          setContext(ctx);
+          if (sdk.context) {
+            const ctx = await sdk.context.get();
+            setContext(ctx);
+          }
 
-          // Auto-connect se wallet Farcaster già linked
-          if (ctx?.wallet?.isConnected) {
+          if (sdk.wallet && sdk.wallet.isConnected) {
             const provider = sdk.wallet.getEthereumProvider();
             if (provider && typeof provider.request === 'function') {
-              connect({ connector: provider });  // Usa provider direttamente
+              connect({ connector: provider });
             }
           }
 
-          // Signal ready a Farcaster (obbligatorio per modal)
-          await sdk.actions.ready();
-          console.log('Farcaster SDK ready!');  // Debug log
+          if (sdk.actions && typeof sdk.actions.ready === 'function') {
+            await sdk.actions.ready();
+            console.log('Farcaster SDK ready!');
+          }
 
-          // Event listener per wallet
-          sdk.events.on('wallet_connected', () => setAuthenticated(true));
+          if (sdk.events) {
+            sdk.events.on('wallet_connected', () => setAuthenticated(true));
+          }
         } catch (err) {
-          console.warn('Farcaster SDK init error (expected in browser test):', err.message);
-          setError(err.message);  // Silent error in browser
+          console.warn('SDK init error:', err.message);
+          setError(err.message);
         }
       }
     };
     initSDK();
   }, [connect]);
 
-  // Connect: Usa RainbowKit modal, ma prioritizza embedded
   const connectWallet = async () => {
-    if (sdk && context?.wallet && typeof sdk.wallet.connect === 'function') {
+    if (sdk && sdk.wallet && typeof sdk.wallet.connect === 'function') {
       try {
-        await sdk.wallet.connect();  // Embedded prima
+        await sdk.wallet.connect();
       } catch (err) {
         console.warn('Embedded connect failed:', err);
-        openConnectModal();  // Fallback
+        openConnectModal();
       }
     } else {
-      openConnectModal();  // Fallback a RainbowKit (sempre disponibile)
+      openConnectModal();
     }
   };
 
-  // Navigate: Routing interno nel modal (es. /inventory)
   const navigateTo = (path) => {
     if (sdk && sdk.actions && typeof sdk.actions.navigate === 'function') {
       sdk.actions.navigate({ url: new URL(path, window.location.origin).href });
     } else {
-      console.warn('Navigate not available outside Mini App');
+      console.warn('Navigate not available');
     }
   };
 
-  // Signing: Integra con tuo useWalletSignature se serve (usa address da Wagmi)
   const signWithFarcaster = async (message) => {
     if (sdk && address) {
       const provider = sdk.wallet.getEthereumProvider();
@@ -83,7 +81,7 @@ console.log('SDK check: typeof sdk =', typeof sdk);  // NUOVO: Debug
         return provider.request({ method: 'personal_sign', params: [message, address] });
       }
     }
-    throw new Error('Signing not available outside Mini App');
+    throw new Error('Signing not available');
   };
 
   return { 
@@ -93,6 +91,6 @@ console.log('SDK check: typeof sdk =', typeof sdk);  // NUOVO: Debug
     connectWallet, 
     navigateTo, 
     signWithFarcaster,
-    error  // Espone error per debug opzionale
+    error 
   };
 }
