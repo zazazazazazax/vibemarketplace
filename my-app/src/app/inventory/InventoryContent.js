@@ -1987,12 +1987,12 @@ const getWearCondition = (wearValue) => {
 </button>
       </div>
       {/* Dropfinder sotto: immagine + input sovrapposto (testo bianco) + bottoni invisibili */}
-<div className="relative self-start w-full max-w-md sm:max-w-xl md:max-w-2xl min-w-0">  {/* Scala su sm+ senza rimpicciolire */}
+<div className="relative self-start w-full max-w-lg h-auto">   {/* Scala su sm+ senza rimpicciolire */}
   {/* object-fill: stretch esatto senza taglio, deforma se aspect non matcha */}
   <img 
     src="/dropfinder.png" 
     alt="Drop Finder" 
-    className="w-66 h-8 sm:w-66 h-14 md:w-66 h-16 block object-fill"
+    className="w-full h-8 sm:h-20 md:h-24 block object-contain"
   />
   <input 
     type="text"
