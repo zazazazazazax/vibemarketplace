@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from '../../providers'; // Da root (my-app/providers.js)
 import { MetaMaskProvider } from './components/MetaMaskProvider';  // <-- Aggiunto: Relativo a src/app/components
+import ClientLayout from './ClientLayout';  // Nuovo import
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +42,9 @@ export default function RootLayout({ children }) {
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <MetaMaskProvider>  {/* <-- Aggiunto: Wrap per SDK client-side */}
-            {children}
+            <ClientLayout>
+             {children}    
+            </ClientLayout>
           </MetaMaskProvider>
         </Providers>
       </body>
