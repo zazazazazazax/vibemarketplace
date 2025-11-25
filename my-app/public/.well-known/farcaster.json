@@ -1,0 +1,26 @@
+{
+  "frame": {
+    "name": "Poorly drawn binders",
+    "version": "1",
+    "iconUrl": "https://vibemarketplace.vercel.app/favicon.ico",
+    "homeUrl": "https://vibemarketplace.vercel.app/",
+    "imageUrl": "https://vibemarketplace.vercel.app/pdb.png",
+    "splashImageUrl": "https://vibemarketplace.vercel.app/welcome.png",
+    "splashBackgroundColor": "#000000",
+    "subtitle": "vibemarketplace",
+    "description": "List and buy liquid trading cards!",
+    "primaryCategory": "shopping",
+    "tags": [
+      "nft",
+      "marketplace",
+      "vibe.market",
+      "base",
+      "cards"
+    ]
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjE2ODUxLCJ0eXBlIjoiYXV0aCIsImtleSI6IjB4NUMyNzAzYWNGRTk2ZUViNkY5YzEyQkYzNjRjRTdiOTI4OEI5MjIwNyJ9",
+    "payload": "eyJkb21haW4iOiJ2aWJlbWFya2V0cGxhY2UudmVyY2VsLmFwcCJ9",
+    "signature": "PoM3sOLQddO1SXVRruvLW0h6jnKo1JIZ2dBWpWAgi6heKFZF7ekSwRyY14KNC9/zbbXN8Ni+ot9tlG+/OjkBhBs="
+  }
+}
