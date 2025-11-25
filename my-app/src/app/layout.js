@@ -28,7 +28,7 @@ export default function RootLayout({ children }) {
           version: '1',
           imageUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vibemarketplace.vercel.app'}/pdb.png`,  // Usa la tua immagine preview
           button: {
-            title: 'Launch Vibe.Market',
+            title: 'Launch Poorly drawn binders',
             action: {
               type: 'launch_frame',
               name: 'Poorly drawn binders',
