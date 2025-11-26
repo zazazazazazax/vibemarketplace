@@ -891,88 +891,101 @@ const [price, isEth, currency] = await readContract(config, {
           <div className="w-full max-w-6xl flex flex-col items-center">
             {/* Filters row */}
             <div className="flex flex-col items-center space-y-6 mb-12 w-full max-w-md">
+             {!showFilters && (
               <img 
                 src="/filters.png" 
                 alt="Filters" 
                 className="w-22 h-20 sm:w-26 sm:h-22 md:w-30 md:h-24 transition-all" 
                 onClick={() => setShowFilters(!showFilters)}
               />
-              {showFilters && (
-                <div className="flex flex-col items-center space-y-4 w-full">
-                  {/* Single/Multi + Eth/Token - MODIFICATO: multi solo se currencyFilter attivo */}
-                  <div className="flex space-x-4">
-                    <img 
-                      src="/single.png" 
-                      alt="Single" 
-                      className={`w-26 h-14 cursor-pointer hover:scale-105 ${!multiMode ? 'opacity-100' : 'opacity-50'}`} 
-                      onClick={() => { 
-                        setMultiMode(false); 
-                        setSelectedCards([]); 
-                      }}
-                    />
-                    {currencyFilter && (
-                      <img 
-                        src="/multi.png" 
-                        alt="Multi" 
-                        className={`w-28 h-16 cursor-pointer hover:scale-105 ${multiMode ? 'opacity-100' : 'opacity-50'}`} 
-                        onClick={() => setMultiMode(true)}
-                      />
-                    )}
-                    <img 
-                      src="/eth.png" 
-                      alt="ETH" 
-                      className={`w-22 h-16 cursor-pointer hover:scale-105 ${currencyFilter === 'eth' ? 'opacity-100' : 'opacity-50'}`} 
-                      onClick={() => { 
-                        setCurrencyFilter(prev => prev === 'eth' ? '' : 'eth'); 
-                        if (multiMode) { 
-                          setMultiMode(false); 
-                          setSelectedCards([]); 
-                        } 
-                      }}
-                    />
-                    <img 
-                      src="/token.png" 
-                      alt="Token" 
-                      className={`w-24 h-14 cursor-pointer hover:scale-105 ${currencyFilter === 'token' ? 'opacity-100' : 'opacity-50'}`} 
-                      onClick={() => { 
-                        setCurrencyFilter(prev => prev === 'token' ? '' : 'token'); 
-                        if (multiMode) { 
-                          setMultiMode(false); 
-                          setSelectedCards([]); 
-                        } 
-                      }}
-                    />
-                  </div>
-{/* Drop Finder - MODIFICATO: input più corto e spostato a destra, tasto spostato a sinistra */}
-    <div className="flex items-center relative w-full max-w-[700px]">
-      <img src="/dropfinder.png" alt="Drop Finder" className="w-full h-16 max-w-[700px]" />
+             )}
+{showFilters && (
+  <div className="flex flex-col items-center space-y-3 sm:space-y-4 w-full"> 
+    {/* Single/Multi + Eth/Token - AUMENTATO: dimensioni sm/md più grandi */}
+    <div className="flex space-x-2 sm:space-x-4"> 
+      <img 
+        src="/single.png" 
+        alt="Single" 
+        className={`w-16 h-12 sm:w-26 sm:h-16 md:w-30 md:h-12 cursor-pointer hover:scale-105 ${!multiMode ? 'opacity-100' : 'opacity-50'}`} 
+        onClick={() => { 
+          setMultiMode(false); 
+          setSelectedCards([]); 
+        }}
+      />
+      {currencyFilter && (
+        <img 
+          src="/multi.png" 
+          alt="Multi" 
+          className={`w-20 h-12 sm:w-26 sm:h-16 md:w-30 md:h-18 cursor-pointer hover:scale-105 ${multiMode ? 'opacity-100' : 'opacity-50'}`} 
+          onClick={() => setMultiMode(true)}
+        />
+      )}
+      <img 
+        src="/eth.png" 
+        alt="ETH" 
+        className={`w-16 h-12 sm:w-22 sm:h-14 md:w-26 md:h-16 cursor-pointer hover:scale-105 ${currencyFilter === 'eth' ? 'opacity-100' : 'opacity-50'}`} 
+        onClick={() => { 
+          setCurrencyFilter(prev => prev === 'eth' ? '' : 'eth'); 
+          if (multiMode) { 
+            setMultiMode(false); 
+            setSelectedCards([]); 
+          } 
+        }}
+      />
+      <img 
+        src="/token.png" 
+        alt="Token" 
+        className={`w-16 h-12 sm:w-24 sm:h-14 md:w-24 md:h-12 cursor-pointer hover:scale-105 ${currencyFilter === 'token' ? 'opacity-100' : 'opacity-50'}`} 
+        onClick={() => { 
+          setCurrencyFilter(prev => prev === 'token' ? '' : 'token'); 
+          if (multiMode) { 
+            setMultiMode(false); 
+            setSelectedCards([]); 
+          } 
+        }}
+      />
+    </div>
+    {/* Drop Finder - AUMENTATO: h su sm/md; max-w scalato; input più largo */}
+    <div className="flex items-center relative w-full max-w-[400px] sm:max-w-[500px] md:max-w-[600px]"> 
+      <img src="/dropfinder.png" alt="Drop Finder" className="w-full h-12 sm:h-18 md:h-22 block object-contain" /> 
       <input
         type="text"
         value={pendingDropFilter}
         onChange={(e) => setPendingDropFilter(e.target.value)}
         placeholder="Drop Address"
-        className="absolute left-28 top-2 w-[220px] h-10 text-sm text-white pl-2 bg-transparent outline-none border-none"
+        className="absolute left-24 top-1.5 sm:left-32 md:left-32 w-[160px] h-8 sm:w-[200px] sm:h-9 md:w-[240px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
       />
       <div 
-        className="absolute right-16 w-10 h-full cursor-pointer"  // Spostato a sinistra da right-0 a right-4
+        className="absolute right-12 sm:right-20 md:right-20 w-8 h-full cursor-pointer" 
         onClick={applyDropFilter}
       />
     </div>
-    {/* Binder Finder - MODIFICATO: input più corto e spostato a destra, tasto spostato a sinistra */}
-    <div className="flex items-center relative w-full max-w-[500px]">
-      <img src="/binderfinder.png" alt="Binder Finder" className="w-full h-16 max-w-[700px]" />
+    {/* Binder Finder - AUMENTATO: simile a dropfinder */}
+    <div className="flex items-center relative w-full max-w-[400px] sm:max-w-[500px] md:max-w-[600px]"> 
+      <img src="/binderfinder.png" alt="Binder Finder" className="w-full h-12 sm:h-18 md:h-22 block object-contain" /> 
       <input
         type="text"
         value={pendingOwnerFilter}
         onChange={(e) => setPendingOwnerFilter(e.target.value)}
         placeholder="Owner Address"
-        className="absolute left-28 top-2 w-[220px] h-10 text-sm text-white pl-2 bg-transparent outline-none border-none"
+        className="absolute left-24 top-1.5 sm:left-32 md:left-32 w-[160px] h-8 sm:w-[200px] sm:h-9 md:w-[240px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
       />
       <div 
-        className="absolute right-16 w-10 h-full cursor-pointer"  // Spostato a sinistra da right-0 a right-4
+        className="absolute right-12 sm:right-20 md:right-20 w-8 h-full cursor-pointer" 
         onClick={applyOwnerFilter}
       />
     </div>
+    {/* Bottone close con previous.png - AUMENTATO: dimensioni su sm/md */}
+    <button
+      onClick={() => setShowFilters(false)}
+      className="p-2 rounded self-end opacity-70 hover:opacity-100"
+    >
+      <img 
+        src="/previous.png" 
+        alt="Close Filters" 
+        className="w-14 h-10 sm:w-20 sm:h-12 md:w-24 md:h-14" 
+      />
+    </button>
   </div>
 )}
             </div>
