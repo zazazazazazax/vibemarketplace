@@ -952,8 +952,8 @@ const [price, isEth, currency] = await readContract(config, {
         type="text"
         value={pendingDropFilter}
         onChange={(e) => setPendingDropFilter(e.target.value)}
-        placeholder=" Drop Address"
-        className="absolute left-20 top-1.5 sm:left-32 md:left-32 w-[160px] h-8 sm:w-[200px] sm:h-9 md:w-[200px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
+        placeholder="  Drop Address"
+        className="absolute left-20 top-1.5 sm:left-32 md:left-32 w-[120px] h-8 sm:w-[200px] sm:h-9 md:w-[200px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
       />
       <div 
         className="absolute right-12 sm:right-20 md:right-20 w-8 h-full cursor-pointer" 
@@ -967,8 +967,8 @@ const [price, isEth, currency] = await readContract(config, {
         type="text"
         value={pendingOwnerFilter}
         onChange={(e) => setPendingOwnerFilter(e.target.value)}
-        placeholder=" Owner Address"
-        className="absolute left-20 top-1.5 sm:left-32 md:left-32 w-[160px] h-8 sm:w-[200px] sm:h-9 md:w-[200px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
+        placeholder="  Owner Address"
+        className="absolute left-20 top-1.5 sm:left-32 md:left-32 w-[120px] h-8 sm:w-[200px] sm:h-9 md:w-[200px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
       />
       <div 
         className="absolute right-12 sm:right-20 md:right-20 w-8 h-full cursor-pointer" 
