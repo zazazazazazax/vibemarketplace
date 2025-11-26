@@ -1945,7 +1945,7 @@ const getWearCondition = (wearValue) => {
       <img
         src="/filters.png"
         alt="Filters"
-        className="w-17 h-16 sm:w-22 sm:h-18 md:w-26 md:h-20 transition-all"
+        className="w-22 h-20 sm:w-26 sm:h-22 md:w-30 md:h-24 transition-all"
       />
     </button>
   ) : (
