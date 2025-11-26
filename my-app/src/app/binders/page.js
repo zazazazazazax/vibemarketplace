@@ -995,7 +995,7 @@ const [price, isEth, currency] = await readContract(config, {
                   return (
                     <div 
                       key={cacheKey} 
-                      className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-auto h-[30.375rem] ${multiMode && isSel ? 'scale-105' : ''}`} 
+                      className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-6 sm:mx-auto h-[30.375rem] ${multiMode && isSel ? 'scale-105' : ''}`} 
                       onClick={(e) => {
                         if (multiMode) {
                           toggleSelect(listing);
