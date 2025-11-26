@@ -894,7 +894,7 @@ const [price, isEth, currency] = await readContract(config, {
               <img 
                 src="/filters.png" 
                 alt="Filters" 
-                className="w-44 h-20 cursor-pointer hover:scale-105" 
+                className="w-22 h-20 sm:w-26 sm:h-22 md:w-30 md:h-24 transition-all" 
                 onClick={() => setShowFilters(!showFilters)}
               />
               {showFilters && (
