@@ -1062,7 +1062,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
     }
 
     mapping(bytes32 => Listing) public listings;
-    // NUOVO: Mapping per quick lookup di listings attivi per (collection, tokenId) → array di seller (per get multipli)
     mapping(bytes32 => address[]) private _activeSellersForToken;  // Key: keccak256(collection + tokenId)
 
     uint256 public constant FEE_BPS = 140; // 1.4%
@@ -1076,7 +1075,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         feeWallet = _feeWallet;
     }
 
-    // MODIFICATO: Key include seller
     function _getListingKey(address _collection, uint256 tokenId, address seller) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_collection, tokenId, seller));
     }
@@ -1129,7 +1127,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         emit ListingCreated(tokenId, _collection, msg.sender, _price, _isEth);
     }
 
-    // Batch listing multi-collezione con boosterToken per-item (invariato, seller=msg.sender per tutti)
     function createListingBatch(
         bool _isEth,
         BatchListingItem[] calldata items
@@ -1145,7 +1142,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         }
     }
 
-    // MODIFICATO: buyListing ora prende seller
     function buyListing(address _collection, uint256 tokenId, address seller) external payable nonReentrant {
         bytes32 key = _getListingKey(_collection, tokenId, seller);  // AGGIUNTO: + seller
         Listing storage listing = listings[key];
@@ -1170,7 +1166,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         emit ListingBought(tokenId, listing.collection, msg.sender, listing.seller, listing.price, listing.isEth);
     }
 
-    // MODIFICATO: batchBuy ora con seller per item
     function batchBuy(BatchItem[] calldata items) external payable nonReentrant {
         require(items.length > 0 && items.length <= MAX_BATCH_SIZE, "Invalid batch size");
 
@@ -1241,7 +1236,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         }
     }
 
-    // MODIFICATO: delist ora prende seller
     function delist(address _collection, uint256 tokenId, address seller) external {
         bytes32 key = _getListingKey(_collection, tokenId, seller);
         Listing storage listing = listings[key];
@@ -1263,7 +1257,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         emit ListingDelisted(tokenId, _collection, msg.sender);
     }
 
-    // MODIFICATO: delistBatch con seller per item
     function delistBatch(BatchItem[] calldata items) external {
         require(items.length > 0 && items.length <= MAX_BATCH_SIZE, "Invalid batch size");
         for (uint i = 0; i < items.length; i++) {
@@ -1289,7 +1282,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         }
     }
 
-    // MODIFICATO: getListingDetails ora per specific seller
     function getListingDetails(address _collection, uint256 tokenId, address seller) external view returns (
         uint256 listingPrice,
         bool isEth,
@@ -1303,7 +1295,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         currency = listing.isEth ? address(0) : listing.boosterToken;
     }
 
-    // NUOVO: Get tutti listings attivi per token (per UI)
     function getListingsForToken(address _collection, uint256 tokenId) external view returns (
         address[] memory sellers,
         uint256[] memory prices,
