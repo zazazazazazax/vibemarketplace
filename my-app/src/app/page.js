@@ -233,7 +233,8 @@ useEffect(() => {
   // Stati aggiuntivi
   const [zoomedLabel, setZoomedLabel] = useState(false);
   const [showCase, setShowCase] = useState(true); // Default: in case
-  const [viewMode, setViewMode] = useState('connect'); // 'connect', 'latest', 'faq', 'dev'
+  const [viewMode, setViewMode] = useState('latest'); // 'latest', 'faq', 'dev'
+  const [txStatus, setTxStatus] = useState('idle'); // 'idle' | 'approving' | 'pending' | 'success' | 'error'
 
 // NUOVO: useEffect per auto-signature post-connect in Mini App (opzionale, integra con tuo hook)
   useEffect(() => {
@@ -242,12 +243,12 @@ useEffect(() => {
     }
   }, [authenticated, isConnected, hasSigned, isSigning, handleSignature]);
 
-  // useEffect per default latest post-connect
+  // Set default viewMode on mount
   useEffect(() => {
-    if (isConnected && viewMode === 'connect') {
+    if (!viewMode) {
       setViewMode('latest');
     }
-  }, [isConnected]);
+  }, []);
 
   // Funzioni helper (copia/adatta da InventoryContent)
   const getWearCondition = (wear) => {
@@ -362,6 +363,7 @@ useEffect(() => {
         if (balance < priceWei) {
           alert('Insufficient token balance for buy. Check wallet and try again.');
           setIsBuying(false);
+          setTxStatus('idle');
           return;
         }
         console.log('Token balance sufficient');
@@ -378,6 +380,7 @@ useEffect(() => {
         });
         if (allowance < priceWei) {
           try {
+            setTxStatus('approving');
             approveResult = await writeContract(config, {
               address: currency,
               abi: erc20ABI,
@@ -400,6 +403,7 @@ useEffect(() => {
 
       // Buy TX (standalone, matching InventoryContent pattern)
       console.log('Sending buy TX...');
+      setTxStatus('pending');
       const buyResult = await writeContract(config, {
         address: CONTRACT_ADDRESS,
         abi: marketplaceABI,
@@ -490,6 +494,7 @@ useEffect(() => {
       const errorStr = (err.message || err.toString() || '').toLowerCase();
       if (errorStr.includes('user rejected') || errorStr.includes('cancelled')) {
         setIsBuying(false);
+        setTxStatus('idle');
         return;
       }
       let userMessage = 'Buy fallito: ';
@@ -506,6 +511,7 @@ useEffect(() => {
         alert(userMessage);
       }
       setIsBuying(false);
+      setTxStatus('idle');
     }
   }, [walletAddress, latestListing, chainId, readContract, config, isBuying, setLatestListing]);
 
@@ -536,6 +542,9 @@ useEffect(() => {
             </Link>
             <Link href="/dex" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/dex.png" alt="Dex" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
+            </Link>
+            <Link href="/claim" className="self-start -ml-1 sm:-ml-2 md:-ml-3 hover:brightness-110">
+              <img src="/claim.png" alt="Claim" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 brightness-50 grayscale" />
             </Link>
           </nav>
         </div>
@@ -583,24 +592,18 @@ useEffect(() => {
   suppressHydrationWarning 
   className="flex min-h-screen flex-col items-center p-4 sm:p-6 md:p-8 pt-24 sm:pt-28 md:pt-28 bg-[#00893A] text-white ml-28 sm:ml-36 md:ml-52 relative z-0 justify-start pb-40" 
 >
-  {!isConnected ? (
-    <div className="flex flex-col items-center space-y-2">
-      <button
-        onClick={openConnectModal}
-        type="button"
-        aria-label="Connect your wallet"
-        className="bg-transparent border-none p-0 cursor-pointer disabled:opacity-50"
-        disabled={isConnecting}
-      >
-        <img 
-          src="/connect.png" 
-          alt="Connect Wallet" 
-          className={`w-40 h-20 sm:w-48 sm:h-24 md:w-56 md:h-28 transition-opacity ${isConnecting ? 'opacity-50' : ''}`} 
-        />
-      </button>
+  {/* Tx Loading Overlay */}
+  {txStatus !== 'idle' && (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70">
+      <img src="/loading.png" alt="Loading" className="w-20 h-20 animate-spin" />
+      <p className="text-white text-lg mt-4 font-bold">
+        {txStatus === 'approving' && '1/2 Approving...'}
+        {txStatus === 'pending' && '2/2 TX Pending...'}
+      </p>
     </div>
-  ) : (
-    <div key={isSigning ? 'signing' : 'connected'} className="flex flex-col items-center justify-center w-full max-w-md">
+  )}
+
+  <div key={isSigning ? 'signing' : 'connected'} className="flex flex-col items-center justify-center w-full max-w-md">
       {isSigning ? (
         <div className="flex flex-col items-center space-y-2">
           <img src="/loading.png" alt="Loading" className="w-40 h-30 sm:w-48 sm:h-36 md:w-56 md:h-40" />
@@ -673,8 +676,7 @@ useEffect(() => {
               });
 
               return (
-                <div className="group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-2 sm:mx-auto h-[30.375rem]" onClick={handleEjectClick}>
-                  {/* Immagine card + Wear + Foil: z-10 - Copia esatta da InventoryContent */}
+<div className="group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-4 sm:mx-auto h-[30.375rem]" onClick={handleEjectClick}>                  {/* Immagine card + Wear + Foil: z-10 - Copia esatta da InventoryContent */}
                   <div 
                     className={`absolute top-[139px] left-1/2 transform -translate-x-1/2 overflow-hidden z-10 transition-transform duration-300 group-hover:scale-95 relative rounded-lg ${foilClass}`}
                     style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
@@ -1012,11 +1014,10 @@ useEffect(() => {
          }}>
       <div className="absolute inset-0 z-10 p-4 overflow-y-auto">
         <div className="text-black text-sm leading-relaxed">
-          <h2 className="text-lg font-bold mb-2">VibemarketplaceV4_1 (0x34682Df3fC35079EFe78fF37008856aB090e03e1)</h2>
+          <h2 className="text-lg font-bold mb-2">VibemarketplaceV4 (0x37912ab0700259ab78c64820298A9763309e99f4)</h2>
           <pre className="text-black font-mono text-xs leading-relaxed">
           {`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
-
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -1035,7 +1036,7 @@ interface IBoosterTokenV2 {
     function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256 ethReceived);
 }
 
-contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
+contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
     address public feeWallet;
 
     struct Listing {
@@ -1052,18 +1053,15 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         address collection;
         uint256 tokenId;
         uint256 price;
-        address boosterToken; // Per-item, obbligatorio se isEth=false
+        address boosterToken;
     }
 
     struct BatchItem {
         address collection;
         uint256 tokenId;
-        address seller; // NUOVO: Per supportare multi-seller in batch
     }
 
     mapping(bytes32 => Listing) public listings;
-    mapping(bytes32 => address[]) private _activeSellersForToken;  // Key: keccak256(collection + tokenId)
-
     uint256 public constant FEE_BPS = 140; // 1.4%
     uint256 public constant MAX_BATCH_SIZE = 20; // Gas safety
 
@@ -1075,34 +1073,26 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         feeWallet = _feeWallet;
     }
 
-    function _getListingKey(address _collection, uint256 tokenId, address seller) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_collection, tokenId, seller));
-    }
-
-    function _getTokenKey(address _collection, uint256 tokenId) internal pure returns (bytes32) {
+    function _getListingKey(address _collection, uint256 tokenId) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_collection, tokenId));
     }
 
     function createListing(
-        address _collection, 
-        address _boosterToken, 
-        uint256 tokenId, 
-        uint256 _price, 
+        address _collection,
+        address _boosterToken,
+        uint256 tokenId,
+        uint256 _price,
         bool _isEth
     ) public {
         require(_price > 0, "Price must be greater than 0");
-
         IBoosterDrop collectionDrop = IBoosterDrop(_collection);
         IBoosterDrop.Rarity memory r = collectionDrop.getTokenRarity(tokenId);
         require(r.rarity > 0, "Only opened cards");
-
         IERC721 collectionNFT = IERC721(_collection);
         require(collectionNFT.ownerOf(tokenId) == msg.sender, "Not owner");
         require(collectionNFT.isApprovedForAll(msg.sender, address(this)), "Must approve marketplace for NFT");
-
-        bytes32 key = _getListingKey(_collection, tokenId, msg.sender);  // AGGIUNTO: + msg.sender
-        require(!listings[key].active, "Already listed by you");  // Cambiato messaggio
-
+        bytes32 key = _getListingKey(_collection, tokenId);
+        require(!listings[key].active, "Already listed");
         if (!_isEth) {
             require(_boosterToken != address(0), "Invalid boosterToken");
             try IBoosterTokenV2(_boosterToken).getTokenSellQuote(1000) returns (uint256 quote) {
@@ -1111,10 +1101,6 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
                 revert("Invalid boosterToken contract");
             }
         }
-
-        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
-        _activeSellersForToken[tokenKey].push(msg.sender);  // Track seller per token
-
         listings[key] = Listing({
             tokenId: tokenId,
             collection: _collection,
@@ -1142,85 +1128,52 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         }
     }
 
-    function buyListing(address _collection, uint256 tokenId, address seller) external payable nonReentrant {
-        bytes32 key = _getListingKey(_collection, tokenId, seller);  // AGGIUNTO: + seller
+    function buyListing(address _collection, uint256 tokenId) external payable nonReentrant {
+        bytes32 key = _getListingKey(_collection, tokenId);
         Listing storage listing = listings[key];
-        require(listing.active, "Not active or wrong seller");
-
+        require(listing.active, "Not active");
         _processPayment(listing, msg.sender);
-
         IERC721(listing.collection).safeTransferFrom(listing.seller, msg.sender, listing.tokenId);
         listing.active = false;
-
-        // Cleanup activeSellers
-        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
-        address[] storage sellers = _activeSellersForToken[tokenKey];
-        for (uint i = 0; i < sellers.length; i++) {
-            if (sellers[i] == seller) {
-                sellers[i] = sellers[sellers.length - 1];
-                sellers.pop();
-                break;
-            }
-        }
-
         emit ListingBought(tokenId, listing.collection, msg.sender, listing.seller, listing.price, listing.isEth);
     }
 
     function batchBuy(BatchItem[] calldata items) external payable nonReentrant {
         require(items.length > 0 && items.length <= MAX_BATCH_SIZE, "Invalid batch size");
-
-        bool isEth = false;
+        bytes32 firstKey = _getListingKey(items[0].collection, items[0].tokenId);
+        Listing storage firstListing = listings[firstKey];
+        require(firstListing.active, "First listing not active");
+        bool isEth = firstListing.isEth;
         uint256 totalPrice = 0;
-
-        // First pass: validate and compute total
         for (uint i = 0; i < items.length; i++) {
             BatchItem calldata item = items[i];
-            bytes32 key = _getListingKey(item.collection, item.tokenId, item.seller);
+            bytes32 key = _getListingKey(item.collection, item.tokenId);
             Listing storage listing = listings[key];
             require(listing.active, "Inactive listing");
-            if (i == 0) {
-                isEth = listing.isEth;
-            } else {
-                require(listing.isEth == isEth, "Mixed currencies not supported");
-            }
+            require(listing.isEth == isEth, "Mixed currencies not supported");
             totalPrice += listing.price;
         }
-
         if (isEth) {
             require(msg.value >= totalPrice, "Insufficient ETH");
             for (uint i = 0; i < items.length; i++) {
-                _processBuy(items[i].collection, items[i].tokenId, items[i].seller, msg.sender, isEth);
+                _processBuy(items[i].collection, items[i].tokenId, msg.sender, isEth);
             }
             if (msg.value > totalPrice) {
                 payable(msg.sender).transfer(msg.value - totalPrice);
             }
         } else {
             for (uint i = 0; i < items.length; i++) {
-                _processBuy(items[i].collection, items[i].tokenId, items[i].seller, msg.sender, isEth);
+                _processBuy(items[i].collection, items[i].tokenId, msg.sender, isEth);
             }
         }
     }
 
-    function _processBuy(address _collection, uint256 tokenId, address seller, address buyer, bool isEth) internal {
-        bytes32 key = _getListingKey(_collection, tokenId, seller);
+    function _processBuy(address _collection, uint256 tokenId, address buyer, bool isEth) internal {
+        bytes32 key = _getListingKey(_collection, tokenId);
         Listing storage listing = listings[key];
-
         _processPayment(listing, buyer);
-
         IERC721(listing.collection).safeTransferFrom(listing.seller, buyer, listing.tokenId);
         listing.active = false;
-
-        // Cleanup activeSellers
-        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
-        address[] storage sellers = _activeSellersForToken[tokenKey];
-        for (uint i = 0; i < sellers.length; i++) {
-            if (sellers[i] == seller) {
-                sellers[i] = sellers[sellers.length - 1];
-                sellers.pop();
-                break;
-            }
-        }
-
         emit ListingBought(tokenId, listing.collection, buyer, listing.seller, listing.price, listing.isEth);
     }
 
@@ -1236,24 +1189,12 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         }
     }
 
-    function delist(address _collection, uint256 tokenId, address seller) external {
-        bytes32 key = _getListingKey(_collection, tokenId, seller);
+    function delist(address _collection, uint256 tokenId) external {
+        bytes32 key = _getListingKey(_collection, tokenId);
         Listing storage listing = listings[key];
         require(listing.active, "Not active");
-        require(listing.seller == msg.sender, "Not seller");  
+        require(listing.seller == msg.sender, "Not seller");
         listing.active = false;
-
-        // Cleanup activeSellers
-        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
-        address[] storage sellers = _activeSellersForToken[tokenKey];
-        for (uint i = 0; i < sellers.length; i++) {
-            if (sellers[i] == seller) {
-                sellers[i] = sellers[sellers.length - 1];
-                sellers.pop();
-                break;
-            }
-        }
-
         emit ListingDelisted(tokenId, _collection, msg.sender);
     }
 
@@ -1261,33 +1202,21 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         require(items.length > 0 && items.length <= MAX_BATCH_SIZE, "Invalid batch size");
         for (uint i = 0; i < items.length; i++) {
             BatchItem calldata item = items[i];
-            bytes32 key = _getListingKey(item.collection, item.tokenId, item.seller);
+            bytes32 key = _getListingKey(item.collection, item.tokenId);
             Listing storage listing = listings[key];
             require(listing.active, "Not active");
             require(listing.seller == msg.sender, "Not seller");
             listing.active = false;
-
-            // Cleanup activeSellers
-            bytes32 tokenKey = _getTokenKey(item.collection, item.tokenId);
-            address[] storage sellers = _activeSellersForToken[tokenKey];
-            for (uint j = 0; j < sellers.length; j++) {
-                if (sellers[j] == item.seller) {
-                    sellers[j] = sellers[sellers.length - 1];
-                    sellers.pop();
-                    break;
-                }
-            }
-
             emit ListingDelisted(listing.tokenId, item.collection, msg.sender);
         }
     }
 
-    function getListingDetails(address _collection, uint256 tokenId, address seller) external view returns (
+    function getListingDetails(address _collection, uint256 tokenId) external view returns (
         uint256 listingPrice,
         bool isEth,
         address currency
     ) {
-        bytes32 key = _getListingKey(_collection, tokenId, seller);
+        bytes32 key = _getListingKey(_collection, tokenId);
         Listing storage listing = listings[key];
         require(listing.active, "Not listed");
         listingPrice = listing.price;
@@ -1295,36 +1224,12 @@ contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
         currency = listing.isEth ? address(0) : listing.boosterToken;
     }
 
-    function getListingsForToken(address _collection, uint256 tokenId) external view returns (
-        address[] memory sellers,
-        uint256[] memory prices,
-        bool[] memory isEths,
-        address[] memory boosterTokens
-    ) {
-        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
-        address[] memory activeSellers = _activeSellersForToken[tokenKey];
-        uint256 len = activeSellers.length;
-        sellers = new address[](len);
-        prices = new uint256[](len);
-        isEths = new bool[](len);
-        boosterTokens = new address[](len);
-        for (uint i = 0; i < len; i++) {
-            address seller = activeSellers[i];
-            bytes32 key = _getListingKey(_collection, tokenId, seller);
-            Listing storage listing = listings[key];
-            sellers[i] = seller;
-            prices[i] = listing.price;
-            isEths[i] = listing.isEth;
-            boosterTokens[i] = listing.boosterToken;
-        }
-    }
-
     function setFeeWallet(address _feeWallet) external onlyOwner {
         feeWallet = _feeWallet;
     }
 }`}
 </pre>
-        <h3 className="text-black font-bold text-sm mt-8 mb-2">Wrapper (0xe08287F93fFC3d1d36334b12485467E2618eaf39 - mint and sell nfts for tokens in 1 tx)</h3>
+        <h3 className="text-black font-bold text-sm mt-8 mb-2">Wrapper (0xB9CEFd1C1cdD3980f1bf815E2e1Ba7EfDBb9F1AB - mint and sell nfts for tokens in 1 tx)</h3>
         <pre className="text-black font-mono text-xs leading-relaxed">
           {`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
@@ -1387,6 +1292,9 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
     receive() external payable {}
 }`}
         </pre>
+        <h3 className="text-black font-bold text-sm mt-8 mb-2">Additional Contracts</h3>
+        <p className="text-black text-xs mb-1">VibePepeFoilClaimV3 (on base): 0x34E06Df657d7D326Fda89B97109586be3c3BD461</p>
+        <p className="text-black text-xs mb-1">PepePayoutV1 (on eth): 0x7e88C89630f80ad8e043cB0eb1D974eC34D04D92</p>
       </div>
 <div className="flex-1" /> 
       </div>
@@ -1397,6 +1305,22 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
           <p className="text-white text-lg mb-4">Connect your wallet to start</p>
           <button onClick={openConnectModal} className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
             Connect
+          </button>
+        </div>
+      )}
+
+      {/* Connect button - visible even if not connected */}
+      {!isConnected && (
+        <div className="w-full flex justify-center mt-8 mb-4">
+          <button 
+            onClick={() => openConnectModal?.()} 
+            className="bg-transparent border-none cursor-pointer"
+          >
+            <img 
+              src="/connect.png" 
+              alt="Connect Wallet" 
+              className="w-40 h-20 sm:w-48 sm:h-24 md:w-56 md:h-28"
+            />
           </button>
         </div>
       )}
@@ -1421,7 +1345,6 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
         </div>
       </div>
     </div>
-  )}
 </main>
     </>
   );
