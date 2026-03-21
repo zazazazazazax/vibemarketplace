@@ -157,6 +157,7 @@ export default function Dex() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showHeader, setShowHeader] = useState(false);
   const [ethPrice, setEthPrice] = useState(0);
+  const [txStatus, setTxStatus] = useState('idle'); // 'idle' | 'pending'
 
   // Server action state
   const [state, action, isPending] = useActionState(fetchCollectionDataServer, { error: null });
@@ -313,6 +314,7 @@ const handleBuyTrade = async () => {
   const startingTokenId = BigInt(collectionData.startingTokenId);
   const value = mintPriceRaw; // <-- Usa direttamente il bigint wei, senza format/parse
   setError(null);
+  setTxStatus('pending');
   try {
     await writeContract({
       address: WRAPPER_ADDRESS,
@@ -321,9 +323,11 @@ const handleBuyTrade = async () => {
       args: [contractAddress || DEFAULT_CONTRACT_ADDRESS, selectedAmount, startingTokenId],
       value, // Ora è bigint esatto
     });
+    setTxStatus('idle');
   } catch (err) {
     console.error('Buy TX error:', err);
     setError('Buy failed: ' + err.message);
+    setTxStatus('idle');
   }
 };
 
@@ -336,6 +340,7 @@ const handleBuyTrade = async () => {
     if (!collectionData || selectedAmount === 0 || tokensAmountForSell === 0n) return;
     const minPayoutSize = 0n;
     setError(null);
+    setTxStatus('pending');
     try {
       await writeContract({
         address: collectionData.tokenAddress,
@@ -343,9 +348,11 @@ const handleBuyTrade = async () => {
         functionName: 'sell',
         args: [tokensAmountForSell, address, minPayoutSize, REFERRER_ADDRESS, REFERRER_ADDRESS],
       });
+      setTxStatus('idle');
     } catch (err) {
       console.error('Sell TX error:', err);
       setError('Sell failed: ' + err.message);
+      setTxStatus('idle');
     }
   };
 
@@ -374,6 +381,9 @@ const handleBuyTrade = async () => {
             <img src="/dex.png" alt="Dex" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 scale-100 brightness-100" />
           </Link>
           <nav className="flex flex-col space-y-0 text-white text-sm mt-0">
+            <Link href="/claim" className="self-start -ml-1 sm:-ml-2 md:-ml-3 hover:brightness-110">
+              <img src="/claim.png" alt="Claim" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 brightness-50 grayscale" />
+            </Link>
             <Link href="/" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/home.png" alt="Home" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
             </Link>
@@ -427,6 +437,14 @@ const handleBuyTrade = async () => {
       )}
 
       <main suppressHydrationWarning className="flex min-h-screen flex-col items-center p-4 sm:p-6 md:p-8 pt-24 sm:pt-28 md:pt-32 bg-[#00893A] text-white ml-28 sm:ml-36 md:ml-52 relative z-0">
+        {/* Tx Loading Overlay */}
+        {txStatus !== 'idle' && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70">
+            <img src="/loading.png" alt="Loading" className="w-20 h-20 animate-spin" />
+            <p className="text-white text-lg mt-4 font-bold">TX Pending...</p>
+          </div>
+        )}
+
         {!isConnected ? (
           <div className="flex flex-col items-center space-y-2">
             <button
