@@ -147,6 +147,7 @@ const [multiMode, setMultiMode] = useState(false);
 const [isListedFilter, setIsListedFilter] = useState(false);
 const [showListingOptions, setShowListingOptions] = useState(null); // null o cacheKey della card in listing mode
 const [listings, setListings] = useState({}); // { [cacheKey]: { price: BigInt, isEth: bool, currency: address } }
+const [txStatus, setTxStatus] = useState('idle'); // 'idle' | 'approving' | 'pending'
 const [imageSizes, setImageSizes] = useState({ fallback: 320 });
 
 // Nuovi stati per i filtri
@@ -484,6 +485,7 @@ const handleBatchEthListing = useCallback(async () => {
     });
     // Tx batch
     console.log('Starting batch listing tx...');
+    setTxStatus('pending');
     const result = await writeContract(config, {
       address: MARKETPLACE_ADDRESS.toLowerCase(),
       abi: marketplaceABI,
@@ -596,9 +598,11 @@ const handleBatchEthListing = useCallback(async () => {
     console.error('Full error stack:', err.stack);
     const errorStr = (err.message || err.toString() || '').toLowerCase();
     if (errorStr.includes('user rejected') || errorStr.includes('cancelled')) {
+      setTxStatus('idle');
       return;
     }
     alert('Batch ETH listing failed: ' + (err.message || 'Unknown error'));
+    setTxStatus('idle');
   }
 }, [selectedCards, multiMode, walletAddress, prices, calculateCardPrice, config, chainId, ethUsdPrice, zeroAddress, fetchListings, allInventory, fetchAllInventory]);
 
@@ -1796,6 +1800,9 @@ const getWearCondition = (wearValue) => {
             <Link href="/dex" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/dex.png" alt="Dex" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
             </Link>
+            <Link href="/claim" className="self-start -ml-1 sm:-ml-2 md:-ml-3 hover:brightness-110">
+              <img src="/claim.png" alt="Claim" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 brightness-50 grayscale" />
+            </Link>
             <Link href="/" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/home.png" alt="Home" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
             </Link>
@@ -1917,6 +1924,17 @@ const getWearCondition = (wearValue) => {
         </div>
       )}
       <main className="flex min-h-screen flex-col items-center p-4 sm:p-6 md:p-8 pt-24 sm:pt-28 md:pt-32 bg-[#00893A] text-white ml-28 sm:ml-36 md:ml-52 relative z-0">
+        {/* Tx Loading Overlay */}
+        {txStatus !== 'idle' && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70">
+            <img src="/loading.png" alt="Loading" className="w-20 h-20 animate-spin" />
+            <p className="text-white text-lg mt-4 font-bold">
+              {txStatus === 'approving' && '1/2 Approving...'}
+              {txStatus === 'pending' && '2/2 TX Pending...'}
+            </p>
+          </div>
+        )}
+
         {showUI ? (
 !isConnected ? (
 <div className="flex flex-col items-center space-y-2">
@@ -1960,7 +1978,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/single.png" 
             alt="Single Mode" 
-            className={`w-24 h-12 sm:w-20 sm:h-18 md:w-24 md:h-19 transition-all ${!multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
+            className={`w-22 h-14 sm:w-20 sm:h-18 md:w-24 md:h-19 transition-all ${!multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
           />
         </button>
         {/* Multi: toggle come prima */}
@@ -1971,7 +1989,7 @@ const getWearCondition = (wearValue) => {
           <img 
             src="/multi.png" 
             alt="Multilisting" 
-            className={`w-34 h-14 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
+            className={`w-30 h-16 sm:w-30 sm:h-22 md:w-30 md:h-16 transition-all ${multiMode ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`} 
           />
         </button>
 {/* Listed: come prima, a fianco */}
@@ -1982,17 +2000,17 @@ const getWearCondition = (wearValue) => {
   <img 
     src="/listed.png" 
     alt="Listed Filter" 
-    className={`w-24 h-12 sm:w-22 sm:h-14 md:w-30 md:h-16 transition-all ${isListedFilter ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
+    className={`w-20 h-14 sm:w-22 sm:h-14 md:w-30 md:h-16 transition-all ${isListedFilter ? 'brightness-100 saturate-100' : 'brightness-50 grayscale'}`}
   />
 </button>
       </div>
       {/* Dropfinder sotto: immagine + input sovrapposto (testo bianco) + bottoni invisibili */}
-<div className="relative self-start w-full max-w-lg h-auto">   {/* Scala su sm+ senza rimpicciolire */}
+<div className="relative self-start w-full max-w-lg h-auto"> {/* Aumentato max-w-lg per più stretch orizzontale se necessario */}
   {/* object-fill: stretch esatto senza taglio, deforma se aspect non matcha */}
   <img 
     src="/dropfinder.png" 
     alt="Drop Finder" 
-    className="w-full h-8 sm:h-20 md:h-24 block object-contain"
+    className="w-full h-12 sm:h-18 md:h-22 block object-contain"
   />
   <input 
     type="text"
@@ -2097,7 +2115,7 @@ const isZoomed = zoomedLabels[cacheKey];
                       return (
                         <div
                           key={index}
-                          className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-6 sm:mx-auto h-[30.375rem] ${multiMode && isSelected ? 'scale-105' : ''}`}
+                          className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-12 sm:mx-auto h-[30.375rem] ${multiMode && isSelected ? 'scale-105' : ''}`}
                           onMouseEnter={() => handleMouseEnter(card)}
                           onMouseLeave={handleMouseLeave}
                           onClick={() => handleCardClick(card)}
