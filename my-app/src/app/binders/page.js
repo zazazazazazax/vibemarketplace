@@ -271,6 +271,7 @@ export default function Binders() {
 
   // Stati per buying multi
   const [isBuyingMap, setIsBuyingMap] = useState({});
+  const [txStatus, setTxStatus] = useState('idle'); // 'idle' | 'approving' | 'pending'
 
   // Funzioni helper (copia/adatta da InventoryContent)
   const getWearCondition = (wear) => {
@@ -508,6 +509,7 @@ const [price, isEth, currency] = await readContract(config, {
         if (balance < priceWei) {
           alert('Insufficient token balance for buy. Check wallet and try again.');
           setIsBuyingMap(prev => ({ ...prev, [cacheKey]: false }));
+          setTxStatus('idle');
           return;
         }
         console.log('Token balance sufficient');
@@ -524,6 +526,7 @@ const [price, isEth, currency] = await readContract(config, {
         });
         if (allowance < priceWei) {
           try {
+            setTxStatus('approving');
             approveResult = await writeContract(config, {
               address: currency,
               abi: erc20ABI,
@@ -554,6 +557,7 @@ const [price, isEth, currency] = await readContract(config, {
 
       // Buy TX (standalone, matching InventoryContent pattern)
       console.log('Sending buy TX...');
+      setTxStatus('pending');
       const buyResult = await writeContract(config, {
         address: CONTRACT_ADDRESS,
         abi: marketplaceABI,
@@ -637,6 +641,7 @@ const [price, isEth, currency] = await readContract(config, {
       }
     } finally {
       setIsBuyingMap(prev => ({ ...prev, [cacheKey]: false }));
+      setTxStatus('idle');
     }
   }, [walletAddress, chainId, readContract, config, setAllListings, openConnectModal, setError, isBuyingMap, ethUsdPrice, checkAllowanceWithRetry, removeListingFromBackend]);
 
@@ -792,6 +797,9 @@ const [price, isEth, currency] = await readContract(config, {
             <Link href="/dex" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/dex.png" alt="Dex" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
             </Link>
+            <Link href="/claim" className="self-start -ml-1 sm:-ml-2 md:-ml-3 hover:brightness-110">
+              <img src="/claim.png" alt="Claim" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 brightness-50 grayscale" />
+            </Link>
             <Link href="/" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/home.png" alt="Home" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
             </Link>
@@ -866,6 +874,17 @@ const [price, isEth, currency] = await readContract(config, {
         </div>
       )}
       <main suppressHydrationWarning className="flex min-h-screen flex-col items-center p-4 sm:p-6 md:p-8 pt-24 sm:pt-28 md:pt-32 bg-[#00893A] text-white ml-28 sm:ml-36 md:ml-52 relative z-0">
+        {/* Tx Loading Overlay */}
+        {txStatus !== 'idle' && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70">
+            <img src="/loading.png" alt="Loading" className="w-20 h-20 animate-spin" />
+            <p className="text-white text-lg mt-4 font-bold">
+              {txStatus === 'approving' && '1/2 Approving...'}
+              {txStatus === 'pending' && '2/2 TX Pending...'}
+            </p>
+          </div>
+        )}
+
         {!isConnected ? (
           <div className="flex flex-col items-center space-y-2">
             <button
@@ -952,8 +971,8 @@ const [price, isEth, currency] = await readContract(config, {
         type="text"
         value={pendingDropFilter}
         onChange={(e) => setPendingDropFilter(e.target.value)}
-        placeholder="  Drop Address"
-        className="absolute left-20 top-1.5 sm:left-32 md:left-32 w-[120px] h-8 sm:w-[200px] sm:h-9 md:w-[200px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
+        placeholder=" Drop Address"
+        className="absolute left-20 top-1.5 sm:left-32 md:left-32 w-[120px] h-8 sm:w-[200px] sm:h-9 md:w-[240px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
       />
       <div 
         className="absolute right-12 sm:right-20 md:right-20 w-8 h-full cursor-pointer" 
@@ -967,7 +986,7 @@ const [price, isEth, currency] = await readContract(config, {
         type="text"
         value={pendingOwnerFilter}
         onChange={(e) => setPendingOwnerFilter(e.target.value)}
-        placeholder="  Owner Address"
+        placeholder=" Owner Address"
         className="absolute left-20 top-1.5 sm:left-32 md:left-32 w-[120px] h-8 sm:w-[200px] sm:h-9 md:w-[200px] md:h-10 text-sm text-white pl-2 bg-transparent outline-none border-none" 
       />
       <div 
@@ -1008,7 +1027,7 @@ const [price, isEth, currency] = await readContract(config, {
                   return (
                     <div 
                       key={cacheKey} 
-                      className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-0 -ml-6 sm:mx-auto h-[30.375rem] ${multiMode && isSel ? 'scale-105' : ''}`} 
+                      className={`group relative rounded-lg shadow-lg cursor-pointer transition-all duration-300 overflow-hidden w-80 mx-auto h-[30.375rem] ${multiMode && isSel ? 'scale-105' : ''}`} 
                       onClick={(e) => {
                         if (multiMode) {
                           toggleSelect(listing);
