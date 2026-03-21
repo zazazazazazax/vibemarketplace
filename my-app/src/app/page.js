@@ -985,6 +985,8 @@ useEffect(() => {
         <li>Visit 'Binders' to explore listed cards (you can filter by collection and owner)</li>
         <li>Buy* cards with eth or related collection token!</li>
         <li>Visit 'Dex' to trade tokens from any collection against eth!</li>
+        <li>Visit 'Claim' to get your $PEPE reward for 'poorly drawn pepe' (vibechain.com/market/poorly-drawn-pepes) foil cards pulled! </li>
+
       </ul>
       
       <h2 className="text-xl font-bold mb-2">Is it safe?</h2>
