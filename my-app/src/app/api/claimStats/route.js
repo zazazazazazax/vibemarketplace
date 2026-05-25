@@ -36,8 +36,27 @@ const ERC20_ABI = [
   }
 ];
 
-const baseClient = createPublicClient({ chain: base, transport: http() });
-const mainnetClient = createPublicClient({ chain: mainnet, transport: http() });
+const RPC_TIMEOUT_MS = 8000;
+
+const baseClient = createPublicClient({
+  chain: base,
+  transport: http(
+    process.env.ALCHEMY_BASE_URL ||
+      process.env.NEXT_PUBLIC_ALCHEMY_BASE_URL ||
+      'https://base.publicnode.com',
+    { timeout: RPC_TIMEOUT_MS }
+  ),
+});
+
+const mainnetClient = createPublicClient({
+  chain: mainnet,
+  transport: http(
+    process.env.ETHEREUM_RPC_URL ||
+      process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL ||
+      'https://ethereum.publicnode.com',
+    { timeout: RPC_TIMEOUT_MS }
+  ),
+});
 
 function formatBalance(num) {
   if (isNaN(num) || num <= 0) return '0';
@@ -49,25 +68,24 @@ function formatBalance(num) {
 
 export async function GET() {
   try {
-    console.log('Fetching highest claimed...');
-    const highest = await baseClient.readContract({
-      address: CLAIM_ADDRESS,
-      abi: CLAIM_ABI,
-      functionName: 'getHighestClaimed',
-    });
+    console.log('Fetching claim stats...');
+    const [highest, receiver] = await Promise.all([
+      baseClient.readContract({
+        address: CLAIM_ADDRESS,
+        abi: CLAIM_ABI,
+        functionName: 'getHighestClaimed',
+      }),
+      baseClient.readContract({
+        address: CLAIM_ADDRESS,
+        abi: CLAIM_ABI,
+        functionName: 'getPepeReceiver',
+      }),
+    ]);
     const tokenId = highest[0].toString();
     const claimer = highest[1];
-    console.log('Highest claimed:', { tokenId, claimer });
+    console.log('Claim stats:', { tokenId, claimer, receiver });
 
     let pepeBalance = '0 $PEPE';
-
-    console.log('Reading PepeReceiver from Base contract...');
-    const receiver = await baseClient.readContract({
-      address: CLAIM_ADDRESS,
-      abi: CLAIM_ABI,
-      functionName: 'getPepeReceiver',
-    });
-    console.log('PepeReceiver address returned:', receiver);
 
     if (receiver && receiver !== '0x0000000000000000000000000000000000000000') {
       console.log(`Attempting balanceOf(${receiver}) on Ethereum for PEPE token...`);
