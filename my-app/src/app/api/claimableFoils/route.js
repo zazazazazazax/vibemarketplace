@@ -6,7 +6,7 @@ import { base } from 'wagmi/chains';
 import { readContract } from 'wagmi/actions';
 
 const PDP_COLLECTION = getAddress('0x8cb5b730943b25403ccac6d5fd649bd0cbde76d8');
-const CLAIM_CONTRACT = getAddress('0x73F19AE03793ED9F1dbCB7785Af4534569F3A782');
+const CLAIM_CONTRACT = getAddress('0x34E06Df657d7D326Fda89B97109586be3c3BD461');
 
 const VIBE_BASE_URL = 'https://build.wield.xyz/vibe/boosterbox/owner';
 
