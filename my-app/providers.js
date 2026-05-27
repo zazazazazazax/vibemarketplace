@@ -5,6 +5,7 @@ import { WagmiProvider } from 'wagmi';
 import { useReconnect } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
+import { sdk } from '@farcaster/miniapp-sdk';
 import { config, chains } from './src/lib/wagmi';
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -51,6 +52,30 @@ const customTheme = {
     closeButton: '#ffffff',  // Bianco per X close
   },
 };
+
+function FarcasterReady() {
+  useEffect(() => {
+    let canceled = false;
+
+    const signalReady = async () => {
+      try {
+        if (!canceled && sdk?.actions?.ready) {
+          await sdk.actions.ready();
+        }
+      } catch {
+        // Normal browsers are not Mini App hosts, so this stays silent there.
+      }
+    };
+
+    signalReady();
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  return null;
+}
 
 function WalletReturnSync() {
   const { reconnect } = useReconnect();
@@ -99,6 +124,7 @@ export function Providers({ children }) {
 enableWalletConnectSessionStorage={true}
 enableTelemetry={false}
         >
+          <FarcasterReady />
           <WalletReturnSync />
           {children}
         </RainbowKitProvider>
