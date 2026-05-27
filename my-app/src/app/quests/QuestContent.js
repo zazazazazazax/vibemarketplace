@@ -636,7 +636,7 @@ export default function QuestContent() {
             <div className="max-w-2xl text-white text-base leading-relaxed text-center px-4">
               <h2 className="text-xl font-bold mb-2">What's a quest?</h2>
               <p className="mb-4">
-                Quests are skill-based PDP campaigns. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote in $PDP, and compete for the prize pool.
+                Quests are skill-based PDP campaigns. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote in $PDP, and compete for the prize pool (funded by 100% of the collected $PDP)
               </p>
 
               <h2 className="text-xl font-bold mb-2">How does it work?</h2>
