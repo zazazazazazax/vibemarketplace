@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSignTypedData } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { useSignMessage } from 'wagmi';
 
 export function useWalletSignature(address) {
   const [hasSigned, setHasSigned] = useState(false);
@@ -10,7 +9,7 @@ export function useWalletSignature(address) {
   const [error, setError] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false); // Flag per evitare re-trigger
 
-  const { signTypedDataAsync } = useSignTypedData();
+  const { signMessageAsync } = useSignMessage();
 
   const handleSignature = useCallback(async () => {
     if (!address) return;
@@ -19,30 +18,18 @@ export function useWalletSignature(address) {
     setError(null);
 
     try {
-      const domain = {
-        name: 'Vibe.Marketplace',
-        version: '1',
-        chainId: base.id,
-        verifyingContract: '0x0000000000000000000000000000000000000000'
-      };
-      const types = {
-        Message: [
-          { name: 'content', type: 'string' },
-          { name: 'nonce', type: 'uint256' }
-        ]
-      };
       const nonce = Math.floor(Date.now() / 1000 / 3600);
-      const message = {
-        content: 'Sign to persist your Vibe.Marketplace session for 24 hours.',
-        nonce: nonce
-      };
+      const message = [
+        'Poorly Drawn Binders',
+        '',
+        'Sign this message to keep your wallet connected for 24 hours.',
+        'This is not a transaction and does not cost gas.',
+        '',
+        `Wallet: ${address}`,
+        `Nonce: ${nonce}`,
+      ].join('\n');
 
-      const signature = await signTypedDataAsync({ 
-        domain, 
-        types, 
-        message, 
-        primaryType: 'Message',
-      });
+      const signature = await signMessageAsync({ message });
 
       localStorage.setItem('walletAddress', address.toLowerCase()); // Salva sempre lowercase
       localStorage.setItem('walletSignature', signature);
@@ -64,7 +51,7 @@ export function useWalletSignature(address) {
       setIsInitialized(true); // Flag anche su error per bloccare spam
       localStorage.setItem('walletInitialized', 'true');  // Persist anche su error
     }
-  }, [address, signTypedDataAsync]);
+  }, [address, signMessageAsync]);
 
   const resetSignature = useCallback(() => {
     setHasSigned(false);
