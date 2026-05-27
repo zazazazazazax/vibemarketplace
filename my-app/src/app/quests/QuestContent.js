@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatUnits } from 'viem';
-import { readContract, waitForTransaction, writeContract } from 'wagmi/actions';
+import { readContract, waitForTransactionReceipt, writeContract } from 'wagmi/actions';
 import { useAccount, useBalance, useChainId, useConfig, useDisconnect } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useWalletSignature } from '../hooks/useWalletSignature';
@@ -154,6 +154,10 @@ contract Quest {
 
 function normalizeHash(result) {
   return typeof result === 'string' ? result : result?.hash;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function bigIntToNumber(value) {
@@ -535,7 +539,26 @@ export default function QuestContent() {
       chainId: BASE_CHAIN_ID,
     });
     const approveHash = normalizeHash(approveResult);
-    if (approveHash) await waitForTransaction(config, { hash: approveHash, chainId: BASE_CHAIN_ID });
+    if (approveHash) await waitForTransactionReceipt(config, { hash: approveHash, chainId: BASE_CHAIN_ID });
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const latestAllowance = await readContract(config, {
+        address: questState.pdpToken,
+        abi: erc20Abi,
+        functionName: 'allowance',
+        args: [address, QUEST_CONTRACT],
+        chainId: BASE_CHAIN_ID,
+      }).catch(() => 0n);
+
+      if (latestAllowance >= requiredAmount) {
+        setQuestState(prev => ({ ...prev, allowance: latestAllowance }));
+        return;
+      }
+
+      await delay(1200);
+    }
+
+    throw new Error('Approval confirmed, but allowance is not visible yet. Please retry in a few seconds.');
   };
 
   const handleRestoreLife = async (card) => {
@@ -567,7 +590,7 @@ export default function QuestContent() {
         chainId: BASE_CHAIN_ID,
       });
       const restoreHash = normalizeHash(restoreResult);
-      if (restoreHash) await waitForTransaction(config, { hash: restoreHash, chainId: BASE_CHAIN_ID });
+      if (restoreHash) await waitForTransactionReceipt(config, { hash: restoreHash, chainId: BASE_CHAIN_ID });
 
       setSuccess(`Restored one life for #${card.tokenId}.`);
       await refreshQuest();
@@ -618,7 +641,7 @@ export default function QuestContent() {
         chainId: BASE_CHAIN_ID,
       });
       const joinHash = normalizeHash(joinResult);
-      if (joinHash) await waitForTransaction(config, { hash: joinHash, chainId: BASE_CHAIN_ID });
+      if (joinHash) await waitForTransactionReceipt(config, { hash: joinHash, chainId: BASE_CHAIN_ID });
 
       setSuccess('Joined the active quest. Lives refreshed.');
       await refreshAfterJoin();
@@ -647,6 +670,11 @@ export default function QuestContent() {
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70">
           <img src="/loading.png" alt="Loading" className="w-20 h-20 animate-spin" />
           <p className="text-white text-lg mt-4 font-bold">{txLabel}</p>
+        </div>
+      )}
+      {success && txStatus === 'idle' && (
+        <div className="fixed top-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded border border-green-300/40 bg-black/90 px-4 py-3 text-center text-sm font-black text-green-100 shadow-lg">
+          {success}
         </div>
       )}
 
