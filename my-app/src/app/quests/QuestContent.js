@@ -369,6 +369,7 @@ export default function QuestContent() {
   const [cardsLoading, setCardsLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [enteredIds, setEnteredIds] = useState([]);
+  const [enteredCards, setEnteredCards] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showQuestDetails, setShowQuestDetails] = useState(false);
   const [error, setError] = useState(null);
@@ -383,8 +384,9 @@ export default function QuestContent() {
   const displaySelectedIds = selectedIds.length > 0 ? selectedIds : enteredIds;
   const displaySelectedCards = useMemo(() => displaySelectedIds.map(tokenId => {
     const card = cards.find(item => item.tokenId === tokenId);
-    return { tokenId, name: card?.name || 'PDP card' };
-  }), [cards, displaySelectedIds]);
+    const enteredCard = enteredCards.find(item => item.tokenId === tokenId);
+    return { tokenId, name: card?.name || enteredCard?.name || 'PDP card' };
+  }), [cards, displaySelectedIds, enteredCards]);
   const cardsPerPage = 8;
   const totalPages = Math.max(1, Math.ceil(cards.length / cardsPerPage));
   const paginatedCards = useMemo(() => {
@@ -474,6 +476,7 @@ export default function QuestContent() {
       setCards([]);
       setSelectedIds([]);
       setEnteredIds([]);
+      setEnteredCards([]);
       return;
     }
     setCardsLoading(true);
@@ -498,6 +501,7 @@ export default function QuestContent() {
   const refreshUserEntry = useCallback(async () => {
     if (!config || !address || questState.activeQuestId <= 0n || !questState.entryIds.length) {
       setEnteredIds([]);
+      setEnteredCards([]);
       return;
     }
 
@@ -516,9 +520,19 @@ export default function QuestContent() {
       const ownedEntry = entries.find(entry => String(entry?.player || '').toLowerCase() === address.toLowerCase());
       const tokenIds = (ownedEntry?.tokenIds || ownedEntry?.[3] || []).map(tokenId => tokenId.toString());
       setEnteredIds(tokenIds);
+      if (!tokenIds.length) {
+        setEnteredCards([]);
+        return;
+      }
+
+      const response = await fetch(`/api/quests?tokenIds=${encodeURIComponent(tokenIds.join(','))}`);
+      if (!response.ok) throw new Error(`Entry token API ${response.status}`);
+      const data = await response.json();
+      setEnteredCards(Array.isArray(data.cards) ? data.cards : []);
     } catch (err) {
       console.error('User quest entry refresh failed:', err);
       setEnteredIds([]);
+      setEnteredCards([]);
     }
   }, [address, config, questState.activeQuestId, questState.entryIds]);
 
@@ -545,6 +559,7 @@ export default function QuestContent() {
     setCards([]);
     setSelectedIds([]);
     setEnteredIds([]);
+    setEnteredCards([]);
     setCurrentPage(1);
     setShowHeader(false);
     router.push('/');
@@ -565,6 +580,7 @@ export default function QuestContent() {
     setCards(updated);
     setSelectedIds([]);
     setEnteredIds(selectedCards.map(card => card.tokenId));
+    setEnteredCards(selectedCards);
   };
 
   const approveQuestSpendingIfNeeded = async (requiredAmount) => {
@@ -696,6 +712,61 @@ export default function QuestContent() {
   const txLabel = txStatus === 'approving' ? 'Approving PDP spending...' : txStatus === 'joining' ? 'Joining quest...' : txStatus === 'restoring' ? 'Restoring life...' : '';
   const joinDisabled = txStatus !== 'idle' || !hasActiveQuest || selectedCards.length === 0 || selectedCards.length > 4 || chainId !== BASE_CHAIN_ID;
   const activePrizePool = activeQuest?.prizePool || 0n;
+  const questInfoBox = hasActiveQuest && showQuestDetails ? (
+    <div
+      className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[300px] min-h-[315px] flex flex-col items-center justify-center text-black"
+      style={{ backgroundImage: 'url(/addressbg.png)' }}
+    >
+      <div className="w-48 -translate-y-10 space-y-1.5 text-center text-[11px] font-black leading-tight">
+        <div>Quest #{bigIntToNumber(activeQuest.id)}</div>
+        <div>Participants: {bigIntToNumber(activeQuest.entryCount)}</div>
+        <div>Collected: {formatCompactTokenAmount(activePrizePool, questState.tokenDecimals, questState.tokenSymbol)}</div>
+        <div>Quote: {formatCompactTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)}</div>
+        <div>1st: {formatCompactTokenAmount(prizeShare(activePrizePool, 60), questState.tokenDecimals, questState.tokenSymbol)}</div>
+        <div>2nd: {formatCompactTokenAmount(prizeShare(activePrizePool, 30), questState.tokenDecimals, questState.tokenSymbol)}</div>
+        <div>3rd: {formatCompactTokenAmount(prizeShare(activePrizePool, 10), questState.tokenDecimals, questState.tokenSymbol)}</div>
+        <div className="pt-1 uppercase text-[10px]">Rules commitment</div>
+        <div className="max-h-12 overflow-y-auto break-all font-mono text-[9px] leading-tight">
+          {activeQuest.rulesCommitment}
+        </div>
+      </div>
+    </div>
+  ) : null;
+  const balanceBox = (
+    <div
+      className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
+      style={{ backgroundImage: 'url(/addressbg.png)' }}
+    >
+      <span className="text-xs font-black uppercase leading-none text-black">
+        Balance
+      </span>
+      <span className="mt-1 max-w-[190px] text-center text-base font-black leading-tight text-black break-words">
+        {formatCompactTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+      </span>
+      <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform -mt-2 -translate-y-3">
+        <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
+      </Link>
+    </div>
+  );
+  const selectedBox = (
+    <div
+      className="bg-center bg-no-repeat bg-contain px-12 py-8 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
+      style={{ backgroundImage: 'url(/addressbg.png)' }}
+    >
+      <span className="text-sm font-black text-black leading-none">
+        Selected: {displaySelectedIds.length}/4
+      </span>
+      {displaySelectedCards.length > 0 && (
+        <div className="mt-2 max-h-16 w-44 overflow-y-auto text-center text-[10px] font-black leading-tight text-black">
+          {displaySelectedCards.map(({ tokenId, name }) => (
+            <div key={tokenId} className="break-words">
+              #{tokenId} {name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <Shell
@@ -851,9 +922,16 @@ export default function QuestContent() {
                       <img src="/loading.png" alt="Loading your PDP cards" className="w-40 h-30 sm:w-48 sm:h-36 md:w-56 md:h-40 animate-spin" />
                     </div>
                   ) : cards.length === 0 ? (
-                    <div className="py-8 text-center">
-                      <img src="/nocardsfound.png" alt="No cards found" className="w-48 h-48 mx-auto object-contain opacity-80" />
-                      <p className="text-white/60">No owned PDP cards found for this wallet.</p>
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                      <div className="flex-1 min-w-0 w-full flex justify-center lg:justify-start py-8">
+                        <img src="/nocardsfound.png" alt="No cards found" className="w-56 h-56 object-contain opacity-80" />
+                      </div>
+
+                      <div className="w-full lg:w-72 flex-shrink-0 flex flex-col items-center lg:items-end gap-4">
+                        {questInfoBox}
+                        {balanceBox}
+                        {displaySelectedCards.length > 0 && selectedBox}
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -931,59 +1009,9 @@ export default function QuestContent() {
                         </div>
 
                         <div className="w-full lg:w-72 flex-shrink-0 flex flex-col items-center lg:items-end gap-4">
-                          {hasActiveQuest && showQuestDetails && (
-                            <div
-                              className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[300px] min-h-[315px] flex flex-col items-center justify-center text-black"
-                              style={{ backgroundImage: 'url(/addressbg.png)' }}
-                            >
-                              <div className="w-48 -translate-y-10 space-y-1.5 text-center text-[11px] font-black leading-tight">
-                                <div>Quest #{bigIntToNumber(activeQuest.id)}</div>
-                                <div>Participants: {bigIntToNumber(activeQuest.entryCount)}</div>
-                                <div>Collected: {formatCompactTokenAmount(activePrizePool, questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>Quote: {formatCompactTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>1st: {formatCompactTokenAmount(prizeShare(activePrizePool, 60), questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>2nd: {formatCompactTokenAmount(prizeShare(activePrizePool, 30), questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>3rd: {formatCompactTokenAmount(prizeShare(activePrizePool, 10), questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div className="pt-1 uppercase text-[10px]">Rules commitment</div>
-                                <div className="max-h-12 overflow-y-auto break-all font-mono text-[9px] leading-tight">
-                                  {activeQuest.rulesCommitment}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          <div
-                            className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
-                            style={{ backgroundImage: 'url(/addressbg.png)' }}
-                          >
-                            <span className="text-xs font-black uppercase leading-none text-black">
-                              Balance
-                            </span>
-                            <span className="mt-1 max-w-[190px] text-center text-base font-black leading-tight text-black break-words">
-                              {formatCompactTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
-                            </span>
-                            <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform -mt-2 -translate-y-3">
-                              <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
-                            </Link>
-                          </div>
-
-                          <div
-                            className="bg-center bg-no-repeat bg-contain px-12 py-8 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
-                            style={{ backgroundImage: 'url(/addressbg.png)' }}
-                          >
-                            <span className="text-sm font-black text-black leading-none">
-                              Selected: {displaySelectedIds.length}/4
-                            </span>
-                            {displaySelectedCards.length > 0 && (
-                              <div className="mt-2 max-h-16 w-44 overflow-y-auto text-center text-[10px] font-black leading-tight text-black">
-                                {displaySelectedCards.map(({ tokenId, name }) => (
-                                  <div key={tokenId} className="break-words">
-                                    #{tokenId} {name}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          {questInfoBox}
+                          {balanceBox}
+                          {selectedBox}
 
                           <button
                             onClick={handleJoin}
