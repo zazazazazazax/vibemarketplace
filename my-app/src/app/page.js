@@ -1341,9 +1341,9 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
           {/* Win $PEPE */}
           <div className="flex flex-col items-start">
             <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-2 ml-2">Win $PEPE:</span>
-            <a href="https://vibechain.com/market/poorly-drawn-pepes" target="_blank" rel="noopener noreferrer" className="w-fit block flex-shrink-0">
+            <Link href="/claim" className="w-fit block flex-shrink-0">
               <img src="/win.png" alt="Win $PEPE" className="w-56 h-35 sm:w-[14rem] sm:h-50 lg:w-[100rem] lg:h-80 object-contain" />
-            </a>
+            </Link>
           </div>
         </div>
       </div>
