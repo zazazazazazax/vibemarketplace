@@ -1,7 +1,7 @@
 // src/app/dex/page.js (updated for further aesthetic changes: larger dropfinder, fully hidden search, larger collection img with proportions, transparent previous, buttons outside boxes, X-centered layout in boxes)
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useActionState } from 'react';
 import { useAccount, useBalance, useDisconnect, useReadContract, useWriteContract } from 'wagmi';
@@ -135,6 +135,7 @@ const ERC20_ABI = [
 
 export default function Dex() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
   const { writeContract, isPending: isWritePending, data: txData } = useWriteContract(); // Use full hook for hash
@@ -166,6 +167,12 @@ export default function Dex() {
   const [ethState, ethAction, isEthPending] = useActionState(fetchEthPriceServer, { success: false, ethPrice: 0 });
 
   const formattedEthBalance = ethBalance ? (parseFloat(ethBalance.formatted)).toFixed(7) : '0';
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'buy' && collectionData && activeTab !== 'buy') {
+      setActiveTab('buy');
+    }
+  }, [searchParams, collectionData, activeTab]);
 
   // Update collectionData and error from server action
   useEffect(() => {
@@ -383,6 +390,9 @@ const handleBuyTrade = async () => {
           <nav className="flex flex-col space-y-0 text-white text-sm mt-0">
             <Link href="/claim" className="self-start -ml-1 sm:-ml-2 md:-ml-3 hover:brightness-110">
               <img src="/claim.png" alt="Claim" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 brightness-50 grayscale" />
+            </Link>
+            <Link href="/quests" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
+              <img src="/quest.png" alt="Quest" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
             </Link>
             <Link href="/" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/home.png" alt="Home" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
