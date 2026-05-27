@@ -797,7 +797,7 @@ export default function QuestContent() {
                               className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[300px] min-h-[315px] flex flex-col items-center justify-center text-black"
                               style={{ backgroundImage: 'url(/addressbg.png)' }}
                             >
-                              <div className="w-48 space-y-1.5 text-center text-[11px] font-black leading-tight">
+                              <div className="w-48 -translate-y-7 space-y-1.5 text-center text-[11px] font-black leading-tight">
                                 <div>Quest #{bigIntToNumber(activeQuest.id)}</div>
                                 <div>Participants: {bigIntToNumber(activeQuest.entryCount)}</div>
                                 <div>Collected: {formatTokenAmount(activePrizePool, questState.tokenDecimals, questState.tokenSymbol)}</div>
@@ -823,7 +823,7 @@ export default function QuestContent() {
                             <span className="mt-1 max-w-[190px] text-center text-base font-black leading-tight text-black break-words">
                               {formatCompactTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
                             </span>
-                            <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform -mt-1 -translate-y-1">
+                            <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform -mt-2 -translate-y-3">
                               <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
                             </Link>
                           </div>
