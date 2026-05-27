@@ -1803,6 +1803,9 @@ const getWearCondition = (wearValue) => {
             <Link href="/claim" className="self-start -ml-1 sm:-ml-2 md:-ml-3 hover:brightness-110">
               <img src="/claim.png" alt="Claim" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 brightness-50 grayscale" />
             </Link>
+            <Link href="/quests" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
+              <img src="/quest.png" alt="Quest" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
+            </Link>
             <Link href="/" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img src="/home.png" alt="Home" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
             </Link>
