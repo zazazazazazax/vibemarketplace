@@ -2,12 +2,12 @@
   "frame": {
     "name": "Poorly drawn binders",
     "version": "1",
-    "iconUrl": "https://vibemarketplace.vercel.app/pepe.png",
-    "homeUrl": "https://vibemarketplace.vercel.app/",
-    "imageUrl": "https://vibemarketplace.vercel.app/pdb.png",
-    "splashImageUrl": "https://vibemarketplace.vercel.app/welcome.png",
+    "iconUrl": "https://poorlydrawnbinders.vercel.app/pepe.png",
+    "homeUrl": "https://poorlydrawnbinders.vercel.app/",
+    "imageUrl": "https://poorlydrawnbinders.vercel.app/pdb.png",
+    "splashImageUrl": "https://poorlydrawnbinders.vercel.app/welcome.png",
     "splashBackgroundColor": "#000000",
-    "subtitle": "vibemarketplace",
+    "subtitle": "poorly drawn binders",
     "description": "List and buy liquid trading cards!",
     "primaryCategory": "shopping",
     "tags": [
