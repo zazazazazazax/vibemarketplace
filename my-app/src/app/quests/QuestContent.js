@@ -12,6 +12,7 @@ import { useFarcasterMiniApp } from '../hooks/useFarcasterMiniApp';
 
 const QUEST_CONTRACT = '0x2D2199cf2a93Aa4ffc661E5E1E281e21188Ce4B4';
 const BASE_CHAIN_ID = 8453;
+const MAX_UINT256 = (1n << 256n) - 1n;
 
 const questAbi = [
   { inputs: [], name: 'activeQuestId', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
@@ -433,7 +434,7 @@ export default function QuestContent() {
           address: questState.pdpToken,
           abi: erc20Abi,
           functionName: 'approve',
-          args: [QUEST_CONTRACT, questState.entryFee],
+          args: [QUEST_CONTRACT, MAX_UINT256],
           chainId: BASE_CHAIN_ID,
         });
         const approveHash = normalizeHash(approveResult);
@@ -531,7 +532,7 @@ export default function QuestContent() {
               </p>
 
               <p className="text-sm italic">
-                Quest transactions are final and at your own risk. Check selected cards, lives, allowance, and $PDP balance before joining.
+                Quest transactions are final and at your own risk. Check selected cards, lives, and $PDP balance before joining.
               </p>
             </div>
           </section>
@@ -581,14 +582,14 @@ export default function QuestContent() {
                   </div>
                 )}
 
-                <div className="bg-black/80 border border-white/10 rounded p-4 w-full">
+                <div className="w-full">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                    <div>
-                      <h2 className="text-xl font-black">Your PDP Cards</h2>
-                      <p className="text-white/60 text-sm">Select 1 to 4 cards with lives available.</p>
-                    </div>
-                    <div className="text-sm text-white/70">
-                      Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+                    <p className="text-white/80 text-sm font-bold">Select 1 to 4 cards with lives available.</p>
+                    <div className="flex flex-col items-start md:items-end gap-1 text-sm text-white/80">
+                      <span>Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}</span>
+                      <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform">
+                        <img src="/buy.png" alt="Buy" className="w-16 h-auto object-contain" />
+                      </Link>
                     </div>
                   </div>
 
@@ -609,7 +610,7 @@ export default function QuestContent() {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                         {cards.map((card) => {
                           const selected = selectedIds.includes(card.tokenId);
                           const disabled = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
@@ -618,23 +619,17 @@ export default function QuestContent() {
                               key={`${card.contractAddress}-${card.tokenId}`}
                               onClick={() => toggleCard(card)}
                               disabled={disabled}
-                              className={`text-left rounded border overflow-hidden bg-[#111] transition ${selected ? 'border-yellow-300 ring-2 ring-yellow-300 brightness-100' : 'border-white/10 brightness-75'} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:-translate-y-0.5 cursor-pointer'}`}
+                              className={`text-center border-none bg-transparent transition ${selected ? 'brightness-100 scale-105' : 'brightness-75'} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:-translate-y-0.5 cursor-pointer'}`}
                             >
-                              <div className="aspect-[4/5] bg-black flex items-center justify-center">
+                              <div className="aspect-[4/5] flex items-center justify-center">
                                 {card.imageUrl ? (
                                   <img src={card.imageUrl} alt={card.name} className="w-full h-full object-contain" />
                                 ) : (
                                   <div className="text-white/30 text-sm">No image</div>
                                 )}
                               </div>
-                              <div className="p-3 space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div>
-                                    <div className="font-black leading-tight text-white">{card.name}</div>
-                                    <div className="text-xs text-white/50">#{card.tokenId}</div>
-                                  </div>
-                                  <span className="text-[11px] uppercase bg-white/10 px-2 py-1 rounded text-white/70">{rarityName(card.rarity)}</span>
-                                </div>
+                              <div className="pt-2 space-y-2 flex flex-col items-center">
+                                <div className="text-xs font-black text-white/80">#{card.tokenId}</div>
                                 <Lives remaining={card.livesRemaining} max={card.livesMax} selected={selected} />
                                 {card.usedInQuest && <div className="text-xs text-red-300 font-bold">Already used in this quest</div>}
                                 {!card.usedInQuest && card.livesRemaining <= 0 && <div className="text-xs text-red-300 font-bold">No lives left</div>}
@@ -647,7 +642,6 @@ export default function QuestContent() {
                       <div className="sticky bottom-3 mt-5 bg-black border border-white/10 rounded p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div className="text-sm text-white/75">
                           Selected: <span className="font-black text-white">{selectedIds.length}/4</span>
-                          <span className="block md:inline md:ml-4">Allowance: {formatTokenAmount(questState.allowance, questState.tokenDecimals, questState.tokenSymbol)}</span>
                         </div>
                         <button
                           onClick={handleJoin}
