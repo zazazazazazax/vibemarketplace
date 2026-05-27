@@ -1,7 +1,7 @@
 // src/app/dex/page.js (updated for further aesthetic changes: larger dropfinder, fully hidden search, larger collection img with proportions, transparent previous, buttons outside boxes, X-centered layout in boxes)
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useActionState } from 'react';
 import { useAccount, useBalance, useDisconnect, useReadContract, useWriteContract } from 'wagmi';
@@ -135,7 +135,6 @@ const ERC20_ABI = [
 
 export default function Dex() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
   const { writeContract, isPending: isWritePending, data: txData } = useWriteContract(); // Use full hook for hash
@@ -169,10 +168,11 @@ export default function Dex() {
   const formattedEthBalance = ethBalance ? (parseFloat(ethBalance.formatted)).toFixed(7) : '0';
 
   useEffect(() => {
-    if (searchParams.get('tab') === 'buy' && collectionData && activeTab !== 'buy') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'buy' && collectionData && activeTab !== 'buy') {
       setActiveTab('buy');
     }
-  }, [searchParams, collectionData, activeTab]);
+  }, [collectionData, activeTab]);
 
   // Update collectionData and error from server action
   useEffect(() => {
