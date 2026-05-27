@@ -370,6 +370,9 @@ export default function QuestContent() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [enteredIds, setEnteredIds] = useState([]);
   const [enteredCards, setEnteredCards] = useState([]);
+  const [usedTokenPlayers, setUsedTokenPlayers] = useState({});
+  const [hoveredQuestCardId, setHoveredQuestCardId] = useState(null);
+  const [hiddenQuestCases, setHiddenQuestCases] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [showQuestDetails, setShowQuestDetails] = useState(false);
   const [error, setError] = useState(null);
@@ -477,6 +480,9 @@ export default function QuestContent() {
       setSelectedIds([]);
       setEnteredIds([]);
       setEnteredCards([]);
+      setUsedTokenPlayers({});
+      setHoveredQuestCardId(null);
+      setHiddenQuestCases({});
       return;
     }
     setCardsLoading(true);
@@ -502,6 +508,7 @@ export default function QuestContent() {
     if (!config || !address || questState.activeQuestId <= 0n || !questState.entryIds.length) {
       setEnteredIds([]);
       setEnteredCards([]);
+      setUsedTokenPlayers({});
       return;
     }
 
@@ -517,7 +524,17 @@ export default function QuestContent() {
         return entry;
       }));
 
-      const ownedEntry = entries.find(entry => String(entry?.player || '').toLowerCase() === address.toLowerCase());
+      const tokenPlayerMap = entries.reduce((map, entry) => {
+        const player = String(entry?.player || entry?.[2] || '');
+        const tokenIds = entry?.tokenIds || entry?.[3] || [];
+        tokenIds.forEach(tokenId => {
+          map[tokenId.toString()] = player;
+        });
+        return map;
+      }, {});
+      setUsedTokenPlayers(tokenPlayerMap);
+
+      const ownedEntry = entries.find(entry => String(entry?.player || entry?.[2] || '').toLowerCase() === address.toLowerCase());
       const tokenIds = (ownedEntry?.tokenIds || ownedEntry?.[3] || []).map(tokenId => tokenId.toString());
       setEnteredIds(tokenIds);
       if (!tokenIds.length) {
@@ -533,6 +550,7 @@ export default function QuestContent() {
       console.error('User quest entry refresh failed:', err);
       setEnteredIds([]);
       setEnteredCards([]);
+      setUsedTokenPlayers({});
     }
   }, [address, config, questState.activeQuestId, questState.entryIds]);
 
@@ -560,6 +578,9 @@ export default function QuestContent() {
     setSelectedIds([]);
     setEnteredIds([]);
     setEnteredCards([]);
+    setUsedTokenPlayers({});
+    setHoveredQuestCardId(null);
+    setHiddenQuestCases({});
     setCurrentPage(1);
     setShowHeader(false);
     router.push('/');
@@ -581,6 +602,7 @@ export default function QuestContent() {
     setSelectedIds([]);
     setEnteredIds(selectedCards.map(card => card.tokenId));
     setEnteredCards(selectedCards);
+    setUsedTokenPlayers(prev => selectedCards.reduce((map, card) => ({ ...map, [card.tokenId]: address }), { ...prev }));
   };
 
   const approveQuestSpendingIfNeeded = async (requiredAmount) => {
@@ -939,13 +961,36 @@ export default function QuestContent() {
                         <div className="flex-1 min-w-0 w-full">
                           <div className="grid grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
                             {paginatedCards.map((card) => {
+                              const cacheKey = `${card.contractAddress}-${card.tokenId}`;
                               const selected = selectedIds.includes(card.tokenId);
                               const selectionBlocked = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
+                              const selectable = hasActiveQuest && !card.usedInQuest && card.livesRemaining > 0;
+                              const hovered = hoveredQuestCardId === cacheKey;
+                              const caseHidden = hiddenQuestCases[cacheKey];
+                              const showCase = card.usedInQuest ? !caseHidden : selected || (selectable && hovered);
+                              const caseOpacity = card.usedInQuest || selected ? 'opacity-100 scale-100' : 'opacity-40 scale-100';
+                              const labelPlayer = card.usedInQuest ? usedTokenPlayers[card.tokenId] : address;
                               return (
                                 <div
-                                  key={`${card.contractAddress}-${card.tokenId}`}
-                                  onClick={() => toggleCard(card)}
-                                  className={`text-center transition ${selected ? 'brightness-100 scale-105' : 'brightness-75'} ${selectionBlocked ? 'opacity-55' : 'hover:-translate-y-0.5 cursor-pointer'}`}
+                                  key={cacheKey}
+                                  onMouseEnter={() => setHoveredQuestCardId(cacheKey)}
+                                  onMouseLeave={() => {
+                                    setHoveredQuestCardId(null);
+                                    setHiddenQuestCases(prev => {
+                                      if (!prev[cacheKey]) return prev;
+                                      const next = { ...prev };
+                                      delete next[cacheKey];
+                                      return next;
+                                    });
+                                  }}
+                                  onClick={() => {
+                                    if (card.usedInQuest) {
+                                      setHiddenQuestCases(prev => ({ ...prev, [cacheKey]: true }));
+                                      return;
+                                    }
+                                    toggleCard(card);
+                                  }}
+                                  className={`group text-center transition ${selected ? 'scale-105' : ''} ${selectable || card.usedInQuest ? 'hover:-translate-y-0.5 cursor-pointer' : 'opacity-55'}`}
                                   role="button"
                                   tabIndex={selectionBlocked ? -1 : 0}
                                   onKeyDown={(event) => {
@@ -955,14 +1000,35 @@ export default function QuestContent() {
                                     }
                                   }}
                                 >
-                                  <div className="aspect-[4/5] flex items-center justify-center">
+                                  <div className="relative aspect-[4/5] flex items-center justify-center overflow-visible">
                                     {card.imageUrl ? (
-                                      <img src={card.imageUrl} alt={card.name} className="w-full h-full object-contain" />
+                                      <img
+                                        src={card.imageUrl}
+                                        alt={card.name}
+                                        className={`relative z-10 w-full h-full object-contain transition-all duration-300 group-hover:scale-95 ${selected ? 'brightness-100' : 'brightness-75'} ${card.usedInQuest ? 'opacity-60' : ''}`}
+                                      />
                                     ) : (
                                       <div className="text-white/30 text-sm">No image</div>
                                     )}
+                                    <div
+                                      className={`absolute inset-0 z-20 pointer-events-none ${showCase ? caseOpacity : 'opacity-0 scale-95'} translate-x-[5px] translate-y-[24px] transition-all duration-300`}
+                                      style={{
+                                        backgroundImage: 'url(/casetemp.png)',
+                                        backgroundSize: '96% 96%',
+                                        backgroundRepeat: 'no-repeat',
+                                        backgroundPosition: 'center',
+                                      }}
+                                    />
+                                    <div
+                                      className={`absolute left-1/2 top-4 z-30 w-40 -translate-x-1/2 transition-opacity duration-200 ${showCase ? 'opacity-100' : 'opacity-0'} pointer-events-none`}
+                                    >
+                                      <div className="w-full bg-white px-1.5 py-1 text-center text-[8px] font-black leading-tight text-black shadow">
+                                        <div>#{card.tokenId}</div>
+                                        <div className="break-all font-mono text-[6px]">{labelPlayer || 'Unknown player'}</div>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="pt-2 space-y-2 flex flex-col items-center">
+                                  <div className={`pt-2 space-y-2 flex flex-col items-center transition-all duration-200 ${selected ? 'brightness-100' : 'brightness-75'}`}>
                                     <Lives
                                       remaining={card.livesRemaining}
                                       max={card.livesMax}
