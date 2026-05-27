@@ -297,7 +297,7 @@ function Lives({ remaining, max, selected }) {
             key={index}
             src="/pepe.png"
             alt={alive ? 'Life' : 'Spent life'}
-            className={`w-7 h-7 object-contain transition-all duration-200 ${alive ? (selected ? 'brightness-100' : 'brightness-75') : 'brightness-0'}`}
+            className={`w-9 h-9 object-contain transition-all duration-200 ${alive ? (selected ? 'brightness-100' : 'brightness-75') : 'brightness-0'}`}
           />
         );
       })}
@@ -623,19 +623,25 @@ export default function QuestContent() {
                 Every quest has hidden scoring. Card names can score positive or negative points, and some combinations can trigger secret synergies. The best entries are selected after the quest closes, then the rules and salt are revealed so the commitment can be checked.
               </p>
 
+              <h2 className="text-xl font-bold mb-2">Any tip?</h2>
+              <p className="mb-4">
+                Read the quest banner and the quest name like a clue. The answer is usually hiding in the vibe, not in the obvious stats.
+              </p>
+
               <p className="text-sm italic">
                 Quest transactions are final and at your own risk. Check selected cards, lives, and $PDP balance before joining.
               </p>
             </div>
           </section>
         ) : mode === 'dev' ? (
-          <section className="w-full flex items-center justify-center px-4">
+          <div className="w-full flex items-center justify-center px-4">
             <div
               className="relative w-full max-w-none bg-center bg-no-repeat"
               style={{
                 width: '95vw',
                 height: '80vh',
                 backgroundImage: 'url(/textbg2.png)',
+                backgroundSize: '100% 100%',
               }}
             >
               <div className="absolute inset-0 z-10 p-4 overflow-y-auto">
@@ -647,7 +653,7 @@ export default function QuestContent() {
                 </div>
               </div>
             </div>
-          </section>
+          </div>
         ) : (
           <>
             {questState.loading ? (
@@ -668,19 +674,8 @@ export default function QuestContent() {
                       <Stat label="3rd Prize" value={formatTokenAmount(prizeShare(activePrizePool, 10), questState.tokenDecimals, questState.tokenSymbol)} />
                     </div>
                     <div className="bg-black/80 border border-white/10 rounded p-4 w-full">
-                      <div className="grid md:grid-cols-2 gap-3 mb-4">
+                      <div className="grid md:grid-cols-1 gap-3 mb-4">
                         <Stat label="Participation Quote" value={formatTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)} />
-                        <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700 min-h-[82px] flex flex-col items-start justify-between">
-                          <div>
-                            <div className="text-[11px] uppercase tracking-wide text-white/50">Your $PDP Balance</div>
-                            <div className="mt-1 text-lg md:text-xl font-black text-white break-words">
-                              {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
-                            </div>
-                          </div>
-                          <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-2 self-center">
-                            <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
-                          </Link>
-                        </div>
                       </div>
                       <div className="text-xs uppercase tracking-wide text-white/50">Rules commitment</div>
                       <div className="font-mono text-sm break-all mt-1">{activeQuest.rulesCommitment}</div>
@@ -699,6 +694,17 @@ export default function QuestContent() {
                 )}
 
                 <div className="w-full">
+                  {isConnected && (
+                    <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700 mb-4 flex flex-col items-center justify-center">
+                      <span className="text-sm font-black text-white">
+                        Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+                      </span>
+                      <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
+                        <img src="/buy.png" alt="Buy" className="w-32 h-auto object-contain" />
+                      </Link>
+                    </div>
+                  )}
+
                   {!isConnected ? (
                     <div className="text-center py-10">
                       <button onClick={() => openConnectModal?.()} className="cursor-pointer border-none bg-transparent">
