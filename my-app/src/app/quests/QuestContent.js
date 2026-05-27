@@ -742,7 +742,7 @@ export default function QuestContent() {
                     <>
                       <div className="flex flex-col lg:flex-row gap-6 items-start">
                         <div className="flex-1 min-w-0 w-full">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+                          <div className="grid grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
                             {paginatedCards.map((card) => {
                               const selected = selectedIds.includes(card.tokenId);
                               const disabled = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
@@ -806,8 +806,11 @@ export default function QuestContent() {
                             className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
                             style={{ backgroundImage: 'url(/addressbg.png)' }}
                           >
-                            <span className="text-sm font-black text-black whitespace-nowrap">
-                              Balance: {formatCompactTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+                            <span className="text-xs font-black uppercase leading-none text-black">
+                              Balance
+                            </span>
+                            <span className="mt-1 max-w-[190px] text-center text-base font-black leading-tight text-black break-words">
+                              {formatCompactTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
                             </span>
                             <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
                               <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
