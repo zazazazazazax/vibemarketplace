@@ -5,7 +5,7 @@ import seedNames from '../../../../data/pdp-card-name-tokenids.json';
 
 const PDP_COLLECTION = '0x8cB5B730943b25403CCac6d5fD649bd0cbDE76D8'.toLowerCase();
 const apiKeys = process.env.VIBE_API_KEYS ? process.env.VIBE_API_KEYS.split(',').map(key => key.trim()).filter(Boolean) : [];
-const USE_DB = process.env.USE_POSTGRES === 'true';
+const USE_DB = String(process.env.USE_POSTGRES || '').toLowerCase() === 'true';
 const sql = USE_DB && process.env.DATABASE_URL ? neon(process.env.DATABASE_URL) : null;
 
 const questInventoryCache = new LRUCache({
@@ -70,9 +70,10 @@ async function upsertTokenNamesToDb(nameRows) {
 
   try {
     for (const row of nameRows) {
+      const metadataJson = row.metadata ? JSON.stringify(row.metadata) : null;
       await sql`
         INSERT INTO pdp_token_names (token_id, card_name, source, metadata)
-        VALUES (${Number(row.tokenId)}, ${row.name}, 'wield', ${row.metadata ? JSON.stringify(row.metadata) : null})
+        VALUES (${Number(row.tokenId)}, ${row.name}, 'wield', ${metadataJson}::jsonb)
         ON CONFLICT (token_id) DO UPDATE SET
           card_name = EXCLUDED.card_name,
           source = EXCLUDED.source,
@@ -155,6 +156,32 @@ async function fetchOwnerCardsForStatus(address, status, apiKey) {
   return cards;
 }
 
+async function fetchSingleTokenMetadata(tokenId, contractAddress) {
+  for (const apiKey of apiKeys) {
+    try {
+      const params = new URLSearchParams({
+        includeMetadata: 'true',
+        tokenId: String(tokenId),
+        contractAddress,
+      });
+      const response = await fetchWithRetry(`https://build.wield.xyz/vibe/boosterbox/?${params.toString()}`, {
+        headers: { 'API-KEY': apiKey },
+      });
+      if (!response.ok) throw new Error(`Wield token API ${response.status}`);
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message || 'Wield token API error');
+
+      const box = data.boosterBox || data.boxes?.[0];
+      if (box) return box;
+    } catch (err) {
+      console.error(`Single token metadata error for ${tokenId}:`, err.message);
+    }
+  }
+
+  return null;
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get('address');
@@ -195,6 +222,25 @@ export async function GET(request) {
 
     const tokenIds = [...new Set(pdpCards.map(card => String(card?.tokenId || card?.token_id || '')))];
     const dbNameByTokenId = await loadTokenNamesFromDb(tokenIds);
+
+    if (USE_DB) {
+      for (let i = 0; i < pdpCards.length; i++) {
+        const tokenId = String(pdpCards[i]?.tokenId || pdpCards[i]?.token_id || '');
+        const metadata = pdpCards[i]?.metadata || {};
+        if (dbNameByTokenId.has(tokenId) || getTraitName(metadata)) continue;
+
+        const singleTokenCard = await fetchSingleTokenMetadata(tokenId, PDP_COLLECTION);
+        if (singleTokenCard?.metadata && getTraitName(singleTokenCard.metadata)) {
+          pdpCards[i] = {
+            ...pdpCards[i],
+            ...singleTokenCard,
+            tokenId,
+            contractAddress: PDP_COLLECTION,
+            metadata: singleTokenCard.metadata,
+          };
+        }
+      }
+    }
 
     const cards = pdpCards
       .map(card => normalizeCard(card, dbNameByTokenId))
