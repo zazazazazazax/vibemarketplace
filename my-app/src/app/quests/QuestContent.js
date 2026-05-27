@@ -328,7 +328,7 @@ function Lives({ remaining, max, selected, onRestore, disabled }) {
             <img
               src="/pepe.png"
               alt={alive ? 'Life' : 'Restore spent life'}
-              className={`w-9 h-9 object-contain transition-all duration-200 ${alive ? 'brightness-100' : 'brightness-0'}`}
+              className={`w-10 h-10 object-contain transition-all duration-200 ${alive ? 'brightness-100' : 'brightness-0'}`}
             />
           </button>
         );
@@ -1152,7 +1152,7 @@ export default function QuestContent() {
                   )}
                 </div>
 
-                {previousQuest && bigIntToNumber(previousQuest.id) > 0 && (
+                {previousQuest && bigIntToNumber(previousQuest.id) > 0 ? (
                   <div className="bg-black/80 border border-white/10 rounded p-4 w-full">
                     <h2 className="font-black text-xl mb-3 text-center">Previous Quest Leaderboard #{bigIntToNumber(previousQuest.id)}</h2>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -1183,6 +1183,8 @@ export default function QuestContent() {
                       <p className="mt-3 text-white/60 text-sm">Rules reveal is not available yet. Commitment: <span className="font-mono">{shortHash(previousQuest.rulesCommitment)}</span></p>
                     )}
                   </div>
+                ) : (
+                  <div className="h-16 sm:h-20 lg:h-24" aria-hidden="true" />
                 )}
 
                 <div className="w-full flex flex-col items-start space-y-2 mt-24 pb-14 z-0 pl-4 self-start lg:pl-0">
