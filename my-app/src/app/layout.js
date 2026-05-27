@@ -1,8 +1,8 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from '../../providers'; // Da root (my-app/providers.js)
-import { MetaMaskProvider } from './components/MetaMaskProvider';  // <-- Aggiunto: Relativo a src/app/components
-import ClientLayout from './ClientLayout';  // Nuovo import
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://poorlydrawnbinders.vercel.app';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,14 +26,14 @@ export default function RootLayout({ children }) {
         {/* Nuovo: Meta per Farcaster Mini App (discovery e launch) */}
         <meta name="fc:miniapp" content={JSON.stringify({
           version: '1',
-          imageUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vibemarketplace.vercel.app'}/pdb.png`,  // Usa la tua immagine preview
+          imageUrl: `${appUrl}/pdb.png`,  // Usa la tua immagine preview
           button: {
-            title: 'Launch Poorly drawn binders',
+            title: 'Launch Poorly Drawn Binders',
             action: {
               type: 'launch_frame',
               name: 'Poorly drawn binders',
-              url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vibemarketplace.vercel.app'}/`,  // Apri home nel modal
-              splashImageUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://vibemarketplace.vercel.app'}/welcome.png`,
+              url: `${appUrl}/`,  // Apri home nel modal
+              splashImageUrl: `${appUrl}/welcome.png`,
               splashBackgroundColor: '#000000',  // Nero per dark theme
             },
           },
@@ -41,11 +41,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          <MetaMaskProvider>  {/* <-- Aggiunto: Wrap per SDK client-side */}
-            <ClientLayout>
-             {children}    
-            </ClientLayout>
-          </MetaMaskProvider>
+          {children}
         </Providers>
       </body>
     </html>
