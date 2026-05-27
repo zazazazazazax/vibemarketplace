@@ -546,6 +546,9 @@ useEffect(() => {
             <Link href="/claim" className="self-start -ml-1 sm:-ml-2 md:-ml-3 hover:brightness-110">
               <img src="/claim.png" alt="Claim" className="scale-y-95 w-32 h-12 sm:w-40 sm:h-16 md:w-48 md:h-20 brightness-50 grayscale" />
             </Link>
+            <Link href="/quests" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
+              <img src="/quest.png" alt="Quest" className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale" />
+            </Link>
           </nav>
         </div>
       </div>
@@ -985,8 +988,6 @@ useEffect(() => {
         <li>Visit 'Binders' to explore listed cards (you can filter by collection and owner)</li>
         <li>Buy* cards with eth or related collection token!</li>
         <li>Visit 'Dex' to trade tokens from any collection against eth!</li>
-        <li>Visit 'Claim' to get your $PEPE reward for 'poorly drawn pepe' (vibechain.com/market/poorly-drawn-pepes) foil cards pulled! </li>
-
       </ul>
       
       <h2 className="text-xl font-bold mb-2">Is it safe?</h2>
@@ -1296,7 +1297,7 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
         </pre>
         <h3 className="text-black font-bold text-sm mt-8 mb-2">Additional Contracts</h3>
         <p className="text-black text-xs mb-1">VibePepeFoilClaimV3 (on base): 0x34E06Df657d7D326Fda89B97109586be3c3BD461</p>
-        <p className="text-black text-xs mb-1">PepePayoutV1 (on eth): 0x7e88C89630f80ad8e043cB0eb1D974eC34D04D92</p>
+        <p className="text-black text-xs mb-1">PepePayoutV2 (on eth): 0x63f476a161Cde24A386a38a271aB125269881fB9</p>
       </div>
 <div className="flex-1" /> 
       </div>
