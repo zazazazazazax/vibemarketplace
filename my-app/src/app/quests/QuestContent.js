@@ -785,12 +785,12 @@ export default function QuestContent() {
                           )}
                         </div>
 
-                        <div className="w-full lg:w-64 flex-shrink-0 flex flex-col items-center lg:items-end gap-4">
+                        <div className="w-full lg:w-72 flex-shrink-0 flex flex-col items-center lg:items-end gap-4">
                           <div
-                            className="bg-center bg-no-repeat bg-contain px-10 py-7 min-w-[220px] min-h-[145px] flex flex-col items-center justify-center"
+                            className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
                             style={{ backgroundImage: 'url(/addressbg.png)' }}
                           >
-                            <span className="text-xs font-black text-black whitespace-nowrap">
+                            <span className="text-sm font-black text-black whitespace-nowrap">
                               Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
                             </span>
                             <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
@@ -799,12 +799,21 @@ export default function QuestContent() {
                           </div>
 
                           <div
-                            className="bg-center bg-no-repeat bg-contain px-10 py-7 min-w-[210px] min-h-[125px] flex items-center justify-center"
+                            className="bg-center bg-no-repeat bg-contain px-12 py-8 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
                             style={{ backgroundImage: 'url(/addressbg.png)' }}
                           >
-                            <span className="text-sm font-black text-black">
+                            <span className="text-sm font-black text-black leading-none">
                               Selected: {selectedIds.length}/4
                             </span>
+                            {selectedIds.length > 0 && (
+                              <div className="mt-2 max-h-16 w-36 overflow-y-auto text-center text-[11px] font-black leading-tight text-black">
+                                {selectedIds.map(tokenId => (
+                                  <div key={tokenId} className="whitespace-nowrap">
+                                    #{tokenId}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
                           <button
@@ -858,25 +867,25 @@ export default function QuestContent() {
                   </div>
                 )}
 
-                <div className="w-full flex flex-col items-start space-y-2 mt-48 pb-14 z-0 pl-4 self-start lg:w-full lg:max-w-none lg:mx-0 lg:pl-0">
-                  <div className="flex flex-col space-y-2 w-full max-w-full">
+                <div className="w-full flex flex-col items-start space-y-2 mt-24 pb-14 z-0 pl-4 self-start lg:pl-0">
+                  <div className="flex flex-col space-y-2 w-fit max-w-full">
                     {/* Banner PDP */}
                     <div className="flex flex-col items-start">
-                      <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-3 sm:-mt-4 lg:-mt-7">Support the dev:</span>
+                      <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-3 sm:-mt-4 lg:-mt-5">Support the dev:</span>
                       <a
                         href="https://vibechain.com/market/poorly-drawn-pepes"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-fit block flex-shrink-0"
                       >
-                        <img src="/pdp.png" alt="Support PDP" className="w-[24rem] h-[12rem] sm:w-[48rem] sm:h-[18rem] lg:w-[140rem] lg:h-[18rem]" />
+                        <img src="/pdp.png" alt="Support PDP" className="w-[24rem] sm:w-[42rem] lg:w-[54rem] max-w-full h-auto object-contain" />
                       </a>
                     </div>
                     {/* Win $PEPE */}
                     <div className="flex flex-col items-start">
                       <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-2 ml-2">Win $PEPE:</span>
                       <Link href="/claim" className="w-fit block flex-shrink-0">
-                        <img src="/win.png" alt="Win $PEPE" className="w-56 h-35 sm:w-[14rem] sm:h-50 lg:w-[100rem] lg:h-80 object-contain" />
+                        <img src="/win.png" alt="Win $PEPE" className="w-56 sm:w-[16rem] lg:w-[22rem] max-w-full h-auto object-contain" />
                       </Link>
                     </div>
                   </div>
