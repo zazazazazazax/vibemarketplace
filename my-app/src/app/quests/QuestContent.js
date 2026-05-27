@@ -336,6 +336,7 @@ export default function QuestContent() {
   const [cards, setCards] = useState([]);
   const [cardsLoading, setCardsLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [txStatus, setTxStatus] = useState('idle');
@@ -345,6 +346,18 @@ export default function QuestContent() {
   const previousQuest = questState.previousQuest;
   const hasActiveQuest = Boolean(activeQuest?.active);
   const selectedCards = useMemo(() => cards.filter(card => selectedIds.includes(card.tokenId)), [cards, selectedIds]);
+  const cardsPerPage = 8;
+  const totalPages = Math.max(1, Math.ceil(cards.length / cardsPerPage));
+  const paginatedCards = useMemo(() => {
+    const startIndex = (currentPage - 1) * cardsPerPage;
+    return cards.slice(startIndex, startIndex + cardsPerPage);
+  }, [cards, currentPage]);
+
+  const goToPage = useCallback((page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  }, [totalPages]);
 
   const refreshQuest = useCallback(async () => {
     if (!config) return;
@@ -432,6 +445,7 @@ export default function QuestContent() {
       if (data.error) throw new Error(data.error);
       const withLives = await refreshCardLives(data.cards || [], questState.activeQuestId);
       setCards(withLives);
+      setCurrentPage(1);
       setSelectedIds(prev => prev.filter(tokenId => withLives.some(card => card.tokenId === tokenId && card.livesRemaining > 0 && !card.usedInQuest)));
     } catch (err) {
       console.error('Quest card fetch failed:', err);
@@ -449,12 +463,17 @@ export default function QuestContent() {
     fetchCards();
   }, [fetchCards]);
 
+  useEffect(() => {
+    setCurrentPage(prev => Math.min(prev, totalPages));
+  }, [totalPages]);
+
   const disconnectWallet = useCallback(() => {
     disconnect();
     localStorage.clear();
     resetSignature();
     setCards([]);
     setSelectedIds([]);
+    setCurrentPage(1);
     setShowHeader(false);
     router.push('/');
   }, [disconnect, resetSignature, router]);
@@ -686,22 +705,6 @@ export default function QuestContent() {
                 )}
 
                 <div className="w-full">
-                  {isConnected && (
-                    <div className="mb-4 flex justify-end">
-                      <div
-                        className="bg-center bg-no-repeat bg-contain px-8 py-5 min-w-[180px] min-h-[118px] flex flex-col items-center justify-center"
-                        style={{ backgroundImage: 'url(/addressbg.png)' }}
-                      >
-                        <span className="text-xs font-black text-black whitespace-nowrap">
-                          Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
-                        </span>
-                        <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
-                          <img src="/buy.png" alt="Buy" className="w-24 h-auto object-contain" />
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-
                   {!isConnected ? (
                     <div className="text-center py-10">
                       <button onClick={() => openConnectModal?.()} className="cursor-pointer border-none bg-transparent">
@@ -721,55 +724,102 @@ export default function QuestContent() {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {cards.map((card) => {
-                          const selected = selectedIds.includes(card.tokenId);
-                          const disabled = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
-                          return (
-                            <button
-                              key={`${card.contractAddress}-${card.tokenId}`}
-                              onClick={() => toggleCard(card)}
-                              disabled={disabled}
-                              className={`text-center border-none bg-transparent transition ${selected ? 'brightness-100 scale-105' : 'brightness-75'} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:-translate-y-0.5 cursor-pointer'}`}
-                            >
-                              <div className="aspect-[4/5] flex items-center justify-center">
-                                {card.imageUrl ? (
-                                  <img src={card.imageUrl} alt={card.name} className="w-full h-full object-contain" />
-                                ) : (
-                                  <div className="text-white/30 text-sm">No image</div>
-                                )}
-                              </div>
-                              <div className="pt-2 space-y-2 flex flex-col items-center">
-                                <Lives remaining={card.livesRemaining} max={card.livesMax} selected={selected} />
-                                {card.usedInQuest && <div className="text-xs text-red-300 font-bold">Already used in this quest</div>}
-                                {!card.usedInQuest && card.livesRemaining <= 0 && <div className="text-xs text-red-300 font-bold">No lives left</div>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <div className="flex flex-col lg:flex-row gap-6 items-start">
+                        <div className="flex-1 min-w-0 w-full">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {paginatedCards.map((card) => {
+                              const selected = selectedIds.includes(card.tokenId);
+                              const disabled = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
+                              return (
+                                <button
+                                  key={`${card.contractAddress}-${card.tokenId}`}
+                                  onClick={() => toggleCard(card)}
+                                  disabled={disabled}
+                                  className={`text-center border-none bg-transparent transition ${selected ? 'brightness-100 scale-105' : 'brightness-75'} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:-translate-y-0.5 cursor-pointer'}`}
+                                >
+                                  <div className="aspect-[4/5] flex items-center justify-center">
+                                    {card.imageUrl ? (
+                                      <img src={card.imageUrl} alt={card.name} className="w-full h-full object-contain" />
+                                    ) : (
+                                      <div className="text-white/30 text-sm">No image</div>
+                                    )}
+                                  </div>
+                                  <div className="pt-2 space-y-2 flex flex-col items-center">
+                                    <Lives remaining={card.livesRemaining} max={card.livesMax} selected={selected} />
+                                    {card.usedInQuest && <div className="text-xs text-red-300 font-bold">Already used in this quest</div>}
+                                    {!card.usedInQuest && card.livesRemaining <= 0 && <div className="text-xs text-red-300 font-bold">No lives left</div>}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
 
-                      <div className="mt-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <div
-                          className="bg-center bg-no-repeat bg-contain px-8 py-5 min-w-[170px] min-h-[100px] flex items-center justify-center"
-                          style={{ backgroundImage: 'url(/addressbg.png)' }}
-                        >
-                          <span className="text-sm font-black text-black">
-                            Selected: {selectedIds.length}/4
-                          </span>
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-center mt-5 space-x-4">
+                              <button
+                                onClick={() => goToPage(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className="p-0 bg-transparent border-none disabled:cursor-not-allowed"
+                              >
+                                <img
+                                  src="/previous.png"
+                                  alt="Previous"
+                                  className={`w-20 h-16 sm:w-24 sm:h-18 md:w-28 md:h-20 transition-opacity scale-x-110 ${currentPage === 1 ? 'brightness-50 grayscale opacity-50' : ''}`}
+                                />
+                              </button>
+                              <span className="text-white font-black text-sm">
+                                {currentPage}/{totalPages}
+                              </span>
+                              <button
+                                onClick={() => goToPage(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                className="p-0 bg-transparent border-none disabled:cursor-not-allowed"
+                              >
+                                <img
+                                  src="/next.png"
+                                  alt="Next"
+                                  className={`w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 transition-opacity ${currentPage === totalPages ? 'brightness-50 grayscale opacity-50' : ''}`}
+                                />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <button
-                          onClick={handleJoin}
-                          disabled={joinDisabled}
-                          className={`p-0 border-none bg-transparent ${joinDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105 transition-transform'}`}
-                        >
-                          <AssetImage
-                            src="/join.png"
-                            alt={questState.allowance < questState.entryFee ? 'Approve and join' : 'Join quest'}
-                            className="w-32 h-auto object-contain"
-                            fallback={<span className="block px-6 py-3 rounded font-black bg-yellow-300 text-black">{questState.allowance < questState.entryFee ? 'Approve and Join' : 'Join Quest'}</span>}
-                          />
-                        </button>
+
+                        <div className="w-full lg:w-64 flex-shrink-0 flex flex-col items-center lg:items-end gap-4">
+                          <div
+                            className="bg-center bg-no-repeat bg-contain px-10 py-7 min-w-[220px] min-h-[145px] flex flex-col items-center justify-center"
+                            style={{ backgroundImage: 'url(/addressbg.png)' }}
+                          >
+                            <span className="text-xs font-black text-black whitespace-nowrap">
+                              Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+                            </span>
+                            <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
+                              <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
+                            </Link>
+                          </div>
+
+                          <div
+                            className="bg-center bg-no-repeat bg-contain px-10 py-7 min-w-[210px] min-h-[125px] flex items-center justify-center"
+                            style={{ backgroundImage: 'url(/addressbg.png)' }}
+                          >
+                            <span className="text-sm font-black text-black">
+                              Selected: {selectedIds.length}/4
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={handleJoin}
+                            disabled={joinDisabled}
+                            className={`p-0 border-none bg-transparent ${joinDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105 transition-transform'}`}
+                          >
+                            <AssetImage
+                              src="/join.png"
+                              alt={questState.allowance < questState.entryFee ? 'Approve and join' : 'Join quest'}
+                              className="w-32 h-auto object-contain"
+                              fallback={<span className="block px-6 py-3 rounded font-black bg-yellow-300 text-black">{questState.allowance < questState.entryFee ? 'Approve and Join' : 'Join Quest'}</span>}
+                            />
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
@@ -807,6 +857,28 @@ export default function QuestContent() {
                     )}
                   </div>
                 )}
+
+                <div className="w-full flex flex-col items-start space-y-2 mt-10 pb-14 z-0">
+                  <div className="flex flex-col space-y-2 w-full max-w-full">
+                    <div className="flex flex-col items-start">
+                      <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-3 sm:-mt-4 lg:-mt-7">Support the dev:</span>
+                      <a
+                        href="https://vibechain.com/market/poorly-drawn-pepes"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-fit block flex-shrink-0"
+                      >
+                        <img src="/pdp.png" alt="Support PDP" className="w-[24rem] h-[12rem] sm:w-[48rem] sm:h-[18rem] lg:w-[140rem] lg:h-[18rem]" />
+                      </a>
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-2 ml-2">Win $PEPE:</span>
+                      <Link href="/claim" className="w-fit block flex-shrink-0">
+                        <img src="/win.png" alt="Win $PEPE" className="w-56 h-35 sm:w-[14rem] sm:h-50 lg:w-[100rem] lg:h-80 object-contain" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
 
                 {(error || success) && (
                   <div className="text-center font-bold">
