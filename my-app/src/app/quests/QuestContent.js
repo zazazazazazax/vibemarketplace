@@ -328,7 +328,7 @@ function Lives({ remaining, max, selected, onRestore, disabled }) {
             <img
               src="/pepe.png"
               alt={alive ? 'Life' : 'Restore spent life'}
-              className={`w-9 h-9 object-contain transition-all duration-200 ${alive ? (selected ? 'brightness-100' : 'brightness-75') : 'brightness-0'}`}
+              className={`w-9 h-9 object-contain transition-all duration-200 ${alive ? 'brightness-100' : 'brightness-0'}`}
             />
           </button>
         );
@@ -1018,7 +1018,7 @@ export default function QuestContent() {
                                         <img
                                           src={card.imageUrl}
                                           alt={card.name}
-                                          className={`block h-full w-full object-fill transition-all duration-300 ${selected ? 'brightness-100' : 'brightness-75'}`}
+                                          className="block h-full w-full object-fill transition-all duration-300 brightness-100"
                                         />
                                       </div>
                                     ) : (
@@ -1081,7 +1081,7 @@ export default function QuestContent() {
                                       )}
                                     </div>
                                   </div>
-                                  <div className={`-mt-9 space-y-2 flex flex-col items-center transition-all duration-200 ${selected ? 'brightness-100' : 'brightness-75'}`}>
+                                  <div className="-mt-9 space-y-2 flex flex-col items-center transition-all duration-200 brightness-100">
                                     <Lives
                                       remaining={card.livesRemaining}
                                       max={card.livesMax}
