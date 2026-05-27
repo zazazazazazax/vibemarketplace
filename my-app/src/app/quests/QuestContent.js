@@ -688,9 +688,12 @@ export default function QuestContent() {
                 <div className="w-full">
                   {isConnected && (
                     <div className="mb-4 flex justify-end">
-                      <div className="bg-gray-900/80 rounded-lg px-3 py-2 border border-gray-700 flex flex-col items-center justify-center w-fit">
-                        <span className="text-xs font-black text-white whitespace-nowrap">
-                        Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+                      <div
+                        className="bg-center bg-no-repeat bg-contain px-8 py-5 min-w-[180px] min-h-[118px] flex flex-col items-center justify-center"
+                        style={{ backgroundImage: 'url(/addressbg.png)' }}
+                      >
+                        <span className="text-xs font-black text-black whitespace-nowrap">
+                          Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
                         </span>
                         <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
                           <img src="/buy.png" alt="Buy" className="w-24 h-auto object-contain" />
@@ -708,7 +711,9 @@ export default function QuestContent() {
                   ) : chainId !== BASE_CHAIN_ID ? (
                     <div className="p-4 bg-red-950/80 border border-red-500/40 rounded text-red-100">Please switch to Base chain (ID: 8453).</div>
                   ) : cardsLoading ? (
-                    <div className="py-10 text-center text-white/70">Loading your PDP cards...</div>
+                    <div className="flex items-center justify-center py-10">
+                      <img src="/loading.png" alt="Loading your PDP cards" className="w-40 h-30 sm:w-48 sm:h-36 md:w-56 md:h-40 animate-spin" />
+                    </div>
                   ) : cards.length === 0 ? (
                     <div className="py-8 text-center">
                       <img src="/nocardsfound.png" alt="No cards found" className="w-48 h-48 mx-auto object-contain opacity-80" />
@@ -744,17 +749,14 @@ export default function QuestContent() {
                         })}
                       </div>
 
-                      <div className="mt-5 bg-gray-900/80 rounded-lg p-4 border border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <div className="text-sm text-white/75 space-y-1">
-                          <p className="font-bold text-white/80">Select 1 to 4 cards with lives available.</p>
-                          <div>
-                            Selected: <span className="font-black text-white">{selectedIds.length}/4</span>
-                            {selectedIds.length > 0 && (
-                              <span className="block md:inline md:ml-3 font-mono text-white">
-                                {selectedIds.map(tokenId => `#${tokenId}`).join(', ')}
-                              </span>
-                            )}
-                          </div>
+                      <div className="mt-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div
+                          className="bg-center bg-no-repeat bg-contain px-8 py-5 min-w-[170px] min-h-[100px] flex items-center justify-center"
+                          style={{ backgroundImage: 'url(/addressbg.png)' }}
+                        >
+                          <span className="text-sm font-black text-black">
+                            Selected: {selectedIds.length}/4
+                          </span>
                         </div>
                         <button
                           onClick={handleJoin}
