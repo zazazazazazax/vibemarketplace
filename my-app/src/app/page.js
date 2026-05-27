@@ -1329,7 +1329,7 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
       )}
 
       {/* Banner pdp + win (dentro il div key, sotto contenuto, su sfondo verde, scrollabile) */}
-      <div className="w-full flex flex-col items-start space-y-2 mt-24 pb-14 z-0 pl-4 self-start lg:pl-0">
+      <div className="w-[24rem] sm:w-[42rem] lg:w-[54rem] max-w-none flex flex-col items-start space-y-2 mt-24 pb-14 z-0 pl-4 self-start lg:pl-0 -translate-x-0 sm:-translate-x-32 lg:-translate-x-52">
         <div className="flex flex-col space-y-2 w-fit max-w-full">
           {/* Banner PDP */}
           <div className="flex flex-col items-start">
