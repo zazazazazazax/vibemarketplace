@@ -635,29 +635,21 @@ export default function QuestContent() {
           </section>
         ) : mode === 'dev' ? (
           <div className="w-full flex items-center justify-center px-4">
-            <div
-              className="relative w-full max-w-none bg-center bg-no-repeat"
-              style={{
-                width: '95vw',
-                height: '80vh',
-                backgroundImage: 'url(/textbg2.png)',
-                backgroundSize: '100% 100%',
-              }}
-            >
-              <div className="absolute inset-0 z-10 p-4 overflow-y-auto">
-                <div className="text-black text-sm leading-relaxed">
-                  <h2 className="text-lg font-bold mb-2">Quest ({QUEST_CONTRACT})</h2>
-                  <pre className="text-black font-mono text-xs leading-relaxed whitespace-pre-wrap">
-                    {QUEST_CONTRACT_DISPLAY}
-                  </pre>
-                </div>
+            <div className="w-full max-w-4xl h-[80vh] bg-white rounded overflow-y-auto p-5 shadow-lg">
+              <div className="text-black text-sm leading-relaxed">
+                <h2 className="text-lg font-bold mb-2">Quest ({QUEST_CONTRACT})</h2>
+                <pre className="text-black font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                  {QUEST_CONTRACT_DISPLAY}
+                </pre>
               </div>
             </div>
           </div>
         ) : (
           <>
             {questState.loading ? (
-              <div className="bg-black/80 border border-white/10 rounded p-6 text-white/80">Loading quest data...</div>
+              <div className="flex items-center justify-center py-10">
+                <img src="/loading.png" alt="Loading quest data" className="w-40 h-30 sm:w-48 sm:h-36 md:w-56 md:h-40 animate-spin" />
+              </div>
             ) : (
               <section className="space-y-5">
                 {hasActiveQuest ? (
@@ -695,13 +687,15 @@ export default function QuestContent() {
 
                 <div className="w-full">
                   {isConnected && (
-                    <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700 mb-4 flex flex-col items-center justify-center">
-                      <span className="text-sm font-black text-white">
+                    <div className="mb-4 flex justify-end">
+                      <div className="bg-gray-900/80 rounded-lg px-3 py-2 border border-gray-700 flex flex-col items-center justify-center w-fit">
+                        <span className="text-xs font-black text-white whitespace-nowrap">
                         Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
-                      </span>
-                      <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
-                        <img src="/buy.png" alt="Buy" className="w-32 h-auto object-contain" />
-                      </Link>
+                        </span>
+                        <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
+                          <img src="/buy.png" alt="Buy" className="w-24 h-auto object-contain" />
+                        </Link>
+                      </div>
                     </div>
                   )}
 
