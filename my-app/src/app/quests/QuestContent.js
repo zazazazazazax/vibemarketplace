@@ -302,19 +302,31 @@ function Stat({ label, value }) {
   );
 }
 
-function Lives({ remaining, max, selected }) {
+function Lives({ remaining, max, selected, onRestore, disabled }) {
   const count = Math.max(Number(max || 0), 1);
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: count }).map((_, index) => {
         const alive = index < Number(remaining || 0);
+        const canRestore = !alive && onRestore && !disabled;
         return (
-          <img
+          <button
             key={index}
-            src="/pepe.png"
-            alt={alive ? 'Life' : 'Spent life'}
-            className={`w-9 h-9 object-contain transition-all duration-200 ${alive ? (selected ? 'brightness-100' : 'brightness-75') : 'brightness-0'}`}
-          />
+            type="button"
+            disabled={!canRestore}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (canRestore) onRestore();
+            }}
+            className={`p-0 border-none bg-transparent ${canRestore ? 'cursor-pointer hover:scale-110 transition-transform' : 'cursor-default'}`}
+          >
+            <img
+              src="/pepe.png"
+              alt={alive ? 'Life' : 'Restore spent life'}
+              className={`w-9 h-9 object-contain transition-all duration-200 ${alive ? (selected ? 'brightness-100' : 'brightness-75') : 'brightness-0'}`}
+            />
+          </button>
         );
       })}
     </div>
@@ -511,6 +523,64 @@ export default function QuestContent() {
     setSelectedIds([]);
   };
 
+  const approveQuestSpendingIfNeeded = async (requiredAmount) => {
+    if (questState.allowance >= requiredAmount) return;
+
+    setTxStatus('approving');
+    const approveResult = await writeContract(config, {
+      address: questState.pdpToken,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [QUEST_CONTRACT, MAX_UINT256],
+      chainId: BASE_CHAIN_ID,
+    });
+    const approveHash = normalizeHash(approveResult);
+    if (approveHash) await waitForTransaction(config, { hash: approveHash, chainId: BASE_CHAIN_ID });
+  };
+
+  const handleRestoreLife = async (card) => {
+    if (!isConnected) {
+      openConnectModal?.();
+      return;
+    }
+    if (chainId !== BASE_CHAIN_ID) {
+      setError('Please switch to Base chain (ID: 8453) before restoring a life.');
+      return;
+    }
+    if (card.livesRemaining >= card.livesMax) return;
+    if (questState.tokenBalance < questState.restoreLifeFee) {
+      setError(`Not enough ${questState.tokenSymbol} to restore a life.`);
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    try {
+      await approveQuestSpendingIfNeeded(questState.restoreLifeFee);
+
+      setTxStatus('restoring');
+      const restoreResult = await writeContract(config, {
+        address: QUEST_CONTRACT,
+        abi: questAbi,
+        functionName: 'restoreLife',
+        args: [BigInt(card.tokenId)],
+        chainId: BASE_CHAIN_ID,
+      });
+      const restoreHash = normalizeHash(restoreResult);
+      if (restoreHash) await waitForTransaction(config, { hash: restoreHash, chainId: BASE_CHAIN_ID });
+
+      setSuccess(`Restored one life for #${card.tokenId}.`);
+      await refreshQuest();
+      const updated = await refreshCardLives(cards, questState.activeQuestId);
+      setCards(updated);
+    } catch (err) {
+      console.error('Restore life failed:', err);
+      setError(`Restore failed: ${err.shortMessage || err.message || 'Unknown error'}`);
+    } finally {
+      setTxStatus('idle');
+    }
+  };
+
   const handleJoin = async () => {
     if (!isConnected) {
       openConnectModal?.();
@@ -536,18 +606,7 @@ export default function QuestContent() {
     setError(null);
     setSuccess(null);
     try {
-      if (questState.allowance < questState.entryFee) {
-        setTxStatus('approving');
-        const approveResult = await writeContract(config, {
-          address: questState.pdpToken,
-          abi: erc20Abi,
-          functionName: 'approve',
-          args: [QUEST_CONTRACT, MAX_UINT256],
-          chainId: BASE_CHAIN_ID,
-        });
-        const approveHash = normalizeHash(approveResult);
-        if (approveHash) await waitForTransaction(config, { hash: approveHash, chainId: BASE_CHAIN_ID });
-      }
+      await approveQuestSpendingIfNeeded(questState.entryFee);
 
       setTxStatus('joining');
       const tokenIds = selectedCards.map(card => BigInt(card.tokenId));
@@ -571,7 +630,7 @@ export default function QuestContent() {
     }
   };
 
-  const txLabel = txStatus === 'approving' ? 'Approving entry fee...' : txStatus === 'joining' ? 'Joining quest...' : '';
+  const txLabel = txStatus === 'approving' ? 'Approving PDP spending...' : txStatus === 'joining' ? 'Joining quest...' : txStatus === 'restoring' ? 'Restoring life...' : '';
   const joinDisabled = txStatus !== 'idle' || !hasActiveQuest || selectedCards.length === 0 || selectedCards.length > 4 || chainId !== BASE_CHAIN_ID;
   const activePrizePool = activeQuest?.prizePool || 0n;
 
@@ -735,13 +794,20 @@ export default function QuestContent() {
                           <div className="grid grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
                             {paginatedCards.map((card) => {
                               const selected = selectedIds.includes(card.tokenId);
-                              const disabled = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
+                              const selectionBlocked = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
                               return (
-                                <button
+                                <div
                                   key={`${card.contractAddress}-${card.tokenId}`}
                                   onClick={() => toggleCard(card)}
-                                  disabled={disabled}
-                                  className={`text-center border-none bg-transparent transition ${selected ? 'brightness-100 scale-105' : 'brightness-75'} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:-translate-y-0.5 cursor-pointer'}`}
+                                  className={`text-center transition ${selected ? 'brightness-100 scale-105' : 'brightness-75'} ${selectionBlocked ? 'opacity-55' : 'hover:-translate-y-0.5 cursor-pointer'}`}
+                                  role="button"
+                                  tabIndex={selectionBlocked ? -1 : 0}
+                                  onKeyDown={(event) => {
+                                    if (!selectionBlocked && (event.key === 'Enter' || event.key === ' ')) {
+                                      event.preventDefault();
+                                      toggleCard(card);
+                                    }
+                                  }}
                                 >
                                   <div className="aspect-[4/5] flex items-center justify-center">
                                     {card.imageUrl ? (
@@ -751,11 +817,17 @@ export default function QuestContent() {
                                     )}
                                   </div>
                                   <div className="pt-2 space-y-2 flex flex-col items-center">
-                                    <Lives remaining={card.livesRemaining} max={card.livesMax} selected={selected} />
+                                    <Lives
+                                      remaining={card.livesRemaining}
+                                      max={card.livesMax}
+                                      selected={selected}
+                                      disabled={txStatus !== 'idle'}
+                                      onRestore={() => handleRestoreLife(card)}
+                                    />
                                     {card.usedInQuest && <div className="text-xs text-red-300 font-bold">Already used in this quest</div>}
                                     {!card.usedInQuest && card.livesRemaining <= 0 && <div className="text-xs text-red-300 font-bold">No lives left</div>}
                                   </div>
-                                </button>
+                                </div>
                               );
                             })}
                           </div>
@@ -797,14 +869,14 @@ export default function QuestContent() {
                               className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[300px] min-h-[315px] flex flex-col items-center justify-center text-black"
                               style={{ backgroundImage: 'url(/addressbg.png)' }}
                             >
-                              <div className="w-48 -translate-y-7 space-y-1.5 text-center text-[11px] font-black leading-tight">
+                              <div className="w-48 -translate-y-10 space-y-1.5 text-center text-[11px] font-black leading-tight">
                                 <div>Quest #{bigIntToNumber(activeQuest.id)}</div>
                                 <div>Participants: {bigIntToNumber(activeQuest.entryCount)}</div>
-                                <div>Collected: {formatTokenAmount(activePrizePool, questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>Quote: {formatTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>1st: {formatTokenAmount(prizeShare(activePrizePool, 60), questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>2nd: {formatTokenAmount(prizeShare(activePrizePool, 30), questState.tokenDecimals, questState.tokenSymbol)}</div>
-                                <div>3rd: {formatTokenAmount(prizeShare(activePrizePool, 10), questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>Collected: {formatCompactTokenAmount(activePrizePool, questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>Quote: {formatCompactTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>1st: {formatCompactTokenAmount(prizeShare(activePrizePool, 60), questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>2nd: {formatCompactTokenAmount(prizeShare(activePrizePool, 30), questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>3rd: {formatCompactTokenAmount(prizeShare(activePrizePool, 10), questState.tokenDecimals, questState.tokenSymbol)}</div>
                                 <div className="pt-1 uppercase text-[10px]">Rules commitment</div>
                                 <div className="max-h-12 overflow-y-auto break-all font-mono text-[9px] leading-tight">
                                   {activeQuest.rulesCommitment}
