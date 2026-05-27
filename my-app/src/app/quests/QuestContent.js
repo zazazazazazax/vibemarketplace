@@ -373,6 +373,7 @@ export default function QuestContent() {
   const [usedTokenPlayers, setUsedTokenPlayers] = useState({});
   const [hoveredQuestCardId, setHoveredQuestCardId] = useState(null);
   const [hiddenQuestCases, setHiddenQuestCases] = useState({});
+  const [zoomedQuestLabels, setZoomedQuestLabels] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [showQuestDetails, setShowQuestDetails] = useState(false);
   const [error, setError] = useState(null);
@@ -402,6 +403,14 @@ export default function QuestContent() {
       setCurrentPage(page);
     }
   }, [totalPages]);
+
+  const copyToClipboard = useCallback((text) => {
+    navigator.clipboard.writeText(String(text)).then(() => {
+      alert('Copied to clipboard!');
+    }).catch((err) => {
+      console.error('Failed to copy:', err);
+    });
+  }, []);
 
   const refreshQuest = useCallback(async () => {
     if (!config) return;
@@ -483,6 +492,7 @@ export default function QuestContent() {
       setUsedTokenPlayers({});
       setHoveredQuestCardId(null);
       setHiddenQuestCases({});
+      setZoomedQuestLabels({});
       return;
     }
     setCardsLoading(true);
@@ -581,6 +591,7 @@ export default function QuestContent() {
     setUsedTokenPlayers({});
     setHoveredQuestCardId(null);
     setHiddenQuestCases({});
+    setZoomedQuestLabels({});
     setCurrentPage(1);
     setShowHeader(false);
     router.push('/');
@@ -970,6 +981,7 @@ export default function QuestContent() {
                               const showCase = card.usedInQuest ? !caseHidden : selected || (selectable && hovered);
                               const caseOpacity = card.usedInQuest || selected ? 'opacity-100 scale-100' : 'opacity-40 scale-100';
                               const labelPlayer = card.usedInQuest ? usedTokenPlayers[card.tokenId] : address;
+                              const labelZoomed = zoomedQuestLabels[cacheKey];
                               return (
                                 <div
                                   key={cacheKey}
@@ -985,7 +997,7 @@ export default function QuestContent() {
                                   }}
                                   onClick={() => {
                                     if (card.usedInQuest) {
-                                      setHiddenQuestCases(prev => ({ ...prev, [cacheKey]: true }));
+                                      setHiddenQuestCases(prev => ({ ...prev, [cacheKey]: !prev[cacheKey] }));
                                       return;
                                     }
                                     toggleCard(card);
@@ -1000,18 +1012,22 @@ export default function QuestContent() {
                                     }
                                   }}
                                 >
-                                  <div className="relative aspect-[4/5] flex items-center justify-center overflow-visible">
+                                  <div className="relative mx-auto h-[30.375rem] w-80 overflow-hidden">
                                     {card.imageUrl ? (
-                                      <img
-                                        src={card.imageUrl}
-                                        alt={card.name}
-                                        className={`relative z-10 w-full h-full object-contain transition-all duration-300 group-hover:scale-95 ${selected ? 'brightness-100' : 'brightness-75'} ${card.usedInQuest ? 'opacity-60' : ''}`}
-                                      />
+                                      <div className="absolute top-[139px] left-1/2 z-10 h-[320px] w-[220px] -translate-x-1/2 overflow-hidden rounded-lg transition-transform duration-300 group-hover:scale-95">
+                                        <img
+                                          src={card.imageUrl}
+                                          alt={card.name}
+                                          className={`block h-full w-full object-fill transition-all duration-300 ${selected ? 'brightness-100' : 'brightness-75'} ${card.usedInQuest ? 'opacity-60' : ''}`}
+                                        />
+                                      </div>
                                     ) : (
-                                      <div className="text-white/30 text-sm">No image</div>
+                                      <div className="absolute top-[139px] left-1/2 z-10 flex h-[320px] w-[220px] -translate-x-1/2 items-center justify-center rounded-lg text-sm text-white/30">
+                                        No image
+                                      </div>
                                     )}
                                     <div
-                                      className={`absolute inset-0 z-20 pointer-events-none ${showCase ? caseOpacity : 'opacity-0 scale-95'} translate-x-[5px] translate-y-[24px] transition-all duration-300`}
+                                      className={`absolute inset-0 z-30 pointer-events-none ${showCase ? caseOpacity : 'opacity-0 scale-95'} translate-x-[5px] translate-y-[24px] transition-all duration-300`}
                                       style={{
                                         backgroundImage: 'url(/casetemp.png)',
                                         backgroundSize: '96% 96%',
@@ -1020,12 +1036,49 @@ export default function QuestContent() {
                                       }}
                                     />
                                     <div
-                                      className={`absolute left-1/2 top-4 z-30 w-40 -translate-x-1/2 transition-opacity duration-200 ${showCase ? 'opacity-100' : 'opacity-0'} pointer-events-none`}
+                                      className={`absolute top-[81px] left-1/2 z-40 h-[52px] w-[192px] -translate-x-1/2 translate-x-[-96px] transition-opacity duration-200 ${showCase ? 'opacity-100' : 'opacity-0'} cursor-pointer`}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setZoomedQuestLabels(prev => ({ ...prev, [cacheKey]: !prev[cacheKey] }));
+                                      }}
                                     >
-                                      <div className="w-full bg-white px-1.5 py-1 text-center text-[8px] font-black leading-tight text-black shadow">
-                                        <div>#{card.tokenId}</div>
-                                        <div className="break-all font-mono text-[6px]">{labelPlayer || 'Unknown player'}</div>
+                                      <div className={`relative z-10 flex h-full w-full flex-col justify-center overflow-hidden bg-white p-0.5 pt-[3px] text-center text-[7px] font-black leading-tight text-black shadow ${labelZoomed ? 'scale-150 origin-center' : ''}`}>
+                                        <button
+                                          type="button"
+                                          className="block w-full cursor-pointer bg-transparent p-0 text-center font-black text-black hover:underline"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            copyToClipboard(card.tokenId);
+                                          }}
+                                        >
+                                          tokenID: #{card.tokenId}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="block w-full cursor-pointer break-all bg-transparent p-0 text-center font-mono text-[6px] font-black text-black hover:underline"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            copyToClipboard(labelPlayer || '');
+                                          }}
+                                        >
+                                          player: {labelPlayer || 'Unknown player'}
+                                        </button>
                                       </div>
+                                      {labelZoomed && (
+                                        <div
+                                          className="absolute z-20 scale-125 origin-center pointer-events-none"
+                                          style={{
+                                            top: '-12.5%',
+                                            left: '-18.5%',
+                                            width: '140%',
+                                            height: '125%',
+                                            backgroundImage: `url('/label.png')`,
+                                            backgroundSize: 'cover',
+                                            backgroundRepeat: 'no-repeat',
+                                            backgroundPosition: 'center',
+                                          }}
+                                        />
+                                      )}
                                     </div>
                                   </div>
                                   <div className={`pt-2 space-y-2 flex flex-col items-center transition-all duration-200 ${selected ? 'brightness-100' : 'brightness-75'}`}>
