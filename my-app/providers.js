@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { WagmiProvider } from 'wagmi';
+import { useReconnect } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
 import { config, chains } from './src/lib/wagmi';
@@ -50,6 +52,39 @@ const customTheme = {
   },
 };
 
+function WalletReturnSync() {
+  const { reconnect } = useReconnect();
+
+  useEffect(() => {
+    let reconnectTimer;
+
+    const syncWalletState = () => {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        reconnect().catch(() => {});
+      }, 350);
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) syncWalletState();
+    };
+
+    window.addEventListener('focus', syncWalletState);
+    window.addEventListener('pageshow', syncWalletState);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    syncWalletState();
+
+    return () => {
+      clearTimeout(reconnectTimer);
+      window.removeEventListener('focus', syncWalletState);
+      window.removeEventListener('pageshow', syncWalletState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [reconnect]);
+
+  return null;
+}
+
 export function Providers({ children }) {
   return (
     <WagmiProvider config={config}>
@@ -64,6 +99,7 @@ export function Providers({ children }) {
 enableWalletConnectSessionStorage={true}
 enableTelemetry={false}
         >
+          <WalletReturnSync />
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
