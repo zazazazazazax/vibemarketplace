@@ -80,6 +80,78 @@ const erc20Abi = [
   { inputs: [], name: 'symbol', outputs: [{ type: 'string' }], stateMutability: 'view', type: 'function' },
 ];
 
+const QUEST_CONTRACT_DISPLAY = `// Quest contract on Base
+// Address: 0x2D2199cf2a93Aa4ffc661E5E1E281e21188Ce4B4
+// Source file: contracts/Quest.sol
+
+// Core user flow:
+// - join(uint256[] tokenIds)
+// - getTokenLives(uint256 tokenId)
+// - questTokenUsed(uint256 questId, uint256 tokenId)
+// - getQuest(uint256 questId)
+
+contract Quest {
+    uint256 public constant MIN_CARDS = 1;
+    uint256 public constant MAX_CARDS = 4;
+
+    IERC20 public immutable pdpToken;
+    IBoosterDrop public immutable pdpCollection;
+
+    uint256 public nextQuestId = 1;
+    uint256 public nextEntryId = 1;
+    uint256 public activeQuestId;
+    uint256 public entryFee = 10_000 ether;
+    uint256 public restoreLifeFee = 20_000 ether;
+
+    mapping(uint256 => QuestData) private quests;
+    mapping(uint256 => Entry) private entries;
+    mapping(uint256 => uint256[]) private questEntryIds;
+    mapping(uint256 => TokenLives) public tokenLives;
+    mapping(uint256 => mapping(uint256 => bool)) public questTokenUsed;
+    mapping(uint8 => uint8) public rarityMaxLives;
+
+    struct QuestData {
+        uint256 id;
+        bool active;
+        uint256 startedAt;
+        uint256 stoppedAt;
+        uint256 prizePool;
+        uint256 entryCount;
+        bool canceled;
+        bytes32 rulesCommitment;
+        uint256 firstEntryId;
+        uint256 secondEntryId;
+        uint256 thirdEntryId;
+        uint256 paidFirst;
+        uint256 paidSecond;
+        uint256 paidThird;
+        string revealedRulesJson;
+        string revealedSalt;
+    }
+
+    struct Entry {
+        uint256 id;
+        uint256 questId;
+        address player;
+        uint256[] tokenIds;
+        uint256 paid;
+        uint256 createdAt;
+    }
+
+    struct TokenLives {
+        uint8 remaining;
+        uint8 max;
+        bool initialized;
+    }
+
+    function join(uint256[] calldata tokenIds) external returns (uint256 entryId);
+    function getQuest(uint256 questId) external view returns (QuestData memory);
+    function getQuestEntryIds(uint256 questId) external view returns (uint256[] memory);
+    function getEntry(uint256 entryId) external view returns (Entry memory);
+    function getTokenLives(uint256 tokenId) external view returns (uint8 remaining, uint8 maxLives, bool initialized);
+    function restoreLife(uint256 tokenId) external;
+}`;
+
 function normalizeHash(result) {
   return typeof result === 'string' ? result : result?.hash;
 }
@@ -225,7 +297,7 @@ function Lives({ remaining, max, selected }) {
             key={index}
             src="/pepe.png"
             alt={alive ? 'Life' : 'Spent life'}
-            className={`w-5 h-5 object-contain transition-all duration-200 ${alive ? (selected ? 'brightness-100' : 'brightness-75') : 'brightness-0'}`}
+            className={`w-7 h-7 object-contain transition-all duration-200 ${alive ? (selected ? 'brightness-100' : 'brightness-75') : 'brightness-0'}`}
           />
         );
       })}
@@ -492,7 +564,7 @@ export default function QuestContent() {
             <AssetImage
               src="/quests.png"
               alt="Quests"
-              className={`w-24 h-16 object-contain transition-all duration-200 ${mode === 'quest' ? 'brightness-125 scale-105' : 'brightness-75'}`}
+              className={`w-32 h-20 object-contain transition-all duration-200 ${mode === 'quest' ? 'brightness-125 scale-105' : 'brightness-75'}`}
               fallback={<span className={`block px-4 py-3 bg-black text-white font-black rounded ${mode === 'quest' ? 'brightness-125 scale-105' : 'brightness-75'}`}>quests</span>}
             />
           </button>
@@ -506,11 +578,26 @@ export default function QuestContent() {
               className={`w-16 h-16 transition-all duration-200 ${mode === 'faq' ? 'brightness-125 scale-105' : 'brightness-75'}`}
             />
           </button>
+          <button
+            onClick={() => setMode('dev')}
+            className="p-0 bg-transparent border-none transition-all duration-200 hover:scale-110"
+          >
+            <img
+              src="/dev.png"
+              alt="Dev"
+              className={`w-16 h-16 transition-all duration-200 ${mode === 'dev' ? 'brightness-125 scale-105' : 'brightness-75'}`}
+            />
+          </button>
         </div>
 
         {mode === 'faq' ? (
           <section className="flex flex-col items-center space-y-4">
-            <img src="/welcome.png" alt="Welcome" className="w-80 h-auto rounded-lg" />
+            <AssetImage
+              src="/questime.png"
+              alt="Quest time"
+              className="w-80 h-auto rounded-lg"
+              fallback={<img src="/welcome.png" alt="Welcome" className="w-80 h-auto rounded-lg" />}
+            />
             <div className="max-w-2xl text-white text-base leading-relaxed text-center px-4">
               <h2 className="text-xl font-bold mb-2">What's a quest?</h2>
               <p className="mb-4">
@@ -531,9 +618,34 @@ export default function QuestContent() {
                 Not while the quest is active. The contract stores a commitment hash first, then after the quest stops the rules JSON and salt can be revealed so everyone can verify the rules were fixed before entries.
               </p>
 
+              <h2 className="text-xl font-bold mb-2">How do I win?</h2>
+              <p className="mb-4">
+                Every quest has hidden scoring. Card names can score positive or negative points, and some combinations can trigger secret synergies. The best entries are selected after the quest closes, then the rules and salt are revealed so the commitment can be checked.
+              </p>
+
               <p className="text-sm italic">
                 Quest transactions are final and at your own risk. Check selected cards, lives, and $PDP balance before joining.
               </p>
+            </div>
+          </section>
+        ) : mode === 'dev' ? (
+          <section className="w-full flex items-center justify-center px-4">
+            <div
+              className="relative w-full max-w-none bg-center bg-no-repeat"
+              style={{
+                width: '95vw',
+                height: '80vh',
+                backgroundImage: 'url(/textbg2.png)',
+              }}
+            >
+              <div className="absolute inset-0 z-10 p-4 overflow-y-auto">
+                <div className="text-black text-sm leading-relaxed">
+                  <h2 className="text-lg font-bold mb-2">Quest ({QUEST_CONTRACT})</h2>
+                  <pre className="text-black font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                    {QUEST_CONTRACT_DISPLAY}
+                  </pre>
+                </div>
+              </div>
             </div>
           </section>
         ) : (
@@ -558,13 +670,17 @@ export default function QuestContent() {
                     <div className="bg-black/80 border border-white/10 rounded p-4 w-full">
                       <div className="grid md:grid-cols-2 gap-3 mb-4">
                         <Stat label="Participation Quote" value={formatTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)} />
-                        <Stat label="Your $PDP Balance" value={formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)} />
-                      </div>
-                      <div className="flex items-center justify-center gap-3 mb-4">
-                        <span className="text-sm font-bold text-white/80">I have no $PDP</span>
-                        <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform">
-                          <img src="/buy.png" alt="Buy" className="w-20 h-auto object-contain" />
-                        </Link>
+                        <div className="bg-gray-900/80 rounded-lg p-3 border border-gray-700 min-h-[82px] flex flex-col items-start justify-between">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-wide text-white/50">Your $PDP Balance</div>
+                            <div className="mt-1 text-lg md:text-xl font-black text-white break-words">
+                              {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+                            </div>
+                          </div>
+                          <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-2 self-center">
+                            <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
+                          </Link>
+                        </div>
                       </div>
                       <div className="text-xs uppercase tracking-wide text-white/50">Rules commitment</div>
                       <div className="font-mono text-sm break-all mt-1">{activeQuest.rulesCommitment}</div>
@@ -583,16 +699,6 @@ export default function QuestContent() {
                 )}
 
                 <div className="w-full">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                    <p className="text-white/80 text-sm font-bold">Select 1 to 4 cards with lives available.</p>
-                    <div className="flex flex-col items-start md:items-end gap-1 text-sm text-white/80">
-                      <span>Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}</span>
-                      <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform">
-                        <img src="/buy.png" alt="Buy" className="w-16 h-auto object-contain" />
-                      </Link>
-                    </div>
-                  </div>
-
                   {!isConnected ? (
                     <div className="text-center py-10">
                       <button onClick={() => openConnectModal?.()} className="cursor-pointer border-none bg-transparent">
@@ -629,7 +735,6 @@ export default function QuestContent() {
                                 )}
                               </div>
                               <div className="pt-2 space-y-2 flex flex-col items-center">
-                                <div className="text-xs font-black text-white/80">#{card.tokenId}</div>
                                 <Lives remaining={card.livesRemaining} max={card.livesMax} selected={selected} />
                                 {card.usedInQuest && <div className="text-xs text-red-300 font-bold">Already used in this quest</div>}
                                 {!card.usedInQuest && card.livesRemaining <= 0 && <div className="text-xs text-red-300 font-bold">No lives left</div>}
@@ -639,9 +744,17 @@ export default function QuestContent() {
                         })}
                       </div>
 
-                      <div className="sticky bottom-3 mt-5 bg-black border border-white/10 rounded p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <div className="text-sm text-white/75">
-                          Selected: <span className="font-black text-white">{selectedIds.length}/4</span>
+                      <div className="mt-5 bg-gray-900/80 rounded-lg p-4 border border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="text-sm text-white/75 space-y-1">
+                          <p className="font-bold text-white/80">Select 1 to 4 cards with lives available.</p>
+                          <div>
+                            Selected: <span className="font-black text-white">{selectedIds.length}/4</span>
+                            {selectedIds.length > 0 && (
+                              <span className="block md:inline md:ml-3 font-mono text-white">
+                                {selectedIds.map(tokenId => `#${tokenId}`).join(', ')}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <button
                           onClick={handleJoin}
