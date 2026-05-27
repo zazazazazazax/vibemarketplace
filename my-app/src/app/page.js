@@ -1329,20 +1329,20 @@ contract MintAndSellWrapper is IERC721Receiver, Ownable {
       )}
 
       {/* Banner pdp + win (dentro il div key, sotto contenuto, su sfondo verde, scrollabile) */}
-      <div className="w-full flex flex-col items-start space-y-2 mt-48 pb-14 z-0 pl-4 self-start lg:w-full lg:max-w-none lg:mx-0 lg:pl-0">
-        <div className="flex flex-col space-y-2 w-full max-w-full">
+      <div className="w-full flex flex-col items-start space-y-2 mt-24 pb-14 z-0 pl-4 self-start lg:pl-0">
+        <div className="flex flex-col space-y-2 w-fit max-w-full">
           {/* Banner PDP */}
           <div className="flex flex-col items-start">
-            <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-3 sm:-mt-4 lg:-mt-7">Support the dev:</span>
+            <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-3 sm:-mt-4 lg:-mt-5">Support the dev:</span>
             <a href="https://vibechain.com/market/poorly-drawn-pepes" target="_blank" rel="noopener noreferrer" className="w-fit block flex-shrink-0">
-              <img src="/pdp.png" alt="Support PDP" className="w-[24rem] h-[12rem] sm:w-[48rem] sm:h-[18rem] lg:w-[140rem] lg:h-[18rem]" />
+              <img src="/pdp.png" alt="Support PDP" className="w-[24rem] sm:w-[42rem] lg:w-[54rem] max-w-full h-auto object-contain" />
             </a>
           </div>
           {/* Win $PEPE */}
           <div className="flex flex-col items-start">
             <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-2 ml-2">Win $PEPE:</span>
             <Link href="/claim" className="w-fit block flex-shrink-0">
-              <img src="/win.png" alt="Win $PEPE" className="w-56 h-35 sm:w-[14rem] sm:h-50 lg:w-[100rem] lg:h-80 object-contain" />
+              <img src="/win.png" alt="Win $PEPE" className="w-56 sm:w-[16rem] lg:w-[22rem] max-w-full h-auto object-contain" />
             </Link>
           </div>
         </div>
