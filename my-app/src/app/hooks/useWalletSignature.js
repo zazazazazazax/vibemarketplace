@@ -19,6 +19,25 @@ export function useWalletSignature(address) {
 
     try {
       const nonce = Math.floor(Date.now() / 1000 / 3600);
+
+      const isMiniAppHost = (
+        typeof window !== 'undefined' &&
+        (window.parent !== window || /Farcaster|Warpcast/i.test(navigator.userAgent || ''))
+      );
+
+      if (isMiniAppHost) {
+        localStorage.setItem('walletAddress', address.toLowerCase());
+        localStorage.setItem('walletSignature', 'miniapp-session');
+        localStorage.setItem('walletNonce', nonce.toString());
+        localStorage.setItem('walletTimestamp', Date.now().toString());
+        localStorage.setItem('walletInitialized', 'true');
+
+        setHasSigned(true);
+        setIsInitialized(true);
+        setIsSigning(false);
+        return;
+      }
+
       const message = [
         'Poorly Drawn Binders',
         '',
