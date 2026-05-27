@@ -1017,10 +1017,11 @@ useEffect(() => {
          }}>
       <div className="absolute inset-0 z-10 p-4 overflow-y-auto">
         <div className="text-black text-sm leading-relaxed">
-          <h2 className="text-lg font-bold mb-2">VibemarketplaceV4 (0x37912ab0700259ab78c64820298A9763309e99f4)</h2>
+          <h2 className="text-lg font-bold mb-2">VibemarketplaceV4-1 (0x34682Df3fC35079EFe78fF37008856aB090e03e1)</h2>
           <pre className="text-black font-mono text-xs leading-relaxed">
           {`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
+
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -1039,7 +1040,7 @@ interface IBoosterTokenV2 {
     function getTokenSellQuote(uint256 tokenAmount) external view returns (uint256 ethReceived);
 }
 
-contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
+contract VibeMarketplaceV4_1 is ReentrancyGuard, Ownable {
     address public feeWallet;
 
     struct Listing {
@@ -1056,15 +1057,18 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
         address collection;
         uint256 tokenId;
         uint256 price;
-        address boosterToken;
+        address boosterToken; 
     }
 
     struct BatchItem {
         address collection;
         uint256 tokenId;
+        address seller; 
     }
 
     mapping(bytes32 => Listing) public listings;
+    mapping(bytes32 => address[]) private _activeSellersForToken;
+
     uint256 public constant FEE_BPS = 140; // 1.4%
     uint256 public constant MAX_BATCH_SIZE = 20; // Gas safety
 
@@ -1076,26 +1080,34 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
         feeWallet = _feeWallet;
     }
 
-    function _getListingKey(address _collection, uint256 tokenId) internal pure returns (bytes32) {
+    function _getListingKey(address _collection, uint256 tokenId, address seller) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_collection, tokenId, seller));
+    }
+
+    function _getTokenKey(address _collection, uint256 tokenId) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_collection, tokenId));
     }
 
     function createListing(
-        address _collection,
-        address _boosterToken,
-        uint256 tokenId,
-        uint256 _price,
+        address _collection, 
+        address _boosterToken, 
+        uint256 tokenId, 
+        uint256 _price, 
         bool _isEth
     ) public {
         require(_price > 0, "Price must be greater than 0");
+
         IBoosterDrop collectionDrop = IBoosterDrop(_collection);
         IBoosterDrop.Rarity memory r = collectionDrop.getTokenRarity(tokenId);
         require(r.rarity > 0, "Only opened cards");
+
         IERC721 collectionNFT = IERC721(_collection);
         require(collectionNFT.ownerOf(tokenId) == msg.sender, "Not owner");
         require(collectionNFT.isApprovedForAll(msg.sender, address(this)), "Must approve marketplace for NFT");
-        bytes32 key = _getListingKey(_collection, tokenId);
-        require(!listings[key].active, "Already listed");
+
+        bytes32 key = _getListingKey(_collection, tokenId, msg.sender);  // AGGIUNTO: + msg.sender
+        require(!listings[key].active, "Already listed by you");  // Cambiato messaggio
+
         if (!_isEth) {
             require(_boosterToken != address(0), "Invalid boosterToken");
             try IBoosterTokenV2(_boosterToken).getTokenSellQuote(1000) returns (uint256 quote) {
@@ -1104,6 +1116,10 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
                 revert("Invalid boosterToken contract");
             }
         }
+
+        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
+        _activeSellersForToken[tokenKey].push(msg.sender);  // Track seller per token
+
         listings[key] = Listing({
             tokenId: tokenId,
             collection: _collection,
@@ -1131,52 +1147,85 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
         }
     }
 
-    function buyListing(address _collection, uint256 tokenId) external payable nonReentrant {
-        bytes32 key = _getListingKey(_collection, tokenId);
+    function buyListing(address _collection, uint256 tokenId, address seller) external payable nonReentrant {
+        bytes32 key = _getListingKey(_collection, tokenId, seller);  // AGGIUNTO: + seller
         Listing storage listing = listings[key];
-        require(listing.active, "Not active");
+        require(listing.active, "Not active or wrong seller");
+
         _processPayment(listing, msg.sender);
+
         IERC721(listing.collection).safeTransferFrom(listing.seller, msg.sender, listing.tokenId);
         listing.active = false;
+
+        // Cleanup activeSellers
+        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
+        address[] storage sellers = _activeSellersForToken[tokenKey];
+        for (uint i = 0; i < sellers.length; i++) {
+            if (sellers[i] == seller) {
+                sellers[i] = sellers[sellers.length - 1];
+                sellers.pop();
+                break;
+            }
+        }
+
         emit ListingBought(tokenId, listing.collection, msg.sender, listing.seller, listing.price, listing.isEth);
     }
 
     function batchBuy(BatchItem[] calldata items) external payable nonReentrant {
         require(items.length > 0 && items.length <= MAX_BATCH_SIZE, "Invalid batch size");
-        bytes32 firstKey = _getListingKey(items[0].collection, items[0].tokenId);
-        Listing storage firstListing = listings[firstKey];
-        require(firstListing.active, "First listing not active");
-        bool isEth = firstListing.isEth;
+
+        bool isEth = false;
         uint256 totalPrice = 0;
+
+        // First pass: validate and compute total
         for (uint i = 0; i < items.length; i++) {
             BatchItem calldata item = items[i];
-            bytes32 key = _getListingKey(item.collection, item.tokenId);
+            bytes32 key = _getListingKey(item.collection, item.tokenId, item.seller);
             Listing storage listing = listings[key];
             require(listing.active, "Inactive listing");
-            require(listing.isEth == isEth, "Mixed currencies not supported");
+            if (i == 0) {
+                isEth = listing.isEth;
+            } else {
+                require(listing.isEth == isEth, "Mixed currencies not supported");
+            }
             totalPrice += listing.price;
         }
+
         if (isEth) {
             require(msg.value >= totalPrice, "Insufficient ETH");
             for (uint i = 0; i < items.length; i++) {
-                _processBuy(items[i].collection, items[i].tokenId, msg.sender, isEth);
+                _processBuy(items[i].collection, items[i].tokenId, items[i].seller, msg.sender, isEth);
             }
             if (msg.value > totalPrice) {
                 payable(msg.sender).transfer(msg.value - totalPrice);
             }
         } else {
             for (uint i = 0; i < items.length; i++) {
-                _processBuy(items[i].collection, items[i].tokenId, msg.sender, isEth);
+                _processBuy(items[i].collection, items[i].tokenId, items[i].seller, msg.sender, isEth);
             }
         }
     }
 
-    function _processBuy(address _collection, uint256 tokenId, address buyer, bool isEth) internal {
-        bytes32 key = _getListingKey(_collection, tokenId);
+    function _processBuy(address _collection, uint256 tokenId, address seller, address buyer, bool isEth) internal {
+        bytes32 key = _getListingKey(_collection, tokenId, seller);
         Listing storage listing = listings[key];
+
         _processPayment(listing, buyer);
+
         IERC721(listing.collection).safeTransferFrom(listing.seller, buyer, listing.tokenId);
         listing.active = false;
+
+        // Cleanup activeSellers
+        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
+        address[] storage sellers = _activeSellersForToken[tokenKey];
+        for (uint i = 0; i < sellers.length; i++) {
+            if (sellers[i] == seller) {
+                sellers[i] = sellers[sellers.length - 1];
+                sellers.pop();
+                break;
+            }
+        }
+
         emit ListingBought(tokenId, listing.collection, buyer, listing.seller, listing.price, listing.isEth);
     }
 
@@ -1192,12 +1241,24 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
         }
     }
 
-    function delist(address _collection, uint256 tokenId) external {
-        bytes32 key = _getListingKey(_collection, tokenId);
+    function delist(address _collection, uint256 tokenId, address seller) external {
+        bytes32 key = _getListingKey(_collection, tokenId, seller);
         Listing storage listing = listings[key];
         require(listing.active, "Not active");
-        require(listing.seller == msg.sender, "Not seller");
+        require(listing.seller == msg.sender, "Not seller");  
         listing.active = false;
+
+        // Cleanup activeSellers
+        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
+        address[] storage sellers = _activeSellersForToken[tokenKey];
+        for (uint i = 0; i < sellers.length; i++) {
+            if (sellers[i] == seller) {
+                sellers[i] = sellers[sellers.length - 1];
+                sellers.pop();
+                break;
+            }
+        }
+
         emit ListingDelisted(tokenId, _collection, msg.sender);
     }
 
@@ -1205,26 +1266,62 @@ contract VibeMarketplaceV4 is ReentrancyGuard, Ownable {
         require(items.length > 0 && items.length <= MAX_BATCH_SIZE, "Invalid batch size");
         for (uint i = 0; i < items.length; i++) {
             BatchItem calldata item = items[i];
-            bytes32 key = _getListingKey(item.collection, item.tokenId);
+            bytes32 key = _getListingKey(item.collection, item.tokenId, item.seller);
             Listing storage listing = listings[key];
             require(listing.active, "Not active");
             require(listing.seller == msg.sender, "Not seller");
             listing.active = false;
+
+            // Cleanup activeSellers
+            bytes32 tokenKey = _getTokenKey(item.collection, item.tokenId);
+            address[] storage sellers = _activeSellersForToken[tokenKey];
+            for (uint j = 0; j < sellers.length; j++) {
+                if (sellers[j] == item.seller) {
+                    sellers[j] = sellers[sellers.length - 1];
+                    sellers.pop();
+                    break;
+                }
+            }
+
             emit ListingDelisted(listing.tokenId, item.collection, msg.sender);
         }
     }
 
-    function getListingDetails(address _collection, uint256 tokenId) external view returns (
+    function getListingDetails(address _collection, uint256 tokenId, address seller) external view returns (
         uint256 listingPrice,
         bool isEth,
         address currency
     ) {
-        bytes32 key = _getListingKey(_collection, tokenId);
+        bytes32 key = _getListingKey(_collection, tokenId, seller);
         Listing storage listing = listings[key];
         require(listing.active, "Not listed");
         listingPrice = listing.price;
         isEth = listing.isEth;
         currency = listing.isEth ? address(0) : listing.boosterToken;
+    }
+
+    function getListingsForToken(address _collection, uint256 tokenId) external view returns (
+        address[] memory sellers,
+        uint256[] memory prices,
+        bool[] memory isEths,
+        address[] memory boosterTokens
+    ) {
+        bytes32 tokenKey = _getTokenKey(_collection, tokenId);
+        address[] memory activeSellers = _activeSellersForToken[tokenKey];
+        uint256 len = activeSellers.length;
+        sellers = new address[](len);
+        prices = new uint256[](len);
+        isEths = new bool[](len);
+        boosterTokens = new address[](len);
+        for (uint i = 0; i < len; i++) {
+            address seller = activeSellers[i];
+            bytes32 key = _getListingKey(_collection, tokenId, seller);
+            Listing storage listing = listings[key];
+            sellers[i] = seller;
+            prices[i] = listing.price;
+            isEths[i] = listing.isEth;
+            boosterTokens[i] = listing.boosterToken;
+        }
     }
 
     function setFeeWallet(address _feeWallet) external onlyOwner {
