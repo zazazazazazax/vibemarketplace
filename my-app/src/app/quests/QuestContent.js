@@ -353,6 +353,7 @@ export default function QuestContent() {
   const [cardsLoading, setCardsLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showQuestDetails, setShowQuestDetails] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [txStatus, setTxStatus] = useState('idle');
@@ -636,7 +637,7 @@ export default function QuestContent() {
             <div className="max-w-2xl text-white text-base leading-relaxed text-center px-4">
               <h2 className="text-xl font-bold mb-2">What's a quest?</h2>
               <p className="mb-4">
-                Quests are skill-based PDP campaigns. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote in $PDP, and compete for the prize pool (funded by 100% of the collected $PDP)
+                Quests are skill-based PDP campaigns. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote in $PDP, and compete for the prize pool.
               </p>
 
               <h2 className="text-xl font-bold mb-2">How does it work?</h2>
@@ -690,23 +691,12 @@ export default function QuestContent() {
                 {hasActiveQuest ? (
                   <>
                     <div className="w-full flex flex-col items-center">
-                      <img src="/quests-liquidity-event-banner.png" alt="Active quest" className="w-full max-w-3xl h-auto object-contain mb-4" />
-                    </div>
-                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 w-full">
-                      <Stat label="Quest" value={`#${bigIntToNumber(activeQuest.id)}`} />
-                      <Stat label="Participants" value={String(bigIntToNumber(activeQuest.entryCount))} />
-                      <Stat label="Collected" value={formatTokenAmount(activePrizePool, questState.tokenDecimals, questState.tokenSymbol)} />
-                      <Stat label="1st Prize" value={formatTokenAmount(prizeShare(activePrizePool, 60), questState.tokenDecimals, questState.tokenSymbol)} />
-                      <Stat label="2nd Prize" value={formatTokenAmount(prizeShare(activePrizePool, 30), questState.tokenDecimals, questState.tokenSymbol)} />
-                      <Stat label="3rd Prize" value={formatTokenAmount(prizeShare(activePrizePool, 10), questState.tokenDecimals, questState.tokenSymbol)} />
-                    </div>
-                    <div className="bg-black/80 border border-white/10 rounded p-4 w-full">
-                      <div className="grid md:grid-cols-1 gap-3 mb-4">
-                        <Stat label="Participation Quote" value={formatTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)} />
-                      </div>
-                      <div className="text-xs uppercase tracking-wide text-white/50">Rules commitment</div>
-                      <div className="font-mono text-sm break-all mt-1">{activeQuest.rulesCommitment}</div>
-                      <p className="text-white/60 text-sm mt-2">Rules are hidden until this quest is stopped.</p>
+                      <button
+                        onClick={() => setShowQuestDetails(prev => !prev)}
+                        className="p-0 border-none bg-transparent cursor-pointer hover:scale-[1.01] transition-transform"
+                      >
+                        <img src="/quests-liquidity-event-banner.png" alt="Active quest" className="w-full max-w-3xl h-auto object-contain mb-4" />
+                      </button>
                     </div>
                   </>
                 ) : (
@@ -802,6 +792,27 @@ export default function QuestContent() {
                         </div>
 
                         <div className="w-full lg:w-72 flex-shrink-0 flex flex-col items-center lg:items-end gap-4">
+                          {hasActiveQuest && showQuestDetails && (
+                            <div
+                              className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[300px] min-h-[315px] flex flex-col items-center justify-center text-black"
+                              style={{ backgroundImage: 'url(/addressbg.png)' }}
+                            >
+                              <div className="w-48 space-y-1.5 text-center text-[11px] font-black leading-tight">
+                                <div>Quest #{bigIntToNumber(activeQuest.id)}</div>
+                                <div>Participants: {bigIntToNumber(activeQuest.entryCount)}</div>
+                                <div>Collected: {formatTokenAmount(activePrizePool, questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>Quote: {formatTokenAmount(questState.entryFee, questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>1st: {formatTokenAmount(prizeShare(activePrizePool, 60), questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>2nd: {formatTokenAmount(prizeShare(activePrizePool, 30), questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div>3rd: {formatTokenAmount(prizeShare(activePrizePool, 10), questState.tokenDecimals, questState.tokenSymbol)}</div>
+                                <div className="pt-1 uppercase text-[10px]">Rules commitment</div>
+                                <div className="max-h-12 overflow-y-auto break-all font-mono text-[9px] leading-tight">
+                                  {activeQuest.rulesCommitment}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <div
                             className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
                             style={{ backgroundImage: 'url(/addressbg.png)' }}
@@ -812,7 +823,7 @@ export default function QuestContent() {
                             <span className="mt-1 max-w-[190px] text-center text-base font-black leading-tight text-black break-words">
                               {formatCompactTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
                             </span>
-                            <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
+                            <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform -mt-1 -translate-y-1">
                               <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
                             </Link>
                           </div>
