@@ -1018,7 +1018,7 @@ export default function QuestContent() {
                                         <img
                                           src={card.imageUrl}
                                           alt={card.name}
-                                          className={`block h-full w-full object-fill transition-all duration-300 ${selected ? 'brightness-100' : 'brightness-75'} ${card.usedInQuest ? 'opacity-60' : ''}`}
+                                          className={`block h-full w-full object-fill transition-all duration-300 ${selected ? 'brightness-100' : 'brightness-75'}`}
                                         />
                                       </div>
                                     ) : (
@@ -1042,26 +1042,26 @@ export default function QuestContent() {
                                         setZoomedQuestLabels(prev => ({ ...prev, [cacheKey]: !prev[cacheKey] }));
                                       }}
                                     >
-                                      <div className={`relative z-10 flex h-full w-full flex-col justify-center overflow-hidden bg-white p-0.5 pt-[3px] text-center text-[7px] font-black leading-tight text-black shadow ${labelZoomed ? 'scale-150 origin-center' : ''}`}>
+                                      <div className={`relative z-10 flex h-full w-full flex-col justify-center overflow-hidden bg-white p-1 pt-[3px] text-left text-[8px] leading-tight text-black shadow ${labelZoomed ? 'scale-150 origin-center' : ''}`}>
                                         <button
                                           type="button"
-                                          className="block w-full cursor-pointer bg-transparent p-0 text-center font-black text-black hover:underline"
+                                          className="block w-full cursor-pointer truncate bg-transparent p-0 text-left text-black hover:underline"
                                           onClick={(event) => {
                                             event.stopPropagation();
                                             copyToClipboard(card.tokenId);
                                           }}
                                         >
-                                          tokenID: #{card.tokenId}
+                                          <span className="font-black">TokenID:</span> #{card.tokenId}
                                         </button>
                                         <button
                                           type="button"
-                                          className="block w-full cursor-pointer break-all bg-transparent p-0 text-center font-mono text-[6px] font-black text-black hover:underline"
+                                          className="block w-full cursor-pointer break-all bg-transparent p-0 text-left font-mono text-[7px] text-black hover:underline"
                                           onClick={(event) => {
                                             event.stopPropagation();
                                             copyToClipboard(labelPlayer || '');
                                           }}
                                         >
-                                          player: {labelPlayer || 'Unknown player'}
+                                          <span className="font-black">Player:</span> {labelPlayer || 'Unknown player'}
                                         </button>
                                       </div>
                                       {labelZoomed && (
@@ -1081,7 +1081,7 @@ export default function QuestContent() {
                                       )}
                                     </div>
                                   </div>
-                                  <div className={`pt-2 space-y-2 flex flex-col items-center transition-all duration-200 ${selected ? 'brightness-100' : 'brightness-75'}`}>
+                                  <div className={`-mt-9 space-y-2 flex flex-col items-center transition-all duration-200 ${selected ? 'brightness-100' : 'brightness-75'}`}>
                                     <Lives
                                       remaining={card.livesRemaining}
                                       max={card.livesMax}
