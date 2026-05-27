@@ -875,9 +875,10 @@ export default function QuestContent() {
               <ul className="text-left mb-4 space-y-1 list-disc list-inside">
                 <li>Connect your wallet on Base and pick up to 4 owned PDP cards.</li>
                 <li>Each card has lives based on rarity: Common 1, Rare 2, Epic 3, Legendary 4.</li>
-                <li>Joining spends 1 life from every selected token ID; click a missing life to restore it for 20k $PDP. 100% of restore revenue goes into the prize pool.</li>
+                <li>Joining spends 1 life from every selected token ID.</li>
                 <li>The same token ID can enter the same quest only once.</li>
-                <li>Cards with 0 lives cannot be selected until a life is restored.</li>
+                <li>Cards with 0 lives cannot be selected until a life is restored; click a missing life and pay 20k $PDP to restore it.</li>
+                <li>100% of total quest revenue, including entries and restores while the quest is active, goes into the prize pool.</li>
               </ul>
 
               <h2 className="text-xl font-bold mb-2">Are the rules public?</h2>
