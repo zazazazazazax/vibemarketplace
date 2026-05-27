@@ -858,8 +858,9 @@ export default function QuestContent() {
                   </div>
                 )}
 
-                <div className="w-full flex flex-col items-start space-y-2 mt-10 pb-14 z-0">
+                <div className="w-full flex flex-col items-start space-y-2 mt-48 pb-14 z-0 pl-4 self-start lg:w-full lg:max-w-none lg:mx-0 lg:pl-0">
                   <div className="flex flex-col space-y-2 w-full max-w-full">
+                    {/* Banner PDP */}
                     <div className="flex flex-col items-start">
                       <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-3 sm:-mt-4 lg:-mt-7">Support the dev:</span>
                       <a
@@ -871,6 +872,7 @@ export default function QuestContent() {
                         <img src="/pdp.png" alt="Support PDP" className="w-[24rem] h-[12rem] sm:w-[48rem] sm:h-[18rem] lg:w-[140rem] lg:h-[18rem]" />
                       </a>
                     </div>
+                    {/* Win $PEPE */}
                     <div className="flex flex-col items-start">
                       <span className="text-left text-xs text-white font-semibold pointer-events-none -mt-2 ml-2">Win $PEPE:</span>
                       <Link href="/claim" className="w-fit block flex-shrink-0">
