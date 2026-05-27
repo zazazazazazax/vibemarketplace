@@ -368,6 +368,7 @@ export default function QuestContent() {
   const [cards, setCards] = useState([]);
   const [cardsLoading, setCardsLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [enteredIds, setEnteredIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showQuestDetails, setShowQuestDetails] = useState(false);
   const [error, setError] = useState(null);
@@ -379,6 +380,11 @@ export default function QuestContent() {
   const previousQuest = questState.previousQuest;
   const hasActiveQuest = Boolean(activeQuest?.active);
   const selectedCards = useMemo(() => cards.filter(card => selectedIds.includes(card.tokenId)), [cards, selectedIds]);
+  const displaySelectedIds = selectedIds.length > 0 ? selectedIds : enteredIds;
+  const displaySelectedCards = useMemo(() => displaySelectedIds.map(tokenId => {
+    const card = cards.find(item => item.tokenId === tokenId);
+    return { tokenId, name: card?.name || 'PDP card' };
+  }), [cards, displaySelectedIds]);
   const cardsPerPage = 8;
   const totalPages = Math.max(1, Math.ceil(cards.length / cardsPerPage));
   const paginatedCards = useMemo(() => {
@@ -467,6 +473,7 @@ export default function QuestContent() {
     if (!address || !isConnected) {
       setCards([]);
       setSelectedIds([]);
+      setEnteredIds([]);
       return;
     }
     setCardsLoading(true);
@@ -488,6 +495,33 @@ export default function QuestContent() {
     }
   }, [address, isConnected, questState.activeQuestId, refreshCardLives]);
 
+  const refreshUserEntry = useCallback(async () => {
+    if (!config || !address || questState.activeQuestId <= 0n || !questState.entryIds.length) {
+      setEnteredIds([]);
+      return;
+    }
+
+    try {
+      const entries = await Promise.all(questState.entryIds.map(async (entryId) => {
+        const entry = await readContract(config, {
+          address: QUEST_CONTRACT,
+          abi: questAbi,
+          functionName: 'getEntry',
+          args: [entryId],
+          chainId: BASE_CHAIN_ID,
+        });
+        return entry;
+      }));
+
+      const ownedEntry = entries.find(entry => String(entry?.player || '').toLowerCase() === address.toLowerCase());
+      const tokenIds = (ownedEntry?.tokenIds || ownedEntry?.[3] || []).map(tokenId => tokenId.toString());
+      setEnteredIds(tokenIds);
+    } catch (err) {
+      console.error('User quest entry refresh failed:', err);
+      setEnteredIds([]);
+    }
+  }, [address, config, questState.activeQuestId, questState.entryIds]);
+
   useEffect(() => {
     refreshQuest();
   }, [refreshQuest]);
@@ -495,6 +529,10 @@ export default function QuestContent() {
   useEffect(() => {
     fetchCards();
   }, [fetchCards]);
+
+  useEffect(() => {
+    refreshUserEntry();
+  }, [refreshUserEntry]);
 
   useEffect(() => {
     setCurrentPage(prev => Math.min(prev, totalPages));
@@ -506,6 +544,7 @@ export default function QuestContent() {
     resetSignature();
     setCards([]);
     setSelectedIds([]);
+    setEnteredIds([]);
     setCurrentPage(1);
     setShowHeader(false);
     router.push('/');
@@ -525,6 +564,7 @@ export default function QuestContent() {
     const updated = await refreshCardLives(cards, questState.activeQuestId);
     setCards(updated);
     setSelectedIds([]);
+    setEnteredIds(selectedCards.map(card => card.tokenId));
   };
 
   const approveQuestSpendingIfNeeded = async (requiredAmount) => {
@@ -852,7 +892,6 @@ export default function QuestContent() {
                                       disabled={txStatus !== 'idle'}
                                       onRestore={() => handleRestoreLife(card)}
                                     />
-                                    {card.usedInQuest && <div className="text-xs text-red-300 font-bold">Already used in this quest</div>}
                                     {!card.usedInQuest && card.livesRemaining <= 0 && <div className="text-xs text-red-300 font-bold">No lives left</div>}
                                   </div>
                                 </div>
@@ -933,13 +972,13 @@ export default function QuestContent() {
                             style={{ backgroundImage: 'url(/addressbg.png)' }}
                           >
                             <span className="text-sm font-black text-black leading-none">
-                              Selected: {selectedIds.length}/4
+                              Selected: {displaySelectedIds.length}/4
                             </span>
-                            {selectedIds.length > 0 && (
-                              <div className="mt-2 max-h-16 w-36 overflow-y-auto text-center text-[11px] font-black leading-tight text-black">
-                                {selectedIds.map(tokenId => (
-                                  <div key={tokenId} className="whitespace-nowrap">
-                                    #{tokenId}
+                            {displaySelectedCards.length > 0 && (
+                              <div className="mt-2 max-h-16 w-44 overflow-y-auto text-center text-[10px] font-black leading-tight text-black">
+                                {displaySelectedCards.map(({ tokenId, name }) => (
+                                  <div key={tokenId} className="break-words">
+                                    #{tokenId} {name}
                                   </div>
                                 ))}
                               </div>
