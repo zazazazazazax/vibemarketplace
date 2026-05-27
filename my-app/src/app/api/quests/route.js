@@ -185,6 +185,48 @@ async function fetchSingleTokenMetadata(tokenId, contractAddress) {
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get('address');
+  const tokenIdsParam = searchParams.get('tokenIds');
+
+  if (tokenIdsParam) {
+    const tokenIds = [...new Set(tokenIdsParam.split(',').map(tokenId => tokenId.trim()).filter(Boolean))];
+    const cacheKey = `quest_tokens_${tokenIds.sort().join('_')}`;
+    if (questInventoryCache.has(cacheKey)) {
+      return NextResponse.json(questInventoryCache.get(cacheKey));
+    }
+
+    const dbNameByTokenId = await loadTokenNamesFromDb(tokenIds);
+    const tokenCards = await Promise.all(tokenIds.map(async (tokenId) => {
+      let card = {
+        tokenId,
+        contractAddress: PDP_COLLECTION,
+        metadata: {},
+      };
+
+      if (apiKeys.length > 0 && !dbNameByTokenId.has(tokenId) && !seedNameByTokenId.has(tokenId)) {
+        const singleTokenCard = await fetchSingleTokenMetadata(tokenId, PDP_COLLECTION);
+        if (singleTokenCard) {
+          card = {
+            ...singleTokenCard,
+            tokenId,
+            contractAddress: PDP_COLLECTION,
+            metadata: singleTokenCard.metadata || {},
+          };
+        }
+      }
+
+      return normalizeCard(card, dbNameByTokenId);
+    }));
+
+    const namesToUpsert = tokenCards
+      .filter(card => card.traitName && !dbNameByTokenId.has(card.tokenId))
+      .map(card => ({ tokenId: card.tokenId, name: card.traitName, metadata: card.metadata || null }));
+
+    await upsertTokenNamesToDb(namesToUpsert);
+
+    const result = { cards: tokenCards };
+    questInventoryCache.set(cacheKey, result);
+    return NextResponse.json(result);
+  }
 
   if (!address) {
     return NextResponse.json({ error: 'Address required' }, { status: 400 });
