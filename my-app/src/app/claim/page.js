@@ -219,7 +219,13 @@ export default function Claim() {
           </Link>
 
           <nav className="flex flex-col space-y-0 text-white text-sm mt-0">
-            {/* New order: Home → My Binder → Binders → Dex */}
+            <Link href="/quests" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
+              <img
+                src="/quest.png"
+                alt="Quest"
+                className="w-32 h-10 sm:w-40 sm:h-12 md:w-48 md:h-16 brightness-50 grayscale"
+              />
+            </Link>
             <Link href="/" className="self-start -ml-2 sm:-ml-3 md:-ml-4 hover:brightness-110">
               <img
                 src="/home.png"
