@@ -875,7 +875,7 @@ export default function QuestContent() {
               <ul className="text-left mb-4 space-y-1 list-disc list-inside">
                 <li>Connect your wallet on Base and pick up to 4 owned PDP cards.</li>
                 <li>Each card has lives based on rarity: Common 1, Rare 2, Epic 3, Legendary 4.</li>
-                <li>Joining spends 1 life from every selected token ID.</li>
+                <li>Joining spends 1 life from every selected token ID; click a missing life to restore it for 20k $PDP. 100% of restore revenue goes into the prize pool.</li>
                 <li>The same token ID can enter the same quest only once.</li>
                 <li>Cards with 0 lives cannot be selected until a life is restored.</li>
               </ul>
@@ -1080,15 +1080,17 @@ export default function QuestContent() {
                                         />
                                       )}
                                     </div>
+                                    <div className="absolute bottom-2 left-1/2 z-50 flex -translate-x-1/2 items-center justify-center">
+                                      <Lives
+                                        remaining={card.livesRemaining}
+                                        max={card.livesMax}
+                                        selected={selected}
+                                        disabled={txStatus !== 'idle'}
+                                        onRestore={() => handleRestoreLife(card)}
+                                      />
+                                    </div>
                                   </div>
                                   <div className="-mt-9 space-y-2 flex flex-col items-center transition-all duration-200 brightness-100">
-                                    <Lives
-                                      remaining={card.livesRemaining}
-                                      max={card.livesMax}
-                                      selected={selected}
-                                      disabled={txStatus !== 'idle'}
-                                      onRestore={() => handleRestoreLife(card)}
-                                    />
                                     {!card.usedInQuest && card.livesRemaining <= 0 && <div className="text-xs text-red-300 font-bold">No lives left</div>}
                                   </div>
                                 </div>
