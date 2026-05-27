@@ -168,6 +168,22 @@ function formatTokenAmount(value, decimals, symbol) {
   return `${whole}${trimmedFraction ? `.${trimmedFraction}` : ''} ${symbol}`;
 }
 
+function formatCompactTokenAmount(value, decimals, symbol) {
+  if (value === null || value === undefined) return `0 ${symbol}`;
+  const amount = Number(formatUnits(value, decimals || 18));
+  if (!Number.isFinite(amount)) return formatTokenAmount(value, decimals, symbol);
+
+  const units = [
+    { threshold: 1_000_000_000, suffix: 'B' },
+    { threshold: 1_000_000, suffix: 'M' },
+    { threshold: 1_000, suffix: 'k' },
+  ];
+  const unit = units.find(item => Math.abs(amount) >= item.threshold);
+  const displayValue = unit ? amount / unit.threshold : amount;
+  const formatted = displayValue.toFixed(1).replace(/\.0$/, '');
+  return `${formatted}${unit?.suffix || ''} ${symbol}`;
+}
+
 function formatDate(seconds) {
   const value = Number(seconds || 0n);
   if (!value) return 'Not set';
@@ -726,7 +742,7 @@ export default function QuestContent() {
                     <>
                       <div className="flex flex-col lg:flex-row gap-6 items-start">
                         <div className="flex-1 min-w-0 w-full">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
                             {paginatedCards.map((card) => {
                               const selected = selectedIds.includes(card.tokenId);
                               const disabled = !hasActiveQuest || card.usedInQuest || card.livesRemaining <= 0;
@@ -791,7 +807,7 @@ export default function QuestContent() {
                             style={{ backgroundImage: 'url(/addressbg.png)' }}
                           >
                             <span className="text-sm font-black text-black whitespace-nowrap">
-                              Balance: {formatTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
+                              Balance: {formatCompactTokenAmount(questState.tokenBalance, questState.tokenDecimals, questState.tokenSymbol)}
                             </span>
                             <Link href="/dex?tab=buy" className="inline-flex hover:scale-105 transition-transform mt-1">
                               <img src="/buy.png" alt="Buy" className="w-28 h-auto object-contain" />
@@ -819,7 +835,7 @@ export default function QuestContent() {
                           <button
                             onClick={handleJoin}
                             disabled={joinDisabled}
-                            className={`p-0 border-none bg-transparent ${joinDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105 transition-transform'}`}
+                            className={`p-0 border-none bg-transparent lg:self-center ${joinDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105 transition-transform'}`}
                           >
                             <AssetImage
                               src="/join.png"
