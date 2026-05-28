@@ -308,22 +308,27 @@ function Stat({ label, value }) {
 
 function Lives({ remaining, max, selected, onRestore, disabled }) {
   const count = Math.max(Number(max || 0), 1);
+  const remainingCount = Number(remaining || 0);
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: count }).map((_, index) => {
-        const alive = index < Number(remaining || 0);
+        const alive = index < remainingCount;
         const canRestore = !alive && onRestore && !disabled;
         return (
           <button
             key={index}
             type="button"
             disabled={!canRestore}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
               if (canRestore) onRestore();
             }}
-            className={`p-0 border-none bg-transparent ${canRestore ? 'cursor-pointer hover:scale-110 transition-transform' : 'cursor-default'}`}
+            className={`relative z-[60] p-0 border-none bg-transparent ${canRestore ? 'cursor-pointer hover:scale-110 transition-transform' : 'cursor-default'}`}
           >
             <img
               src="/pepe.png"
@@ -370,6 +375,9 @@ export default function QuestContent() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [enteredIds, setEnteredIds] = useState([]);
   const [enteredCards, setEnteredCards] = useState([]);
+  const [enteredEntries, setEnteredEntries] = useState([]);
+  const [selectedEntryIndex, setSelectedEntryIndex] = useState(0);
+  const [entryPagerDirection, setEntryPagerDirection] = useState('next');
   const [usedTokenPlayers, setUsedTokenPlayers] = useState({});
   const [hoveredQuestCardId, setHoveredQuestCardId] = useState(null);
   const [hiddenQuestCases, setHiddenQuestCases] = useState({});
@@ -385,7 +393,9 @@ export default function QuestContent() {
   const previousQuest = questState.previousQuest;
   const hasActiveQuest = Boolean(activeQuest?.active);
   const selectedCards = useMemo(() => cards.filter(card => selectedIds.includes(card.tokenId)), [cards, selectedIds]);
-  const displaySelectedIds = selectedIds.length > 0 ? selectedIds : enteredIds;
+  const clampedEntryIndex = Math.min(selectedEntryIndex, Math.max(enteredEntries.length - 1, 0));
+  const displayEntry = enteredEntries[clampedEntryIndex] || null;
+  const displaySelectedIds = selectedIds.length > 0 ? selectedIds : displayEntry?.tokenIds || enteredIds;
   const displaySelectedCards = useMemo(() => displaySelectedIds.map(tokenId => {
     const card = cards.find(item => item.tokenId === tokenId);
     const enteredCard = enteredCards.find(item => item.tokenId === tokenId);
@@ -435,7 +445,7 @@ export default function QuestContent() {
         address ? readContract(config, { address: pdpToken, abi: erc20Abi, functionName: 'allowance', args: [address, QUEST_CONTRACT], chainId: BASE_CHAIN_ID }).catch(() => 0n) : 0n,
       ]);
 
-      setQuestState({
+      const nextState = {
         loading: false,
         activeQuestId,
         nextQuestId,
@@ -449,11 +459,15 @@ export default function QuestContent() {
         tokenSymbol: symbol || 'PDP',
         tokenBalance: balance || 0n,
         allowance: allowance || 0n,
-      });
+      };
+
+      setQuestState(nextState);
+      return nextState;
     } catch (err) {
       console.error('Quest refresh failed:', err);
       setQuestState(prev => ({ ...prev, loading: false }));
       setError(`Quest read failed: ${err.shortMessage || err.message || 'Unknown error'}`);
+      return null;
     }
   }, [address, config]);
 
@@ -489,6 +503,9 @@ export default function QuestContent() {
       setSelectedIds([]);
       setEnteredIds([]);
       setEnteredCards([]);
+      setEnteredEntries([]);
+      setSelectedEntryIndex(0);
+      setEntryPagerDirection('next');
       setUsedTokenPlayers({});
       setHoveredQuestCardId(null);
       setHiddenQuestCases({});
@@ -514,55 +531,88 @@ export default function QuestContent() {
     }
   }, [address, isConnected, questState.activeQuestId, refreshCardLives]);
 
+  const refreshUserEntryData = useCallback(async (activeQuestId, entryIds, preferredIndex = null) => {
+    if (!config || !address || activeQuestId <= 0n || !entryIds.length) {
+      setEnteredIds([]);
+      setEnteredCards([]);
+      setEnteredEntries([]);
+      setSelectedEntryIndex(0);
+      setEntryPagerDirection('next');
+      setUsedTokenPlayers({});
+      return;
+    }
+
+    const entries = await Promise.all(entryIds.map(async (entryId) => {
+      const entry = await readContract(config, {
+        address: QUEST_CONTRACT,
+        abi: questAbi,
+        functionName: 'getEntry',
+        args: [entryId],
+        chainId: BASE_CHAIN_ID,
+      });
+      return entry;
+    }));
+
+    const tokenPlayerMap = entries.reduce((map, entry) => {
+      const player = String(entry?.player || entry?.[2] || '');
+      const tokenIds = entry?.tokenIds || entry?.[3] || [];
+      tokenIds.forEach(tokenId => {
+        map[tokenId.toString()] = player;
+      });
+      return map;
+    }, {});
+    setUsedTokenPlayers(tokenPlayerMap);
+
+    const ownedEntries = entries
+      .filter(entry => String(entry?.player || entry?.[2] || '').toLowerCase() === address.toLowerCase())
+      .map(entry => ({
+        entryId: (entry?.id || entry?.[0] || 0n).toString(),
+        tokenIds: (entry?.tokenIds || entry?.[3] || []).map(tokenId => tokenId.toString()),
+      }))
+      .filter(entry => entry.tokenIds.length > 0);
+
+    setEnteredEntries(ownedEntries);
+    setSelectedEntryIndex(prev => Math.min(preferredIndex ?? prev, Math.max(ownedEntries.length - 1, 0)));
+    if (preferredIndex !== null && preferredIndex >= ownedEntries.length - 1) {
+      setEntryPagerDirection('previous');
+    }
+    setEnteredIds(ownedEntries[0]?.tokenIds || []);
+
+    const tokenIds = [...new Set(ownedEntries.flatMap(entry => entry.tokenIds))];
+    if (!tokenIds.length) {
+      setEnteredCards([]);
+      return;
+    }
+
+    const response = await fetch(`/api/quests?tokenIds=${encodeURIComponent(tokenIds.join(','))}`);
+    if (!response.ok) throw new Error(`Entry token API ${response.status}`);
+    const data = await response.json();
+    setEnteredCards(Array.isArray(data.cards) ? data.cards : []);
+  }, [address, config]);
+
   const refreshUserEntry = useCallback(async () => {
     if (!config || !address || questState.activeQuestId <= 0n || !questState.entryIds.length) {
       setEnteredIds([]);
       setEnteredCards([]);
+      setEnteredEntries([]);
+      setSelectedEntryIndex(0);
+      setEntryPagerDirection('next');
       setUsedTokenPlayers({});
       return;
     }
 
     try {
-      const entries = await Promise.all(questState.entryIds.map(async (entryId) => {
-        const entry = await readContract(config, {
-          address: QUEST_CONTRACT,
-          abi: questAbi,
-          functionName: 'getEntry',
-          args: [entryId],
-          chainId: BASE_CHAIN_ID,
-        });
-        return entry;
-      }));
-
-      const tokenPlayerMap = entries.reduce((map, entry) => {
-        const player = String(entry?.player || entry?.[2] || '');
-        const tokenIds = entry?.tokenIds || entry?.[3] || [];
-        tokenIds.forEach(tokenId => {
-          map[tokenId.toString()] = player;
-        });
-        return map;
-      }, {});
-      setUsedTokenPlayers(tokenPlayerMap);
-
-      const ownedEntry = entries.find(entry => String(entry?.player || entry?.[2] || '').toLowerCase() === address.toLowerCase());
-      const tokenIds = (ownedEntry?.tokenIds || ownedEntry?.[3] || []).map(tokenId => tokenId.toString());
-      setEnteredIds(tokenIds);
-      if (!tokenIds.length) {
-        setEnteredCards([]);
-        return;
-      }
-
-      const response = await fetch(`/api/quests?tokenIds=${encodeURIComponent(tokenIds.join(','))}`);
-      if (!response.ok) throw new Error(`Entry token API ${response.status}`);
-      const data = await response.json();
-      setEnteredCards(Array.isArray(data.cards) ? data.cards : []);
+      await refreshUserEntryData(questState.activeQuestId, questState.entryIds);
     } catch (err) {
       console.error('User quest entry refresh failed:', err);
       setEnteredIds([]);
       setEnteredCards([]);
+      setEnteredEntries([]);
+      setSelectedEntryIndex(0);
+      setEntryPagerDirection('next');
       setUsedTokenPlayers({});
     }
-  }, [address, config, questState.activeQuestId, questState.entryIds]);
+  }, [address, config, questState.activeQuestId, questState.entryIds, refreshUserEntryData]);
 
   useEffect(() => {
     refreshQuest();
@@ -580,6 +630,12 @@ export default function QuestContent() {
     setCurrentPage(prev => Math.min(prev, totalPages));
   }, [totalPages]);
 
+  useEffect(() => {
+    if (enteredEntries.length <= 1) {
+      setEntryPagerDirection('next');
+    }
+  }, [enteredEntries.length]);
+
   const disconnectWallet = useCallback(() => {
     disconnect();
     localStorage.clear();
@@ -588,6 +644,9 @@ export default function QuestContent() {
     setSelectedIds([]);
     setEnteredIds([]);
     setEnteredCards([]);
+    setEnteredEntries([]);
+    setSelectedEntryIndex(0);
+    setEntryPagerDirection('next');
     setUsedTokenPlayers({});
     setHoveredQuestCardId(null);
     setHiddenQuestCases({});
@@ -606,14 +665,44 @@ export default function QuestContent() {
     });
   };
 
-  const refreshAfterJoin = async () => {
-    await refreshQuest();
-    const updated = await refreshCardLives(cards, questState.activeQuestId);
+  const waitForJoinReflection = async (tokenIds, activeId) => {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const usedFlags = await Promise.all(tokenIds.map(tokenId => readContract(config, {
+        address: QUEST_CONTRACT,
+        abi: questAbi,
+        functionName: 'questTokenUsed',
+        args: [activeId, BigInt(tokenId)],
+        chainId: BASE_CHAIN_ID,
+      }).catch(() => false)));
+
+      if (usedFlags.every(Boolean)) return;
+      await delay(1500);
+    }
+  };
+
+  const waitForRestoreReflection = async (tokenId, previousRemaining) => {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const lives = await readContract(config, {
+        address: QUEST_CONTRACT,
+        abi: questAbi,
+        functionName: 'getTokenLives',
+        args: [BigInt(tokenId)],
+        chainId: BASE_CHAIN_ID,
+      }).catch(() => null);
+      const remaining = Number(lives?.[0] ?? lives?.remaining ?? previousRemaining);
+      if (remaining > previousRemaining) return;
+      await delay(1500);
+    }
+  };
+
+  const refreshAfterMutation = async (baseCards = cards, preferredEntryIndex = null) => {
+    const freshQuest = await refreshQuest();
+    const activeId = freshQuest?.activeQuestId ?? questState.activeQuestId;
+    const updated = await refreshCardLives(baseCards, activeId);
     setCards(updated);
-    setSelectedIds([]);
-    setEnteredIds(selectedCards.map(card => card.tokenId));
-    setEnteredCards(selectedCards);
-    setUsedTokenPlayers(prev => selectedCards.reduce((map, card) => ({ ...map, [card.tokenId]: address }), { ...prev }));
+    if (freshQuest?.activeQuestId > 0n && freshQuest?.entryIds?.length) {
+      await refreshUserEntryData(freshQuest.activeQuestId, freshQuest.entryIds, preferredEntryIndex);
+    }
   };
 
   const approveQuestSpendingIfNeeded = async (requiredAmount) => {
@@ -659,7 +748,12 @@ export default function QuestContent() {
       setError('Please switch to Base chain (ID: 8453) before restoring a life.');
       return;
     }
-    if (card.livesRemaining >= card.livesMax) return;
+    const livesRemaining = Number(card.livesRemaining || 0);
+    const livesMax = Math.max(Number(card.livesMax || 0), 1);
+    if (livesRemaining >= livesMax) {
+      setError(`Token #${card.tokenId} already has full lives.`);
+      return;
+    }
     if (questState.tokenBalance < questState.restoreLifeFee) {
       setError(`Not enough ${questState.tokenSymbol} to restore a life.`);
       return;
@@ -681,10 +775,9 @@ export default function QuestContent() {
       const restoreHash = normalizeHash(restoreResult);
       if (restoreHash) await waitForTransactionReceipt(config, { hash: restoreHash, chainId: BASE_CHAIN_ID });
 
+      await waitForRestoreReflection(card.tokenId, livesRemaining);
+      await refreshAfterMutation(cards);
       setSuccess(`Restored one life for #${card.tokenId}.`);
-      await refreshQuest();
-      const updated = await refreshCardLives(cards, questState.activeQuestId);
-      setCards(updated);
     } catch (err) {
       console.error('Restore life failed:', err);
       setError(`Restore failed: ${err.shortMessage || err.message || 'Unknown error'}`);
@@ -721,7 +814,9 @@ export default function QuestContent() {
       await approveQuestSpendingIfNeeded(questState.entryFee);
 
       setTxStatus('joining');
-      const tokenIds = selectedCards.map(card => BigInt(card.tokenId));
+      const joiningCards = selectedCards;
+      const tokenIds = joiningCards.map(card => BigInt(card.tokenId));
+      const tokenIdStrings = joiningCards.map(card => card.tokenId);
       const joinResult = await writeContract(config, {
         address: QUEST_CONTRACT,
         abi: questAbi,
@@ -732,8 +827,10 @@ export default function QuestContent() {
       const joinHash = normalizeHash(joinResult);
       if (joinHash) await waitForTransactionReceipt(config, { hash: joinHash, chainId: BASE_CHAIN_ID });
 
+      await waitForJoinReflection(tokenIdStrings, questState.activeQuestId);
+      setSelectedIds([]);
+      await refreshAfterMutation(cards, enteredEntries.length);
       setSuccess('Joined the active quest. Lives refreshed.');
-      await refreshAfterJoin();
     } catch (err) {
       console.error('Join failed:', err);
       setError(`Join failed: ${err.shortMessage || err.message || 'Unknown error'}`);
@@ -745,6 +842,8 @@ export default function QuestContent() {
   const txLabel = txStatus === 'approving' ? 'Approving PDP spending...' : txStatus === 'joining' ? 'Joining quest...' : txStatus === 'restoring' ? 'Restoring life...' : '';
   const joinDisabled = txStatus !== 'idle' || !hasActiveQuest || selectedCards.length === 0 || selectedCards.length > 4 || chainId !== BASE_CHAIN_ID;
   const activePrizePool = activeQuest?.prizePool || 0n;
+  const showEntryPager = selectedIds.length === 0 && enteredEntries.length > 1;
+  const entryPagerIsPrevious = entryPagerDirection === 'previous';
   const questInfoBox = hasActiveQuest && showQuestDetails ? (
     <div
       className="bg-center bg-no-repeat bg-contain px-12 py-9 min-w-[300px] min-h-[315px] flex flex-col items-center justify-center text-black"
@@ -787,6 +886,32 @@ export default function QuestContent() {
       style={{ backgroundImage: 'url(/addressbg.png)' }}
     >
       <div className="-translate-y-3 flex flex-col items-center">
+        {showEntryPager && (
+          <button
+            type="button"
+            className="mb-1 border-none bg-transparent p-0 hover:scale-105 transition-transform"
+            onClick={() => {
+              setSelectedEntryIndex(prev => {
+                const lastIndex = enteredEntries.length - 1;
+                if (entryPagerDirection === 'previous') {
+                  const nextIndex = Math.max(prev - 1, 0);
+                  if (nextIndex === 0) setEntryPagerDirection('next');
+                  return nextIndex;
+                }
+
+                const nextIndex = Math.min(prev + 1, lastIndex);
+                if (nextIndex === lastIndex) setEntryPagerDirection('previous');
+                return nextIndex;
+              });
+            }}
+          >
+            <img
+              src={entryPagerIsPrevious ? '/previous.png' : '/next.png'}
+              alt={entryPagerIsPrevious ? 'Previous entry' : 'Next entry'}
+              className="h-7 w-10 object-contain"
+            />
+          </button>
+        )}
         <span className="text-sm font-black text-black leading-none">
           Selected: {displaySelectedIds.length}/4
         </span>
