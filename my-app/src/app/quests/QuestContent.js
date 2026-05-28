@@ -995,7 +995,7 @@ export default function QuestContent() {
             <div className="max-w-2xl text-white text-base leading-relaxed text-center px-4">
               <h2 className="text-xl font-bold mb-2">What's a quest?</h2>
               <p className="mb-4">
-                Quests are skill-based PDP campaigns. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote in $PDP, and compete for the prize pool.
+                Quests are skill-based PDP memetic guess games. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote in $PDP, and compete for the prize pool. The prize pool is funded by 100% of the revenue generated from entries.
               </p>
 
               <h2 className="text-xl font-bold mb-2">How does it work?</h2>
@@ -1004,8 +1004,8 @@ export default function QuestContent() {
                 <li>Each card has lives based on rarity: Common 1, Rare 2, Epic 3, Legendary 4.</li>
                 <li>Joining spends 1 life from every selected token ID.</li>
                 <li>The same token ID can enter the same quest only once.</li>
-                <li>Cards with 0 lives cannot be selected until a life is restored; click a missing life and pay 20k $PDP to restore it.</li>
-                <li>100% of total quest revenue, including entries and restores while the quest is active, goes into the prize pool.</li>
+                <li>Cards with 0 lives cannot be selected until a life is restored.</li>
+                <li>Click a missing life and pay 20k $PDP to restore it.</li>
               </ul>
 
               <h2 className="text-xl font-bold mb-2">Are the rules public?</h2>
