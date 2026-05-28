@@ -786,18 +786,20 @@ export default function QuestContent() {
       className="bg-center bg-no-repeat bg-contain px-12 py-8 min-w-[275px] min-h-[175px] flex flex-col items-center justify-center"
       style={{ backgroundImage: 'url(/addressbg.png)' }}
     >
-      <span className="text-sm font-black text-black leading-none">
-        Selected: {displaySelectedIds.length}/4
-      </span>
-      {displaySelectedCards.length > 0 && (
-        <div className="mt-2 max-h-16 w-44 overflow-y-auto text-center text-[10px] font-black leading-tight text-black">
-          {displaySelectedCards.map(({ tokenId, name }) => (
-            <div key={tokenId} className="break-words">
-              #{tokenId} {name}
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="-translate-y-3 flex flex-col items-center">
+        <span className="text-sm font-black text-black leading-none">
+          Selected: {displaySelectedIds.length}/4
+        </span>
+        {displaySelectedCards.length > 0 && (
+          <div className="mt-2 max-h-16 w-44 overflow-y-auto text-center text-[10px] font-black leading-tight text-black">
+            {displaySelectedCards.map(({ tokenId, name }) => (
+              <div key={tokenId} className="break-words">
+                #{tokenId} {name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 
