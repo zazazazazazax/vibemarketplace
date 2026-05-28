@@ -26,7 +26,7 @@ export default function RootLayout({ children }) {
         {/* Nuovo: Meta per Farcaster Mini App (discovery e launch) */}
         <meta name="fc:miniapp" content={JSON.stringify({
           version: '1',
-          imageUrl: `${appUrl}/pdb.png`,  // Usa la tua immagine preview
+          imageUrl: `${appUrl}/welcome.png`,  // Farcaster share preview
           button: {
             title: 'Launch Poorly Drawn Binders',
             action: {
