@@ -2,12 +2,12 @@
   "frame": {
     "name": "Poorly drawn binders",
     "version": "1",
-    "iconUrl": "https://poorlydrawnbinders.vercel.app/pepe.png",
-    "homeUrl": "https://poorlydrawnbinders.vercel.app/",
-    "imageUrl": "https://poorlydrawnbinders.vercel.app/pdb.png",
-    "splashImageUrl": "https://poorlydrawnbinders.vercel.app/welcome.png",
+    "iconUrl": "https://vibemarketplace.vercel.app/favicon.ico",
+    "homeUrl": "https://vibemarketplace.vercel.app/",
+    "imageUrl": "https://vibemarketplace.vercel.app/welcome.png",
+    "splashImageUrl": "https://vibemarketplace.vercel.app/welcome.png",
     "splashBackgroundColor": "#000000",
-    "subtitle": "poorly drawn binders",
+    "subtitle": "vibemarketplace",
     "description": "List and buy liquid trading cards!",
     "primaryCategory": "shopping",
     "tags": [
@@ -20,7 +20,7 @@
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjE2ODUxLCJ0eXBlIjoiYXV0aCIsImtleSI6IjB4NUMyNzAzYWNGRTk2ZUViNkY5YzEyQkYzNjRjRTdiOTI4OEI5MjIwNyJ9",
-    "payload": "eyJkb21haW4iOiJwb29ybHlkcmF3bmJpbmRlcnMudmVyY2VsLmFwcCJ9",
-    "signature": "4c0hx7UXrGraach857375OW3iNqUZUFxzNut2l3JRNxxKqXndaOuMtVypT8N5pHh64hnDfiz+ZQdXODH94SEVhw="
+    "payload": "eyJkb21haW4iOiJ2aWJlbWFya2V0cGxhY2UudmVyY2VsLmFwcCJ9",
+    "signature": "PoM3sOLQddO1SXVRruvLW0h6jnKo1JIZ2dBWpWAgi6heKFZF7ekSwRyY14KNC9/zbbXN8Ni+ot9tlG+/OjkBhBs="
   }
 }
