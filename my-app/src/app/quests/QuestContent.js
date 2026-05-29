@@ -995,7 +995,7 @@ export default function QuestContent() {
             <div className="max-w-2xl text-white text-base leading-relaxed text-center px-4">
               <h2 className="text-xl font-bold mb-2">What's a quest?</h2>
               <p className="mb-4">
-                Quests are skill-based PDP memetic guess games. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote in $PDP, and compete for the prize pool. The prize pool is funded by 100% of the revenue generated from entries.
+                Quests are skill-based PDP memetic guess games. You enter with 1 to 4 Poorly Drawn Pepes, pay the on-chain participation quote of 10k $PDP, and compete for the prize pool. The 3 best cards combos to nail the quest will win. The prize pool is funded by 100% of the revenue generated from entries. Quest stops and prizes will be airdropped once the prize pool reaches at least 1M $PDP (might vary).
               </p>
 
               <h2 className="text-xl font-bold mb-2">How does it work?</h2>
