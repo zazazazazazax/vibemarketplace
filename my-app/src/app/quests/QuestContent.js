@@ -1001,9 +1001,10 @@ export default function QuestContent() {
               <h2 className="text-xl font-bold mb-2">How does it work?</h2>
               <ul className="text-left mb-4 space-y-1 list-disc list-inside">
                 <li>Connect your wallet on Base and pick up to 4 owned PDP cards.</li>
+                <li>Your entry stays valid even if you sell or transfer the cards after joining.</li>
                 <li>Each card has lives based on rarity: Common 1, Rare 2, Epic 3, Legendary 4.</li>
-                <li>Joining spends 1 life from every selected token ID.</li>
-                <li>The same token ID can enter the same quest only once.</li>
+                <li>Joining spends 1 life from every selected card.</li>
+                <li>The same card ID can enter the same quest only once.</li>
                 <li>Cards with 0 lives cannot be selected until a life is restored.</li>
                 <li>Click a missing life and pay 20k $PDP to restore it.</li>
               </ul>
@@ -1179,7 +1180,7 @@ export default function QuestContent() {
                                             copyToClipboard(card.tokenId);
                                           }}
                                         >
-                                          <span className="font-black">TokenID:</span> #{card.tokenId}
+                                          <span className="font-black">CardID:</span> #{card.tokenId}
                                         </button>
                                         <button
                                           type="button"
