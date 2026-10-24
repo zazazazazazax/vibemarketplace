@@ -5,7 +5,7 @@ import { readFile, readdir } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 test('deploy contains only the static archive allowlist', async () => {
   const files = (await readdir(new URL('dist/', root), { recursive: true })).filter(x => !['assets'].includes(x)).sort();
-  assert.deepEqual(files, ['404.html', 'assets/miniapp-hero.png', 'assets/miniapp-icon.png', 'assets/pdb.png', 'assets/pdp.png', 'gone.json', 'index.html', 'styles.css'].sort());
+  assert.deepEqual(files, ['404.html', 'assets/miniapp-hero.png', 'assets/miniapp-icon.png', 'assets/pdb.png', 'assets/pdp.png', 'assets/original-homepage.png', 'gone.json', 'index.html', 'styles.css'].sort());
   const html = await readFile(new URL('dist/index.html', root), 'utf8');
   assert.doesNotMatch(html, /<script|<iframe|<form|alchemy\.com|walletconnect|NEXT_PUBLIC_|https?:\/\/[^"\s]*\/api\//i);
   for (const match of html.matchAll(/(?:src|href)="(\/[^"#]*)"/g)) {
