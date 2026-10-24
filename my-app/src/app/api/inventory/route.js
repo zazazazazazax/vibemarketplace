@@ -238,7 +238,7 @@ export async function GET(request) {
           // Aggiungi altri campi se needed
         });
       } catch (err) {
-        console.error(`Metadata fetch error with key ${key}: ${err.message}`);
+        console.error(`Metadata fetch error: ${err.message}`);
         continue;
       }
     }
@@ -269,7 +269,7 @@ export async function GET(request) {
           success = true;
           break;
         } catch (err) {
-          console.error(`Error with key ${key}: ${err.message}`);
+          console.error(`Inventory fetch error: ${err.message}`);
           continue;
         }
       }

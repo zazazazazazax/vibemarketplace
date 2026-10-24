@@ -10,7 +10,6 @@ const appIcon = `${appUrl}/favicon.ico`;
 
 // RPC Alchemy dalla env (fallback a publicnode se non settata)
 const alchemyRpcUrl = process.env.NEXT_PUBLIC_ALCHEMY_BASE_URL || 'https://1rpc.io/base';
-console.log('Alchemy RPC URL loaded:', alchemyRpcUrl); // Stampa in server console (non browser)
 
 const isMobileBrowser = () => (
   typeof navigator !== 'undefined' &&

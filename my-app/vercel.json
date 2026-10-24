@@ -1,0 +1,42 @@
+{
+  "framework": null,
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci --ignore-scripts",
+  "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "/api(?:/.*)?",
+      "dest": "/gone.json",
+      "status": 410,
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "src": "/(?:inventory|binders|dex|claim|quests)/?",
+      "status": 308,
+      "headers": {
+        "Location": "/"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "headers": {
+        "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()"
+      },
+      "continue": true
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/404.html",
+      "status": 404
+    }
+  ]
+}
